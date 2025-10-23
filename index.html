@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Fade Empire - Premium barbershop services. Book your appointment today!">
+  <meta name="keywords" content="barbershop, fade, haircut, beard trim, mens grooming, barber">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Fade Empire Barbershop">
+  <meta property="og:description" content="Where Style Meets Excellence">
+  <meta property="og:image" content="./assets/fadeempire.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://fadeempire.com">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="./assets/fadeempire.png">
+  <link rel="apple-touch-icon" href="./assets/fadeempire.png">
+
+  <title>Fade Empire - Premium Barbershop | Book Online</title>
+  <meta name="title" content="Fade Empire - Premium Barbershop | Book Online">
+
+  <!-- Preload hero logo -->
+  <link rel="preload" as="image" href="./assets/fadeempire.png">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./styles.css">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Fade Empire",
+    "image": "./assets/fadeempire.png",
+    "description": "Premium Barbershop",
+    "telephone": "+15551234567",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "123 Main Street",
+      "addressLocality": "Your City",
+      "addressRegion": "ST",
+      "postalCode": "12345"
+    },
+    "url": "https://fadeempire.com"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- Header / Navigation -->
+  <header class="site-header" id="site-header">
+    <div class="container nav__container">
+      <a href="#home" class="brand" aria-label="Fade Empire home">
+        <img src="./assets/fadeempire.png" width="48" height="48" alt="Fade Empire logo" class="brand__logo" />
+        <span class="brand__name" aria-hidden="true">Fade Empire</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav__toggle" id="navToggle" aria-controls="primary-nav" aria-expanded="false" aria-label="Open menu">
+          <span class="nav__bar" aria-hidden="true"></span>
+          <span class="nav__bar" aria-hidden="true"></span>
+          <span class="nav__bar" aria-hidden="true"></span>
+        </button>
+        <ul id="primary-nav" class="nav__list">
+          <li><a class="nav__link" href="#home">Home</a></li>
+          <li><a class="nav__link" href="#services">Services</a></li>
+          <li><a class="nav__link" href="#gallery">Gallery</a></li>
+          <li><a class="nav__link nav__link--cta" href="#booking">Book Now</a></li>
+          <li><a class="nav__link" href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <!-- Hero -->
+    <section id="home" class="section hero" aria-labelledby="hero-title">
+      <div class="hero__bg" aria-hidden="true"></div>
+      <div class="container hero__content">
+        <img src="./assets/fadeempire.png" alt="Fade Empire crest" class="hero__logo" width="300" height="300" />
+        <h1 id="hero-title" class="hero__title">FADE EMPIRE</h1>
+        <p class="hero__subtitle">Where Style Meets Excellence</p>
+        <div class="hero__actions">
+          <a href="#booking" class="btn btn--primary">Book Your Appointment</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section id="services" class="section services" aria-labelledby="services-title">
+      <div class="container">
+        <h2 id="services-title" class="section__title">Services</h2>
+        <p class="section__subtitle">Premium cuts and grooming with precision and care</p>
+        <div class="grid services__grid reveal">
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">💈</div>
+            <h3 class="service__title">Classic Cut</h3>
+            <p class="service__desc">Timeless style tailored to you. Clean lines and sharp finish.</p>
+            <div class="service__price">$30</div>
+          </article>
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">✂️</div>
+            <h3 class="service__title">Fade (Low/Mid/High)</h3>
+            <p class="service__desc">Seamless transitions and crisp detail for a modern look.</p>
+            <div class="service__price">$35</div>
+          </article>
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">🧔</div>
+            <h3 class="service__title">Beard Trim &amp; Shape</h3>
+            <p class="service__desc">Defined lines and a balanced shape to complement your style.</p>
+            <div class="service__price">$20</div>
+          </article>
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">🔥</div>
+            <h3 class="service__title">Full Service</h3>
+            <p class="service__desc">Cut, beard, and hot towel treatment for the complete experience.</p>
+            <div class="service__price">$50</div>
+          </article>
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">🧒</div>
+            <h3 class="service__title">Kids Cut (Under 12)</h3>
+            <p class="service__desc">Gentle, patient, and fresh looks for the young kings.</p>
+            <div class="service__price">$25</div>
+          </article>
+          <article class="card service">
+            <div class="service__icon" aria-hidden="true">🎨</div>
+            <h3 class="service__title">Design/Line Up</h3>
+            <p class="service__desc">Crisp edges or custom designs to make your cut stand out.</p>
+            <div class="service__price">$10+</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery (placeholder images, replace with real before/after) -->
+    <section id="gallery" class="section gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <h2 id="gallery-title" class="section__title">Gallery</h2>
+        <p class="section__subtitle">Before &amp; After looks from the Empire</p>
+        <div class="grid gallery__grid reveal">
+          <button class="gallery__item" aria-label="Open image 1 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 1" width="320" height="240" loading="lazy" />
+          </button>
+          <button class="gallery__item" aria-label="Open image 2 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 2" width="320" height="240" loading="lazy" />
+          </button>
+          <button class="gallery__item" aria-label="Open image 3 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 3" width="320" height="240" loading="lazy" />
+          </button>
+          <button class="gallery__item" aria-label="Open image 4 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 4" width="320" height="240" loading="lazy" />
+          </button>
+          <button class="gallery__item" aria-label="Open image 5 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 5" width="320" height="240" loading="lazy" />
+          </button>
+          <button class="gallery__item" aria-label="Open image 6 in lightbox">
+            <img src="./assets/fadeempire.png" alt="Gallery image 6" width="320" height="240" loading="lazy" />
+          </button>
+        </div>
+      </div>
+      <div class="lightbox" id="lightbox" hidden>
+        <button class="lightbox__close" id="lightboxClose" aria-label="Close image">✕</button>
+        <img class="lightbox__image" id="lightboxImage" alt="Expanded gallery image" />
+      </div>
+    </section>
+
+    <!-- QR Code -->
+    <section id="checkin" class="section checkin" aria-labelledby="checkin-title">
+      <div class="container">
+        <div class="qr-container reveal">
+          <h2 id="checkin-title" class="section__title">Quick Check-In</h2>
+          <p class="qr-desc">Scan this code when you arrive</p>
+          <div class="qr-placeholder">
+            <div class="qr-placeholder__content">
+              <div class="qr-placeholder__icon">📱</div>
+              <p class="qr-placeholder__text">QR Code Coming Soon</p>
+              <p class="qr-placeholder__note">Will be added after domain purchase</p>
+            </div>
+          </div>
+          <p class="qr-note">Add your QR code as <span class="code">./assets/qr-code.png</span> when ready.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Booking Form -->
+    <section id="booking" class="section booking" aria-labelledby="booking-title">
+      <div class="container">
+        <h2 id="booking-title" class="section__title">Book an Appointment</h2>
+        <p class="section__subtitle">Walk-ins welcome • Book online for guaranteed time</p>
+
+        <form id="bookingForm" class="form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" target="hidden_iframe" novalidate>
+          <div class="form__row">
+            <label for="fullName">Full Name<span aria-hidden="true" class="req">*</span></label>
+            <input id="fullName" name="name" type="text" placeholder="John Doe" autocomplete="name" required>
+            <span class="field-error" id="error-fullName" role="alert"></span>
+          </div>
+
+          <div class="form__row">
+            <label for="phone">Phone Number<span aria-hidden="true" class="req">*</span></label>
+            <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="(555) 123-4567" required aria-describedby="phoneHelp">
+            <small id="phoneHelp" class="help">Format: (555) 123-4567</small>
+            <span class="field-error" id="error-phone" role="alert"></span>
+          </div>
+
+          <div class="form__row">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email">
+            <span class="field-error" id="error-email" role="alert"></span>
+          </div>
+
+          <div class="form__row">
+            <label for="service">Service<span aria-hidden="true" class="req">*</span></label>
+            <select id="service" name="service" required>
+              <option value="" disabled selected>Select a service</option>
+              <option>Classic Cut - $30</option>
+              <option>Fade (Low/Mid/High) - $35</option>
+              <option>Beard Trim &amp; Shape - $20</option>
+              <option>Full Service (Cut + Beard + Hot Towel) - $50</option>
+              <option>Kids Cut (Under 12) - $25</option>
+              <option>Design/Line Up - $10+</option>
+            </select>
+            <span class="field-error" id="error-service" role="alert"></span>
+          </div>
+
+          <div class="form__row form__row--split">
+            <div>
+              <label for="date">Preferred Date<span aria-hidden="true" class="req">*</span></label>
+              <input id="date" name="date" type="date" required>
+              <span class="field-error" id="error-date" role="alert"></span>
+            </div>
+            <div>
+              <label for="time">Preferred Time<span aria-hidden="true" class="req">*</span></label>
+              <input id="time" name="time" type="time" required>
+              <span class="field-error" id="error-time" role="alert"></span>
+            </div>
+          </div>
+
+          <div class="form__row">
+            <label for="notes">Additional Notes</label>
+            <textarea id="notes" name="notes" rows="4" placeholder="Anything we should know ahead of your visit?"></textarea>
+          </div>
+
+          <div class="form__actions">
+            <button type="submit" class="btn btn--primary" id="bookBtn">📅 Book Appointment</button>
+            <button type="button" class="btn btn--secondary" id="textBarberBtn" aria-describedby="smsDesktop">💬 Text Barber</button>
+          </div>
+
+          <p class="form__note">Submitting powered by your configured service. You can also <a id="viewInGoogle" target="_blank" rel="noopener" href="#">view in Google Forms</a>.</p>
+
+          <div class="form__success" id="formSuccess" role="status" aria-live="polite" hidden>
+            ✅ Thanks! Your request was received. We'll confirm shortly.
+          </div>
+        </form>
+
+        <iframe name="hidden_iframe" id="hidden_iframe" title="Hidden form submission" hidden></iframe>
+
+        <div id="smsDesktop" class="sms-desktop" hidden>
+          <span>Text us at <a href="tel:+15551234567">(555) 123-4567</a></span>
+          <button class="btn btn--ghost" id="copyPhoneBtn" aria-label="Copy phone number">Copy</button>
+          <span class="sms-desktop__copied" id="copiedToast" role="status" aria-live="polite" hidden>Copied!</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact & Location -->
+    <section id="contact" class="section contact" aria-labelledby="contact-title">
+      <div class="container contact__grid">
+        <h2 id="contact-title" class="section__title">Find Us</h2>
+        <div class="contact__map">
+          <iframe
+            title="Fade Empire on Google Maps"
+            width="600" height="450" style="border:0;"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps?q=123%20Main%20Street%2C%20Your%20City%2C%20ST%2012345&output=embed">
+          </iframe>
+        </div>
+        <div class="contact__info">
+          <p class="about">Fade Empire is your destination for premium grooming services. Our skilled barbers bring years of experience and a passion for the craft, ensuring every client leaves looking sharp and feeling confident. We specialize in precision fades, classic cuts, and modern styles.</p>
+          <ul class="contact__list">
+            <li>📍 123 Main Street, Your City, ST 12345</li>
+            <li>📞 <a href="tel:+15551234567">(555) 123-4567</a></li>
+            <li>✉️ <a href="mailto:book@fadeempire.com">book@fadeempire.com</a></li>
+          </ul>
+          <div class="hours">
+            <h3 class="hours__title">Hours</h3>
+            <ul>
+              <li>Mon-Fri: 9:00 AM - 7:00 PM</li>
+              <li>Saturday: 9:00 AM - 6:00 PM</li>
+              <li>Sunday: 10:00 AM - 4:00 PM</li>
+            </ul>
+          </div>
+          <div class="socials">
+            <a href="https://instagram.com/fadeempire" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a>
+            <a href="https://facebook.com/fadeempire" target="_blank" rel="noopener" aria-label="Facebook">Facebook</a>
+            <a href="https://tiktok.com/@fadeempire" target="_blank" rel="noopener" aria-label="TikTok">TikTok</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <img src="./assets/fadeempire.png" alt="Fade Empire logo" width="40" height="40">
+        <span>Fade Empire</span>
+      </div>
+      <nav aria-label="Footer">
+        <ul class="footer__links">
+          <li><a href="#services">Services</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#booking">Book</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="footer__socials">
+        <a href="https://instagram.com/fadeempire" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+        <a href="https://facebook.com/fadeempire" target="_blank" rel="noopener" aria-label="Facebook">FB</a>
+        <a href="https://tiktok.com/@fadeempire" target="_blank" rel="noopener" aria-label="TikTok">TT</a>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>© <span id="year"></span> Fade Empire. All rights reserved.</p>
+      <p>Built by Your Name</p>
+    </div>
+  </footer>
+
+  <noscript>
+    <div class="noscript">This site works best with JavaScript enabled. Core content is still accessible.</div>
+  </noscript>
+
+  <script defer src="./script.js"></script>
+</body>
+</html>
+
+
