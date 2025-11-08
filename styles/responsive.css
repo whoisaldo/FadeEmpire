@@ -1,3 +1,27 @@
+@media (max-width: 899px) {
+  .hero__content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero__card {
+    max-width: 75%;
+  }
+
+  .services__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .gallery__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.2rem;
+  }
+
+  .booking__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+}
 @media (min-width: 768px) {
   .nav__toggle {
     display: none;
@@ -118,15 +142,6 @@
     padding: 2rem;
   }
 
-  .services__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .gallery__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.2rem;
-  }
-
   .gallery__item--wide,
   .gallery__item--tall {
     grid-column: span 1;
@@ -186,7 +201,8 @@
 
 @media (max-width: 520px) {
   .gallery__grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
   }
 
   .hero__title-outline {
