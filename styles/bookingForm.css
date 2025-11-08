@@ -1,5 +1,6 @@
 .booking-form {
   max-width: 600px;
+  width: min(100%, 600px);
   margin: 0 auto;
   padding: 40px;
   background: #1a1a1a;
@@ -51,6 +52,10 @@
   border-radius: 8px;
   color: #ffffff;
   font-size: 16px;
+  min-height: 44px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   transition: border 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 

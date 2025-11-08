@@ -38,10 +38,23 @@ body {
   background: var(--black);
   line-height: 1.6;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+img,
+picture,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 body.nav-open {
   overflow: hidden;
+}
+
+section {
+  overflow-x: hidden;
 }
 
 img,
@@ -62,6 +75,26 @@ button {
   background: none;
   color: inherit;
   cursor: pointer;
+}
+
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+input,
+select,
+textarea {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+button {
+  min-height: 44px;
 }
 
 .skip-link {
@@ -148,6 +181,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 600;
+  min-height: 44px;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
@@ -366,7 +400,8 @@ button {
 .nav__menu {
   position: fixed;
   inset: 0 0 0 auto;
-  width: min(320px, 82vw);
+  width: min(320px, 90vw);
+  max-width: 100%;
   background: rgba(10, 10, 10, 0.92);
   padding: 6rem 2rem 2rem;
   display: flex;
@@ -396,6 +431,10 @@ button {
   border: 1px solid transparent;
 }
 
+.nav__menu a {
+  min-height: 44px;
+}
+
 .nav__link:hover,
 .nav__link:focus-visible {
   color: var(--gold);
@@ -412,7 +451,7 @@ button {
   transform: translateY(-2px);
 }
 
-/* Hero */
+.hero {
 .hero {
   position: relative;
   min-height: 100vh;
