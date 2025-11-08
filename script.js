@@ -154,36 +154,12 @@ const initHeroParticles = () => {
 };
 
 const initGallery = () => {
-  const filters = selectAll('.gallery__filter');
   const items = selectAll('.gallery__item');
   const lightbox = select('#lightbox');
   const lightboxImage = select('#lightboxImage');
   const lightboxVideo = select('#lightboxVideo');
   const lightboxClose = select('#lightboxClose');
   let lastFocus = null;
-
-  const filterItems = (category) => {
-    items.forEach((item) => {
-      const itemCategory = item.dataset.category;
-      const isVisible = category === 'all' || itemCategory === category;
-      item.style.pointerEvents = isVisible ? 'auto' : 'none';
-      item.style.opacity = isVisible ? '1' : '0';
-      item.style.transform = isVisible ? 'translateY(0)' : 'translateY(40px)';
-      item.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-    });
-  };
-
-  filters.forEach((button) => {
-    button.addEventListener('click', () => {
-      filters.forEach((entry) => {
-        entry.classList.remove('is-active');
-        entry.setAttribute('aria-selected', 'false');
-      });
-      button.classList.add('is-active');
-      button.setAttribute('aria-selected', 'true');
-      filterItems(button.dataset.filter ?? 'all');
-    });
-  });
 
   const openLightbox = (src, type = 'image') => {
     if (!lightbox) return;
