@@ -1,339 +1,534 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="description" content="Fade Empire - Premium barbershop services. Book your appointment today!">
-  <meta name="keywords" content="barbershop, fade, haircut, beard trim, mens grooming, barber">
+    <meta name="description" content="Fade Empire is the premier luxury barbershop in Chicopee, MA. Precision fades, bespoke cuts, tailored grooming, and white-glove hospitality.">
+    <meta name="keywords" content="Fade Empire, barbershop, luxury haircut, fade, Chicopee barbers, beard trim">
 
-  <!-- Open Graph -->
-  <meta property="og:title" content="Fade Empire Barbershop">
-  <meta property="og:description" content="Where Style Meets Excellence">
-  <meta property="og:image" content="./assets/fadeempire.png">
+    <meta property="og:title" content="Fade Empire · Luxury Barbershop">
+    <meta property="og:description" content="Where legends get their cut. Reserve your chair at Fade Empire, Chicopee MA.">
+    <meta property="og:image" content="https://chicopeefadeempire.com/assets/fadeempire.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://chicopeefadeempire.com">
 
-  <!-- Favicons -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Fade Empire · Luxury Barbershop">
+    <meta name="twitter:description" content="Tailored fades, hot towel shaves, and legendary service in Chicopee, MA.">
+    <meta name="twitter:image" content="https://chicopeefadeempire.com/assets/fadeempire.png">
+
   <link rel="icon" type="image/png" href="./assets/fadeempire.png">
   <link rel="apple-touch-icon" href="./assets/fadeempire.png">
 
-  <title>Fade Empire - Premium Barbershop | Book Online</title>
-  <meta name="title" content="Fade Empire - Premium Barbershop | Book Online">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Preload hero logo -->
+    <link rel="preload" as="image" href="./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG" imagesrcset="./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG 1x">
   <link rel="preload" as="image" href="./assets/fadeempire.png">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles/globals.css">
+    <link rel="stylesheet" href="./styles/bookingForm.css">
+    <link rel="stylesheet" href="./styles/animations.css">
+    <link rel="stylesheet" href="./styles/responsive.css">
 
-  <!-- Structured Data -->
+    <title>Fade Empire · Where Legends Get Their Cut</title>
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+        "@type": "Barbershop",
     "name": "Fade Empire",
-    "image": "./assets/fadeempire.png",
-    "description": "Premium Barbershop",
+    "image": "https://chicopeefadeempire.com/assets/fadeempire.png",
+        "@id": "https://chicopeefadeempire.com",
+        "url": "https://chicopeefadeempire.com",
     "telephone": "+14138854440",
+        "priceRange": "$$",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "1193 Memorial Dr",
       "addressLocality": "Chicopee",
       "addressRegion": "MA",
-      "postalCode": "01020"
-    },
-    "url": "https://chicopeefadeempire.com"
+          "postalCode": "01020",
+          "addressCountry": "US"
+        },
+        "openingHoursSpecification": [{
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "opens": "10:00",
+          "closes": "17:00"
+        }],
+        "sameAs": [
+          "https://instagram.com/fadeempire",
+          "https://facebook.com/fadeempire",
+          "https://tiktok.com/@fadeempire"
+        ]
   }
   </script>
 </head>
 <body>
+    <div id="preloader" class="preloader" aria-hidden="true">
+      <div class="preloader__inner">
+        <div class="preloader__pole" role="presentation">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="preloader__text">Polishing blades&hellip;</p>
+      </div>
+    </div>
+
+    <div class="cursor" id="cursor" aria-hidden="true"></div>
+
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <!-- Header / Navigation -->
-  <header class="site-header" id="site-header">
-    <div class="container nav__container">
-      <a href="#home" class="brand" aria-label="Fade Empire home">
-        <img src="./assets/fadeempire.png" width="48" height="48" alt="Fade Empire logo" class="brand__logo" />
-        <span class="brand__name" aria-hidden="true">Fade Empire</span>
-      </a>
-
-      <nav class="nav" aria-label="Primary">
-        <button class="nav__toggle" id="navToggle" aria-controls="primary-nav" aria-expanded="false" aria-label="Open menu">
-          <span class="nav__bar" aria-hidden="true"></span>
-          <span class="nav__bar" aria-hidden="true"></span>
-          <span class="nav__bar" aria-hidden="true"></span>
-        </button>
-        <ul id="primary-nav" class="nav__list">
-          <li><a class="nav__link" href="#home">Home</a></li>
-          <li><a class="nav__link" href="#services">Services</a></li>
-          <li><a class="nav__link" href="#gallery">Gallery</a></li>
-          <li><a class="nav__link nav__link--cta" href="#booking">Book Now</a></li>
-          <li><a class="nav__link" href="#contact">Contact</a></li>
-        </ul>
-      </nav>
+    <header class="nav-wrapper" data-parallax>
+      <nav class="nav" id="nav" aria-label="Primary">
+        <div class="nav__inner container">
+          <a class="nav__brand" href="#hero">
+            <img src="./assets/fadeempire.png" alt="Fade Empire crest" class="nav__logo" width="52" height="52">
+            <span class="nav__brand-text">Fade Empire</span>
+          </a>
+          <button class="nav__toggle" id="navToggle" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+          <div class="nav__menu" id="navMenu">
+            <a href="#hero" class="nav__link" data-nav>Home</a>
+            <a href="#services" class="nav__link" data-nav>Services</a>
+            <a href="#gallery" class="nav__link" data-nav>Gallery</a>
+            <a href="#barbers" class="nav__link" data-nav>Barbers</a>
+            <a href="#booking" class="nav__link" data-nav>Book Now</a>
+            <a href="#footer" class="nav__link" data-nav>Visit</a>
+            <a href="#booking" class="nav__cta" data-nav>Reserve Chair</a>
+          </div>
     </div>
-  </header>
+  </nav>
+    </header>
 
-  <main id="main" tabindex="-1">
-    <!-- Hero -->
-    <section id="home" class="section hero" aria-labelledby="hero-title">
-      <div class="hero__bg" aria-hidden="true"></div>
-      <div class="container hero__content">
-        <img src="./assets/fadeempire.png" alt="Fade Empire crest" class="hero__logo" width="300" height="300" />
-        <h1 id="hero-title" class="hero__title">FADE EMPIRE</h1>
-        <p class="hero__subtitle">Where Style Meets Excellence</p>
-        <div class="hero__actions">
-          <a href="#booking" class="btn btn--primary">Book Your Appointment</a>
+  <main id="main">
+      <section id="hero" class="hero" data-scroll-section>
+        <div class="hero__background" role="presentation">
+          <div class="hero__kenburns" style="background-image:url('./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG');"></div>
+        <div class="hero__overlay"></div>
+          <canvas id="heroParticles" class="hero__particles" aria-hidden="true"></canvas>
+      </div>
+      <div class="hero__content container">
+          <div class="hero__copy" data-animate="fade-up">
+            <p class="hero__tag">Chicopee, Massachusetts</p>
+          <h1 class="hero__title">
+              <span class="hero__title-outline">FADE EMPIRE</span>
+              <span class="hero__title-glow">WHERE LEGENDS GET THEIR CUT</span>
+          </h1>
+          <p class="hero__subtitle">
+              A luxury grooming sanctuary engineered for modern kings. Precision fades, bespoke design work, and tailored service delivered with relentless detail.
+          </p>
+          <div class="hero__actions">
+              <a href="#booking" class="btn btn--primary cta-button" data-nav>
+                <span class="btn__text">Book Your Experience</span>
+            </a>
+              <a href="tel:+14138854440" class="btn btn--secondary">
+                <span class="btn__text">Call 413-885-4440</span>
+            </a>
+          </div>
+          <dl class="hero__stats">
+              <div data-animate="fade-up" data-delay="0.1">
+                <dt>2000+</dt>
+                <dd>Cuts Perfected</dd>
+            </div>
+              <div data-animate="fade-up" data-delay="0.2">
+                <dt>7</dt>
+                <dd>Years Mastery</dd>
+            </div>
+              <div data-animate="fade-up" data-delay="0.3">
+              <dt>5.0</dt>
+                <dd>Google Rated</dd>
+            </div>
+          </dl>
+          </div>
+          <div class="hero__card glass" data-animate="fade-left">
+            <img src="./assets/fadeempire.png" alt="Fade Empire crest" class="hero__card-logo" width="140" height="140">
+            <p>Fade Empire fuses the heritage of classic barbering with contemporary style architecture. Every visit is a curated ritual designed to leave you photo-shoot ready.</p>
+            <a href="https://maps.google.com/?q=1193+Memorial+Dr,+Chicopee,+MA+01020" class="hero__card-link" target="_blank" rel="noopener">1193 Memorial Dr · Chicopee MA</a>
+            <span class="hero__hours">Open Daily · 10AM – 5PM</span>
         </div>
       </div>
     </section>
 
-    <!-- Services -->
-    <section id="services" class="section services" aria-labelledby="services-title">
+      <section id="services" class="services" data-scroll-section>
       <div class="container">
-        <h2 id="services-title" class="section__title">Services</h2>
-        <p class="section__subtitle">Premium cuts and grooming with precision and care</p>
-        <div class="grid services__grid reveal">
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">💈</div>
-            <h3 class="service__title">Classic Cut</h3>
-            <p class="service__desc">Timeless style tailored to you. Clean lines and sharp finish.</p>
-            <div class="service__price">$30</div>
+          <header class="section-header" data-animate="fade-up">
+          <span class="section-tag">Services</span>
+            <h2>Signature Grooming Menu</h2>
+            <p>Engineered for longevity, impact, and a flawless finish. Select the service that matches your moment.</p>
+          </header>
+        <div class="services__grid">
+            <article class="service-card glass hover-lift" data-animate="fade-up">
+            <header>
+              <h3>Classic Cut</h3>
+              <span class="service-card__price">$30</span>
+            </header>
+              <p>Tailored shear and clipper work with a precision neckline finish.</p>
+              <ul>
+                <li>Detailed consultation</li>
+                <li>Signature styling ritual</li>
+                <li>Finishing product coaching</li>
+            </ul>
           </article>
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">✂️</div>
-            <h3 class="service__title">Fade (Low/Mid/High)</h3>
-            <p class="service__desc">Seamless transitions and crisp detail for a modern look.</p>
-            <div class="service__price">$35</div>
+            <article class="service-card glass hover-lift service-card--featured" data-animate="fade-up" data-delay="0.1">
+              <div class="service-card__badge">Most Requested</div>
+            <header>
+                <h3>Fade &amp; Lineup</h3>
+              <span class="service-card__price">$35</span>
+            </header>
+              <p>Flawless gradients blended from temple to crown with razor sharp edges.</p>
+            <ul>
+              <li>Custom fade mapping</li>
+                <li>Razor detailing + hot towel</li>
+                <li>Complimentary neck trim between visits</li>
+            </ul>
           </article>
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">🧔</div>
-            <h3 class="service__title">Beard Trim &amp; Shape</h3>
-            <p class="service__desc">Defined lines and a balanced shape to complement your style.</p>
-            <div class="service__price">$20</div>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.2">
+            <header>
+                <h3>Beard Trim</h3>
+              <span class="service-card__price">$20</span>
+            </header>
+              <p>Structured sculpting for your beard with nourishing steam treatment.</p>
+              <ul>
+                <li>Cheek + neckline detailing</li>
+                <li>Beard oil massage</li>
+                <li>Finish with hot towel</li>
+            </ul>
           </article>
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">🔥</div>
-            <h3 class="service__title">Full Service</h3>
-            <p class="service__desc">Cut, beard, and hot towel treatment for the complete experience.</p>
-            <div class="service__price">$50</div>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.3">
+            <header>
+                <h3>Hot Towel Shave</h3>
+                <span class="service-card__price">$40</span>
+            </header>
+              <p>Ritualistic straight razor shave with aromatic steam and luxury balms.</p>
+              <ul>
+                <li>Pre-shave exfoliation</li>
+                <li>Multiple hot towel sequence</li>
+                <li>Cooling tonic finish</li>
+            </ul>
           </article>
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">🧒</div>
-            <h3 class="service__title">Kids Cut (Under 12)</h3>
-            <p class="service__desc">Gentle, patient, and fresh looks for the young kings.</p>
-            <div class="service__price">$25</div>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.4">
+            <header>
+              <h3>Kids Cut</h3>
+              <span class="service-card__price">$25</span>
+            </header>
+              <p>Confidence boosting cuts for the young prodigies.</p>
+              <ul>
+                <li>Gentle consultation</li>
+                <li>Clean fade or classic styles</li>
+                <li>Style coaching for parents</li>
+              </ul>
           </article>
-          <article class="card service">
-            <div class="service__icon" aria-hidden="true">🎨</div>
-            <h3 class="service__title">Design/Line Up</h3>
-            <p class="service__desc">Crisp edges or custom designs to make your cut stand out.</p>
-            <div class="service__price">$10+</div>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.5">
+            <header>
+                <h3>Design &amp; Patterns</h3>
+                <span class="service-card__price">$45+</span>
+            </header>
+              <p>Custom artwork, parting designs, and camera-ready signature looks.</p>
+              <ul>
+                <li>Creative consult</li>
+                <li>Razor precision artistry</li>
+                <li>Complimentary retouch within 5 days</li>
+              </ul>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- Gallery (placeholder images, replace with real before/after) -->
-    <section id="gallery" class="section gallery" aria-labelledby="gallery-title">
+      <section id="gallery" class="gallery" data-scroll-section>
       <div class="container">
-        <h2 id="gallery-title" class="section__title">Gallery</h2>
-        <p class="section__subtitle">Before &amp; After looks from the Empire</p>
-        <div class="grid gallery__grid reveal">
-          <button class="gallery__item" aria-label="Open image 1 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 1" width="320" height="240" loading="lazy" />
-          </button>
-          <button class="gallery__item" aria-label="Open image 2 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 2" width="320" height="240" loading="lazy" />
-          </button>
-          <button class="gallery__item" aria-label="Open image 3 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 3" width="320" height="240" loading="lazy" />
-          </button>
-          <button class="gallery__item" aria-label="Open image 4 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 4" width="320" height="240" loading="lazy" />
-          </button>
-          <button class="gallery__item" aria-label="Open image 5 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 5" width="320" height="240" loading="lazy" />
-          </button>
-          <button class="gallery__item" aria-label="Open image 6 in lightbox">
-            <img src="./assets/fadeempire.png" alt="Gallery image 6" width="320" height="240" loading="lazy" />
-          </button>
+          <header class="section-header" data-animate="fade-up">
+            <span class="section-tag">Gallery</span>
+            <h2>Fade Empire Portfolio</h2>
+            <p>Real clients. Real transformations. Filter by vibe and step inside the chair.</p>
+          </header>
+          <div class="gallery__filters" role="tablist" aria-label="Gallery filters" data-animate="fade-up">
+            <button class="gallery__filter is-active" data-filter="all" role="tab" aria-selected="true">All</button>
+            <button class="gallery__filter" data-filter="fades" role="tab" aria-selected="false">Fades</button>
+            <button class="gallery__filter" data-filter="designs" role="tab" aria-selected="false">Designs</button>
+            <button class="gallery__filter" data-filter="beards" role="tab" aria-selected="false">Beards</button>
         </div>
+        </div>
+        <div class="gallery__grid container" data-gallery-grid>
+          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up">
+            <img src="./assets/Haircuts/IMG_2573.jpg" alt="Precision fade with sharp lineup" loading="lazy">
+          </figure>
+          <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.05">
+            <img src="./assets/Haircuts/IMG_2607.jpg" alt="Beard sculpt with razor detailing" loading="lazy">
+          </figure>
+          <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.1">
+            <img src="./assets/Haircuts/IMG_2609.jpg" alt="Temple lineup with gradient fade" loading="lazy">
+          </figure>
+          <figure class="gallery__item gallery__item--wide" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.15">
+            <img src="./assets/Haircuts/IMG_2696.jpg" alt="Kids fade with textured top" loading="lazy">
+          </figure>
+          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.2">
+            <img src="./assets/Haircuts/IMG_2781.jpg" alt="Modern fade with curls" loading="lazy">
+          </figure>
+          <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.25">
+            <img src="./assets/Haircuts/IMG_8034.jpg" alt="Razor fade with design" loading="lazy">
+          </figure>
+          <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.3">
+            <img src="./assets/Haircuts/IMG_8232.jpg" alt="Hot towel shave precision" loading="lazy">
+          </figure>
+          <figure class="gallery__item gallery__item--tall" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.35">
+            <img src="./assets/Haircuts/IMG_9449.jpg" alt="Polished fade with textured top" loading="lazy">
+          </figure>
       </div>
       <div class="lightbox" id="lightbox" hidden>
-        <button class="lightbox__close" id="lightboxClose" aria-label="Close image">✕</button>
-        <img class="lightbox__image" id="lightboxImage" alt="Expanded gallery image" />
-      </div>
-    </section>
-
-    <!-- QR Code -->
-    <section id="checkin" class="section checkin" aria-labelledby="checkin-title">
-      <div class="container">
-        <div class="qr-container reveal">
-          <h2 id="checkin-title" class="section__title">Quick Check-In</h2>
-          <p class="qr-desc">Scan this code when you arrive</p>
-          <div class="qr-placeholder">
-            <div class="qr-placeholder__content">
-              <div class="qr-placeholder__icon">📱</div>
-              <p class="qr-placeholder__text">QR Code Coming Soon</p>
-              <p class="qr-placeholder__note">Will be added after domain purchase</p>
-            </div>
-          </div>
-          <p class="qr-note">Add your QR code as <span class="code">./assets/qr-code.png</span> when ready.</p>
+        <button class="lightbox__close" id="lightboxClose" aria-label="Close media">×</button>
+        <div class="lightbox__body">
+          <img class="lightbox__image" id="lightboxImage" alt="">
+          <video class="lightbox__video" id="lightboxVideo" controls playsinline></video>
         </div>
       </div>
     </section>
 
-    <!-- Booking Form -->
-    <section id="booking" class="section booking" aria-labelledby="booking-title">
-      <div class="container">
-        <h2 id="booking-title" class="section__title">Book an Appointment</h2>
-        <p class="section__subtitle">Walk-ins welcome • Book online for guaranteed time</p>
-
-        <form id="bookingForm" class="form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" target="hidden_iframe" novalidate>
-          <div class="form__row">
-            <label for="fullName">Full Name<span aria-hidden="true" class="req">*</span></label>
-            <input id="fullName" name="name" type="text" placeholder="John Doe" autocomplete="name" required>
-            <span class="field-error" id="error-fullName" role="alert"></span>
+      <section id="barbers" class="barbers" data-scroll-section>
+        <div class="container">
+          <header class="section-header" data-animate="fade-up">
+            <span class="section-tag">Barbers</span>
+            <h2>The Empire Architects</h2>
+            <p>Meet the talent sculpting Chicopee’s freshest lineups. Each artist brings a signature mastery.</p>
+          </header>
+        </div>
+        <div class="barbers__scroller" data-scroll-snap>
+          <article class="barber-card hover-lift glass" data-animate="fade-up">
+            <img src="./assets/Barbers/Hassan/HassanBarber.png" alt="Master Barber Hassan" loading="lazy">
+            <div class="barber-card__body">
+              <h3>Hassan “The Craftsman”</h3>
+              <p>Hassan is a licensed barber from Lebanon with Massachusetts Board certification.</p>
+              <p>He chases precision and perfection in every session, sending each client out confident, camera-ready, and sharpened to the last detail.</p>
+              <a href="#booking" class="btn btn--ghost">Book Hassan</a>
           </div>
+          </article>
+        </div>
+      </section>
 
-          <div class="form__row">
-            <label for="phone">Phone Number<span aria-hidden="true" class="req">*</span></label>
-            <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="(413) 885-4440" required aria-describedby="phoneHelp">
-            <small id="phoneHelp" class="help">Format: (413) 885-4440</small>
-            <span class="field-error" id="error-phone" role="alert"></span>
+      <section id="booking" class="booking" data-scroll-section>
+        <div class="booking__background" role="presentation">
+          <div class="booking__overlay"></div>
           </div>
-
-          <div class="form__row">
-            <label for="email">Email</label>
-            <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email">
-            <span class="field-error" id="error-email" role="alert"></span>
+        <div class="container booking__grid">
+          <div class="booking__intro" data-animate="fade-right">
+            <span class="section-tag">Reserve</span>
+            <h2>Secure Your Chair</h2>
+            <p>Walk-ins welcome, but reservations guarantee your expert and your moment. Expect a personal confirmation within minutes.</p>
+            <div class="booking__contact">
+              <a href="tel:+14138854440">
+                <span>Call</span>
+                <strong>413-885-4440</strong>
+              </a>
+              <a href="sms:+14138854440">
+                <span>Text</span>
+                <strong>Immediate Response</strong>
+              </a>
+              <a href="mailto:ChicopeeFadeEmpire@gmail.com">
+                <span>Email</span>
+                <strong>ChicopeeFadeEmpire@gmail.com</strong>
+              </a>
+            </div>
+            <div class="booking__calendar glass">
+              <header>
+                <h3>Availability Snapshot</h3>
+                <p>Updated hourly · Eastern Time</p>
+              </header>
+              <div class="calendar-grid">
+                <div class="calendar-day is-open">
+                  <span>Mon</span>
+                  <strong>10a — 5p</strong>
+                </div>
+                <div class="calendar-day is-open">
+                  <span>Tue</span>
+                  <strong>10a — 5p</strong>
+                </div>
+                <div class="calendar-day is-open">
+                  <span>Wed</span>
+                  <strong>10a — 5p</strong>
+                </div>
+                <div class="calendar-day is-open">
+                  <span>Thu</span>
+                  <strong>10a — 5p</strong>
+                </div>
+                <div class="calendar-day is-open">
+                  <span>Fri</span>
+                  <strong>10a — 5p</strong>
+                </div>
+                <div class="calendar-day">
+                  <span>Sat</span>
+                  <strong>By Appt</strong>
+                </div>
+                <div class="calendar-day">
+                  <span>Sun</span>
+                  <strong>By Appt</strong>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div class="form__row">
-            <label for="service">Service<span aria-hidden="true" class="req">*</span></label>
-            <select id="service" name="service" required>
-              <option value="" disabled selected>Select a service</option>
-              <option>Classic Cut - $30</option>
-              <option>Fade (Low/Mid/High) - $35</option>
-              <option>Beard Trim &amp; Shape - $20</option>
-              <option>Full Service (Cut + Beard + Hot Towel) - $50</option>
-              <option>Kids Cut (Under 12) - $25</option>
-              <option>Design/Line Up - $10+</option>
+          <div class="booking__form-wrapper" data-animate="fade-left">
+            <form class="booking-form" id="whatsappBookingForm" noValidate>
+              <h2 class="form-title">BOOK YOUR APPOINTMENT</h2>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="bookingName">Full Name *</label>
+                  <input id="bookingName" type="text" name="name" placeholder="Your Name" required>
+                </div>
+                <div class="form-group">
+                  <label for="bookingPhone">Phone</label>
+                  <input id="bookingPhone" type="tel" name="phone" placeholder="(413) 885-4440" inputmode="tel">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="bookingService">Service *</label>
+                <select id="bookingService" name="service" required>
+              <option value="">Select a service</option>
+                  <option value="Classic Cut ($30)">Classic Cut ($30)</option>
+                  <option value="Fade &amp; Lineup ($35)">Fade &amp; Lineup ($35)</option>
+                  <option value="Beard Trim ($20)">Beard Trim ($20)</option>
+                  <option value="Hot Towel Shave ($40)">Hot Towel Shave ($40)</option>
+                  <option value="Kids Cut ($25)">Kids Cut ($25)</option>
+                  <option value="Design &amp; Patterns ($45+)">Design &amp; Patterns ($45+)</option>
+                  <option value="Custom Request">Custom Request (Describe Below)</option>
             </select>
-            <span class="field-error" id="error-service" role="alert"></span>
+              </div>
+              <div class="form-group" id="customServiceGroup" hidden>
+                <label for="bookingCustomService">Describe Your Custom Service *</label>
+                <textarea id="bookingCustomService" name="customService" placeholder="Describe your desired haircut, design, or style..." rows="3"></textarea>
           </div>
-
-          <div class="form__row form__row--split">
-            <div>
-              <label for="date">Preferred Date<span aria-hidden="true" class="req">*</span></label>
-              <input id="date" name="date" type="date" required>
-              <span class="field-error" id="error-date" role="alert"></span>
+          <div class="form-row">
+                <div class="form-group">
+                  <label for="bookingDate">Preferred Date *</label>
+                  <input id="bookingDate" type="date" name="date" required>
             </div>
-            <div>
-              <label for="time">Preferred Time<span aria-hidden="true" class="req">*</span></label>
-              <input id="time" name="time" type="time" required>
-              <span class="field-error" id="error-time" role="alert"></span>
+                <div class="form-group">
+                  <label for="bookingTime">Preferred Time *</label>
+                  <select id="bookingTime" name="time" required>
+                    <option value="">Select time</option>
+                  </select>
             </div>
           </div>
-
-          <div class="form__row">
-            <label for="notes">Additional Notes</label>
-            <textarea id="notes" name="notes" rows="4" placeholder="Anything we should know ahead of your visit?"></textarea>
+              <div class="form-group">
+                <label for="bookingNotes">Additional Notes</label>
+                <textarea id="bookingNotes" name="notes" placeholder="Any special requests or important info?" rows="3"></textarea>
           </div>
-
-          <div class="form__actions">
-            <button type="submit" class="btn btn--primary" id="bookBtn">📅 Book Appointment</button>
-            <button type="button" class="btn btn--secondary" id="textBarberBtn" aria-describedby="smsDesktop">💬 Text Barber</button>
-          </div>
-
-          <p class="form__note">Submitting powered by your configured service. You can also <a id="viewInGoogle" target="_blank" rel="noopener" href="#">view in Google Forms</a>.</p>
-
-          <div class="form__success" id="formSuccess" role="status" aria-live="polite" hidden>
-            ✅ Thanks! Your request was received. We'll confirm shortly.
+              <div class="booking-form__actions">
+                <button type="button" class="submit-btn submit-btn--sms" id="smsPrimary">
+                  <span aria-hidden="true">📱</span>
+                  Send Booking via Messages
+                </button>
+                <button type="submit" class="submit-btn submit-btn--whatsapp">
+                  <span aria-hidden="true">💬</span>
+                  Send Booking via WhatsApp
+                </button>
           </div>
         </form>
-
-        <iframe name="hidden_iframe" id="hidden_iframe" title="Hidden form submission" hidden></iframe>
-
-        <div id="smsDesktop" class="sms-desktop" hidden>
-          <span>Text us at <a href="tel:+14138854440">(413) 885-4440</a></span>
-          <button class="btn btn--ghost" id="copyPhoneBtn" aria-label="Copy phone number">Copy</button>
-          <span class="sms-desktop__copied" id="copiedToast" role="status" aria-live="polite" hidden>Copied!</span>
         </div>
       </div>
     </section>
 
-    <!-- Contact & Location -->
-    <section id="contact" class="section contact" aria-labelledby="contact-title">
-      <div class="container contact__grid">
-        <h2 id="contact-title" class="section__title">Find Us</h2>
-        <div class="contact__map">
-          <iframe
-            title="Fade Empire on Google Maps"
-            width="600" height="450" style="border:0;"
-            loading="lazy"
-            allowfullscreen
-            referrerpolicy="no-referrer-when-downgrade"
-            src="https://www.google.com/maps?q=1193%20Memorial%20Dr%2C%20Chicopee%2C%20MA%2001020&output=embed">
-          </iframe>
-        </div>
-        <div class="contact__info">
-          <p class="about">Fade Empire is your destination for premium grooming services. Our skilled barbers bring years of experience and a passion for the craft, ensuring every client leaves looking sharp and feeling confident. We specialize in precision fades, classic cuts, and modern styles.</p>
-          <ul class="contact__list">
-            <li>📍 1193 Memorial Dr, Chicopee, MA 01020</li>
-            <li>📞 <a href="tel:+14138854440">(413) 885-4440</a></li>
-            <li>✉️ <a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a></li>
-          </ul>
-          <div class="hours">
-            <h3 class="hours__title">Hours</h3>
-            <ul>
-              <li>Everyday: 10:00 AM - 5:00 PM</li>
-            </ul>
+      <section class="map-section" data-scroll-section>
+        <div class="container map-section__grid">
+          <div class="map-section__content" data-animate="fade-up">
+            <span class="section-tag">Visit</span>
+          <h2>Fade Empire Barbershop</h2>
+            <address>
+              1193 Memorial Dr<br>
+              Chicopee, MA 01020
+            </address>
+            <p class="map-section__hours">Hours · 10AM – 5PM · Every Day</p>
+            <div class="map-section__contact">
+              <a href="tel:+14138854440">Call 413-885-4440</a>
+              <a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a>
           </div>
-          <div class="socials">
+            <div class="map-section__social">
             <a href="https://instagram.com/fadeempire" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a>
             <a href="https://facebook.com/fadeempire" target="_blank" rel="noopener" aria-label="Facebook">Facebook</a>
             <a href="https://tiktok.com/@fadeempire" target="_blank" rel="noopener" aria-label="TikTok">TikTok</a>
           </div>
         </div>
+          <div class="map-section__map glass" data-animate="fade-left">
+          <iframe
+            title="Fade Empire on Google Maps"
+              src="https://www.google.com/maps?q=1193+Memorial+Dr,+Chicopee,+MA+01020&output=embed&hl=en&z=15"
+            loading="lazy"
+            allowfullscreen></iframe>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container footer__grid">
+    <footer class="footer" id="footer">
+    <div class="container footer__inner">
       <div class="footer__brand">
-        <img src="./assets/fadeempire.png" alt="Fade Empire logo" width="40" height="40">
-        <span>Fade Empire</span>
+          <img src="./assets/fadeempire.png" alt="Fade Empire crest" width="52" height="52">
+          <div>
+            <h3>Fade Empire</h3>
+            <p>Precision Grooming · Chicopee, MA</p>
+          </div>
+        </div>
+        <div class="footer__info">
+          <dl>
+            <div>
+              <dt>Address</dt>
+              <dd>1193 Memorial Dr, Chicopee, MA 01020</dd>
+            </div>
+            <div>
+              <dt>Phone</dt>
+              <dd><a href="tel:+14138854440">413-885-4440</a></dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd><a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a></dd>
+            </div>
+        <div>
+              <dt>Hours</dt>
+              <dd>Daily · 10AM – 5PM</dd>
+            </div>
+          </dl>
+        </div>
+        <nav class="footer__nav" aria-label="Footer">
+          <a href="#services">Services</a>
+          <a href="#gallery">Gallery</a>
+          <a href="#barbers">Barbers</a>
+          <a href="#booking">Reserve</a>
+        </nav>
+        <div class="footer__bottom">
+          <p>© <span id="year"></span> Fade Empire. All rights reserved.</p>
+          <p>Crafted for the legends of Chicopee.</p>
+        </div>
       </div>
-      <nav aria-label="Footer">
-        <ul class="footer__links">
-          <li><a href="#services">Services</a></li>
-          <li><a href="#gallery">Gallery</a></li>
-          <li><a href="#booking">Book</a></li>
-          <li><a href="#contact">Contact</a></li>
-        </ul>
-      </nav>
-      <div class="footer__socials">
-        <a href="https://instagram.com/fadeempire" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
-        <a href="https://facebook.com/fadeempire" target="_blank" rel="noopener" aria-label="Facebook">FB</a>
-        <a href="https://tiktok.com/@fadeempire" target="_blank" rel="noopener" aria-label="TikTok">TT</a>
+    </footer>
+
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">
+      <span class="pole"></span>
+    </button>
+
+    <a href="https://wa.me/14138854440" class="whatsapp-button" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+      <span>Chat</span>
+    </a>
+
+    <div class="cookie-banner" id="cookieBanner" role="dialog" aria-live="polite" aria-label="Cookie notice">
+      <div class="cookie-banner__content">
+        <p>Fade Empire uses cookies to elevate your booking experience. Tap accept to continue.</p>
+        <div class="cookie-banner__actions">
+          <button class="btn btn--ghost" id="cookieDecline">Decline</button>
+          <button class="btn btn--primary" id="cookieAccept">Accept</button>
+        </div>
       </div>
     </div>
-    <div class="container footer__bottom">
-      <p>© <span id="year"></span> Fade Empire. All rights reserved.</p>
-      <p>Built by Your Name</p>
-    </div>
-  </footer>
 
-  <noscript>
-    <div class="noscript">This site works best with JavaScript enabled. Core content is still accessible.</div>
-  </noscript>
-
-  <script defer src="./script.js"></script>
+    <script src="./script.js" type="module" defer></script>
 </body>
 </html>
-
 

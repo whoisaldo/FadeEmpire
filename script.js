@@ -1,243 +1,513 @@
-// Fade Empire - Vanilla JS interactions
+const select = (selector, scope = document) => scope.querySelector(selector);
+const selectAll = (selector, scope = document) => Array.from(scope.querySelectorAll(selector));
 
-(() => {
-  const qs = (sel, el = document) => el.querySelector(sel);
-  const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+const state = {
+  scrollOffset: 0
+};
 
-  const header = qs('#site-header');
-  const navToggle = qs('#navToggle');
-  const navList = qs('#primary-nav');
-  const yearEl = qs('#year');
-  const bookingForm = qs('#bookingForm');
-  const hiddenIframe = qs('#hidden_iframe');
-  const successEl = qs('#formSuccess');
-  const bookBtn = qs('#bookBtn');
-  const smsBtn = qs('#textBarberBtn');
-  const smsDesktop = qs('#smsDesktop');
-  const copyPhoneBtn = qs('#copyPhoneBtn');
-  const copiedToast = qs('#copiedToast');
-  const phoneInput = qs('#phone');
-  const dateInput = qs('#date');
-  const timeInput = qs('#time');
-  const viewInGoogle = qs('#viewInGoogle');
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-  // Set current year
-  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+const smoothScrollTo = (target) => {
+  const nav = select('#nav');
+  if (!target) return;
+  const offset = nav ? nav.offsetHeight - 8 : 0;
+  const top = target.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top, behavior: 'smooth' });
+};
 
-  // Header scroll behavior
-  let lastY = window.scrollY;
-  const onScroll = () => {
-    const curY = window.scrollY;
-    if (curY > 10) header.classList.add('is-scrolled'); else header.classList.remove('is-scrolled');
-    const goingDown = curY > lastY && curY > 120;
-    header.classList.toggle('header--hidden', goingDown);
-    lastY = curY;
-  };
-  window.addEventListener('scroll', onScroll, { passive: true });
+const initPreloader = () => {
+  const preloader = select('#preloader');
+  if (!preloader) return;
 
-  // Mobile nav toggle
-  navToggle?.addEventListener('click', () => {
-    const isOpen = header.classList.toggle('nav--open');
-    navToggle.setAttribute('aria-expanded', String(isOpen));
-    if (isOpen) navToggle.setAttribute('aria-label', 'Close menu'); else navToggle.setAttribute('aria-label', 'Open menu');
+  window.addEventListener('load', () => {
+    preloader.style.opacity = '0';
+    preloader.style.pointerEvents = 'none';
+    setTimeout(() => {
+      preloader.remove();
+    }, 600);
   });
-  // Close nav on link click (mobile)
-  qsa('.nav__link').forEach((a) => a.addEventListener('click', () => {
-    header.classList.remove('nav--open');
+};
+
+const initNav = () => {
+  const nav = select('#nav');
+  const navToggle = select('#navToggle');
+  const navMenu = select('#navMenu');
+  const links = selectAll('[data-nav]');
+
+  if (!nav) return;
+
+  const closeMenu = () => {
+    navMenu?.classList.remove('is-open');
     navToggle?.setAttribute('aria-expanded', 'false');
-  }));
-  // Close on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') header.classList.remove('nav--open');
+    document.body.classList.remove('nav-open');
+  };
+
+  const openMenu = () => {
+    navMenu?.classList.add('is-open');
+    navToggle?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('nav-open');
+  };
+
+  navToggle?.addEventListener('click', () => {
+    const expanded = navToggle.getAttribute('aria-expanded') === 'true';
+    expanded ? closeMenu() : openMenu();
   });
 
-  // Smooth scroll for internal links
-  qsa('a[href^="#"]').forEach((a) => {
-    a.addEventListener('click', (e) => {
-      const id = a.getAttribute('href');
-      if (!id || id === '#') return;
-      const target = qs(id);
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  links.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const hash = link.getAttribute('href');
+      if (!hash?.startsWith('#')) return;
+      event.preventDefault();
+      const target = document.querySelector(hash);
+      closeMenu();
+      smoothScrollTo(target);
+    });
+  });
+
+  window.addEventListener(
+    'scroll',
+    () => {
+      const current = window.scrollY;
+      nav.classList.toggle('nav--solid', current > 40);
+      nav.classList.toggle('nav--condensed', current > 120);
+      state.scrollOffset = current;
+    },
+    { passive: true }
+  );
+
+  document.addEventListener('click', (event) => {
+    if (!nav.contains(event.target) && navMenu?.classList.contains('is-open')) {
+      closeMenu();
+    }
+  });
+};
+
+const initScrollAnimations = () => {
+  const animatedElements = selectAll('[data-animate]');
+
+  if (!animatedElements.length) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const delay = Number(entry.target.dataset.delay ?? '0');
+          entry.target.classList.add('is-visible');
+          entry.target.style.transitionDelay = `${delay}s`;
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      threshold: 0.2,
+      rootMargin: '0px 0px -10% 0px'
+    }
+  );
+
+  animatedElements.forEach((element) => observer.observe(element));
+};
+
+const initHeroParticles = () => {
+  const canvas = select('#heroParticles');
+  if (!canvas) return;
+
+  const context = canvas.getContext('2d');
+  let particles = [];
+  let animationFrame;
+
+  const createParticles = () => {
+    const { innerWidth: width, innerHeight: height } = window;
+    canvas.width = width;
+    canvas.height = height;
+    particles = Array.from({ length: width < 768 ? 24 : 40 }).map(() => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      radius: Math.random() * 1.4 + 0.4,
+      speedY: Math.random() * 0.6 + 0.2,
+      speedX: (Math.random() - 0.5) * 0.4,
+      opacity: Math.random() * 0.4 + 0.2
+    }));
+  };
+
+  const tick = () => {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((particle) => {
+      context.beginPath();
+      context.fillStyle = `rgba(212, 175, 55, ${particle.opacity})`;
+      context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+      context.fill();
+      particle.y -= particle.speedY;
+      particle.x += particle.speedX;
+      if (particle.y < -10) {
+        particle.y = canvas.height + 10;
+        particle.x = Math.random() * canvas.width;
       }
     });
-  });
+    animationFrame = requestAnimationFrame(tick);
+  };
 
-  // Intersection Observer for reveals
-  const revealEls = qsa('.reveal');
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) entry.target.classList.add('reveal-active');
+  createParticles();
+  tick();
+  window.addEventListener('resize', createParticles);
+
+  window.addEventListener('unload', () => cancelAnimationFrame(animationFrame));
+};
+
+const initGallery = () => {
+  const filters = selectAll('.gallery__filter');
+  const items = selectAll('.gallery__item');
+  const lightbox = select('#lightbox');
+  const lightboxImage = select('#lightboxImage');
+  const lightboxVideo = select('#lightboxVideo');
+  const lightboxClose = select('#lightboxClose');
+  let lastFocus = null;
+
+  const filterItems = (category) => {
+    items.forEach((item) => {
+      const itemCategory = item.dataset.category;
+      const isVisible = category === 'all' || itemCategory === category;
+      item.style.pointerEvents = isVisible ? 'auto' : 'none';
+      item.style.opacity = isVisible ? '1' : '0';
+      item.style.transform = isVisible ? 'translateY(0)' : 'translateY(40px)';
+      item.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    });
+  };
+
+  filters.forEach((button) => {
+    button.addEventListener('click', () => {
+      filters.forEach((entry) => {
+        entry.classList.remove('is-active');
+        entry.setAttribute('aria-selected', 'false');
       });
-    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.2 });
-    revealEls.forEach((el) => io.observe(el));
-  } else {
-    revealEls.forEach((el) => el.classList.add('reveal-active'));
-  }
-
-  // Gallery lightbox
-  const lightbox = qs('#lightbox');
-  const lightboxImg = qs('#lightboxImage');
-  const lightboxClose = qs('#lightboxClose');
-  qsa('.gallery__item').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const img = qs('img', btn);
-      if (!img) return;
-      lightboxImg.src = img.src;
-      lightbox?.removeAttribute('hidden');
+      button.classList.add('is-active');
+      button.setAttribute('aria-selected', 'true');
+      filterItems(button.dataset.filter ?? 'all');
     });
   });
-  const closeLightbox = () => lightbox?.setAttribute('hidden', '');
-  lightboxClose?.addEventListener('click', closeLightbox);
-  lightbox?.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
 
-  // Form helpers
-  const setMinDate = () => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const today = `${yyyy}-${mm}-${dd}`;
-    if (dateInput) dateInput.min = today;
+  const openLightbox = (src, type = 'image') => {
+    if (!lightbox) return;
+    lightbox.classList.add('is-open');
+    lightbox.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+
+    if (type === 'video' && lightboxVideo) {
+      lightboxVideo.src = src;
+      lightboxVideo.style.display = 'block';
+      lightboxVideo.play().catch(() => {});
+      lightboxImage?.removeAttribute('src');
+      if (lightboxImage) lightboxImage.style.display = 'none';
+    } else if (lightboxImage) {
+      lightboxImage.src = src;
+      lightboxImage.style.display = 'block';
+      if (lightboxVideo) {
+        lightboxVideo.pause();
+        lightboxVideo.removeAttribute('src');
+        lightboxVideo.style.display = 'none';
+      }
+    }
+    lightboxClose?.focus();
   };
-  setMinDate();
 
-  // Time constraints
-  if (timeInput) { timeInput.min = '10:00'; timeInput.max = '17:00'; }
+  const closeLightbox = () => {
+    if (!lightbox) return;
+    lightbox.classList.remove('is-open');
+    lightbox.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+    if (lightboxVideo) {
+      lightboxVideo.pause();
+      lightboxVideo.removeAttribute('src');
+      lightboxVideo.style.display = 'none';
+    }
+    if (lightboxImage) {
+      lightboxImage.removeAttribute('src');
+      lightboxImage.style.display = 'none';
+    }
+    lastFocus?.focus();
+  };
 
-  // Phone formatting: (555) 123-4567
+  items.forEach((item) => {
+    item.addEventListener('click', () => {
+      const img = item.querySelector('img');
+      const src = img?.getAttribute('src');
+      if (!src) return;
+      lastFocus = item;
+      openLightbox(src, item.dataset.type);
+    });
+    item.addEventListener('keypress', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        item.click();
+      }
+    });
+    item.setAttribute('tabindex', '0');
+  });
+
+  lightboxClose?.addEventListener('click', closeLightbox);
+  lightbox?.addEventListener('click', (event) => {
+    if (event.target === lightbox) closeLightbox();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && lightbox?.classList.contains('is-open')) closeLightbox();
+  });
+};
+
+const initWhatsappBookingForm = () => {
+  const form = select('#whatsappBookingForm');
+  if (!form) return;
+
+  const nameInput = select('#bookingName', form);
+  const phoneInput = select('#bookingPhone', form);
+  const serviceSelect = select('#bookingService', form);
+  const customGroup = select('#customServiceGroup', form);
+  const customTextarea = select('#bookingCustomService', form);
+  const dateInput = select('#bookingDate', form);
+  const timeSelect = select('#bookingTime', form);
+  const notesTextarea = select('#bookingNotes', form);
+  const smsButton = select('#smsPrimary');
+
   const formatPhone = (value) => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
-    const p1 = digits.slice(0, 3);
-    const p2 = digits.slice(3, 6);
-    const p3 = digits.slice(6, 10);
-    if (digits.length > 6) return `(${p1}) ${p2}-${p3}`;
-    if (digits.length > 3) return `(${p1}) ${p2}`;
-    if (digits.length > 0) return `(${p1}`;
-    return '';
-  };
-  phoneInput?.addEventListener('input', (e) => {
-    const t = e.target;
-    const start = t.selectionStart;
-    const oldLen = t.value.length;
-    t.value = formatPhone(t.value);
-    const newLen = t.value.length;
-    const delta = newLen - oldLen;
-    t.setSelectionRange(start + delta, start + delta);
-  });
-
-  const setError = (id, msg) => {
-    const el = qs(`#error-${id}`);
-    if (el) el.textContent = msg;
-  };
-  const clearErrors = () => qsa('.field-error').forEach((e) => (e.textContent = ''));
-
-  const validateForm = () => {
-    clearErrors();
-    let ok = true;
-    const nameVal = qs('#fullName')?.value.trim();
-    if (!nameVal) { setError('fullName', 'Please enter your name'); ok = false; }
-
-    const phoneVal = (phoneInput?.value || '').replace(/\D/g, '');
-    if (phoneVal.length !== 10) { setError('phone', 'Enter a valid 10-digit phone'); ok = false; }
-
-    const emailInput = qs('#email');
-    if (emailInput && emailInput.value) {
-      const emailOk = /.+@.+\..+/.test(emailInput.value);
-      if (!emailOk) { setError('email', 'Enter a valid email'); ok = false; }
-    }
-
-    const service = qs('#service');
-    if (!service?.value) { setError('service', 'Select a service'); ok = false; }
-
-    const d = qs('#date')?.value;
-    if (!d) { setError('date', 'Choose a date'); ok = false; }
-
-    const t = qs('#time')?.value;
-    if (!t) { setError('time', 'Choose a time'); ok = false; }
-    else {
-      if (t < '10:00' || t > '17:00') { setError('time', 'Select a time between 10:00 and 17:00'); ok = false; }
-    }
-
-    return ok;
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
   };
 
-  // Hidden iframe handler: show success after submission completes
-  hiddenIframe?.addEventListener('load', () => {
-    // Assume success on iframe load
-    showSuccess();
-  });
-
-  const showSuccess = () => {
-    if (!successEl) return;
-    successEl.hidden = false;
-    bookingForm?.reset();
-    setMinDate();
-    window.setTimeout(() => { successEl.hidden = true; }, 6000);
+  const populateTimes = () => {
+    if (!timeSelect) return;
+    const fragment = document.createDocumentFragment();
+    for (let hour = 10; hour <= 16; hour += 1) {
+      for (let minute = 0; minute <= 30; minute += 30) {
+        if (hour === 16 && minute > 30) continue;
+        const suffix = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : hour;
+        const displayMinutes = minute === 0 ? '00' : '30';
+        const label = `${displayHour}:${displayMinutes} ${suffix}`;
+        const option = document.createElement('option');
+        option.value = label;
+        option.textContent = label;
+        fragment.appendChild(option);
+      }
+    }
+    timeSelect.appendChild(fragment);
   };
 
-  // Form submit handling
-  bookingForm?.addEventListener('submit', (e) => {
-    if (!validateForm()) { e.preventDefault(); return; }
-    bookBtn?.setAttribute('disabled', 'true');
-    bookBtn.textContent = 'Submitting…';
+  const setMinDate = () => {
+    if (!dateInput) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const offset = today.getTimezoneOffset();
+    const localISO = new Date(today.getTime() - offset * 60000).toISOString().split('T')[0];
+    dateInput.min = localISO;
+  };
 
-    const action = bookingForm.getAttribute('action') || '';
-    const isPlaceholder = action.includes('YOUR_FORM_ID');
+  const toggleCustomService = (show) => {
+    if (!customGroup || !customTextarea) return;
+    customGroup.hidden = !show;
+    customTextarea.required = show;
+    if (!show) customTextarea.value = '';
+  };
 
-    if (isPlaceholder) {
-      // Demo mode: simulate success
-      e.preventDefault();
-      window.setTimeout(() => {
-        showSuccess();
-        bookBtn?.removeAttribute('disabled');
-        bookBtn.textContent = '📅 Book Appointment';
-      }, 900);
-    } else {
-      // Allow native submit to hidden iframe, but guard with timeout
-      window.setTimeout(() => {
-        bookBtn?.removeAttribute('disabled');
-        bookBtn.textContent = '📅 Book Appointment';
-      }, 5000);
-    }
+  const buildMessage = () => {
+    const formattedDate = dateInput?.value
+      ? new Date(dateInput.value).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric'
+        })
+      : '';
+
+    const serviceValue = serviceSelect?.value || '';
+    const serviceText =
+      serviceValue === 'Custom Request'
+        ? `Custom Request: ${customTextarea?.value || ''}`
+        : serviceValue;
+
+    let message = '🔥 *FADE EMPIRE BOOKING REQUEST* 🔥\n\n';
+    message += `👤 *Name:* ${nameInput?.value.trim()}\n`;
+    if (phoneInput?.value.trim()) message += `📱 *Phone:* ${phoneInput.value.trim()}\n`;
+    message += `✂️ *Service:* ${serviceText}\n`;
+    message += `📅 *Date:* ${formattedDate}\n`;
+    message += `⏰ *Time:* ${timeSelect?.value}\n`;
+    if (notesTextarea?.value.trim()) message += `📝 *Notes:* ${notesTextarea.value.trim()}\n`;
+    message += '\n_Sent from FadeEmpire.com_';
+    return message;
+  };
+
+  serviceSelect?.addEventListener('change', (event) => {
+    toggleCustomService(event.target.value === 'Custom Request');
   });
 
-  // Link to Google Forms: leave as placeholder until user updates
-  if (viewInGoogle) viewInGoogle.addEventListener('click', (ev) => {
-    const href = viewInGoogle.getAttribute('href');
-    if (href === '#') {
-      ev.preventDefault();
-      alert('Replace the booking form action with your Google Form URL, then update this link. See README.md.');
-    }
+  phoneInput?.addEventListener('input', (event) => {
+    event.target.value = formatPhone(event.target.value);
   });
 
-  // SMS integration
-  const barberPhoneDigits = '14138854440';
-  const isMobile = () => /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Silk/.test(navigator.userAgent);
-  smsBtn?.addEventListener('click', () => {
-    const msg = encodeURIComponent("Hi! I'd like to book an appointment at Fade Empire.");
-    if (isMobile()) {
-      // Use ?&body to maximize compatibility across platforms
-      window.location.href = `sms:${barberPhoneDigits}?&body=${msg}`;
-    } else {
-      smsDesktop?.removeAttribute('hidden');
-      copiedToast?.setAttribute('hidden', '');
+  form.addEventListener('submit', (event) => {
+      event.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
     }
+
+    const message = buildMessage();
+    const whatsappURL = `https://wa.me/14138854440?text=${encodeURIComponent(message)}`;
+    window.open(whatsappURL, '_blank', 'noopener');
   });
 
-  copyPhoneBtn?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText('(413) 885-4440');
-      copiedToast?.removeAttribute('hidden');
-      window.setTimeout(() => copiedToast?.setAttribute('hidden', ''), 2000);
-    } catch {
-      // Fallback prompt
-      window.prompt('Copy phone number:', '(413) 885-4440');
+  smsButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
     }
+    const message = buildMessage().replace(/\*/g, '').replace(/_/g, '');
+    window.location.href = `sms:4138854440?&body=${encodeURIComponent(message)}`;
   });
-})();
 
+  populateTimes();
+  setMinDate();
+  toggleCustomService(serviceSelect?.value === 'Custom Request');
+};
+
+const initBackToTop = () => {
+  const button = select('#backToTop');
+  if (!button) return;
+
+  window.addEventListener(
+    'scroll',
+    () => {
+      const scrolled = window.scrollY;
+      if (scrolled > 520) {
+        button.classList.add('is-visible');
+      } else {
+        button.classList.remove('is-visible');
+      }
+    },
+    { passive: true }
+  );
+
+  button.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+};
+
+const initCookieBanner = () => {
+  const banner = select('#cookieBanner');
+  if (!banner) return;
+  const accept = select('#cookieAccept');
+  const decline = select('#cookieDecline');
+
+  const storageKey = 'fadeEmpireCookies';
+  const stored = localStorage.getItem(storageKey);
+
+  if (!stored) {
+    setTimeout(() => banner.classList.add('is-visible'), 1200);
+  }
+
+  const handleChoice = (choice) => {
+    localStorage.setItem(storageKey, choice);
+    banner.classList.remove('is-visible');
+  };
+
+  accept?.addEventListener('click', () => handleChoice('accepted'));
+  decline?.addEventListener('click', () => handleChoice('declined'));
+};
+
+const initCursor = () => {
+  const cursor = select('#cursor');
+  if (!cursor) return;
+  const updatePosition = (event) => {
+    cursor.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
+  };
+  const activate = () => cursor.classList.add('is-active');
+  const deactivate = () => cursor.classList.remove('is-active');
+
+  document.addEventListener('pointermove', updatePosition);
+  selectAll('a, button, .gallery__item').forEach((element) => {
+    element.addEventListener('mouseenter', activate);
+    element.addEventListener('mouseleave', deactivate);
+  });
+};
+
+const initLazyImages = () => {
+  const images = selectAll('img[loading="lazy"]');
+  if ('loading' in HTMLImageElement.prototype) {
+    images.forEach((img) => {
+      if (img.dataset.src) img.src = img.dataset.src;
+    });
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+          const img = entry.target;
+      if (img.dataset.src) {
+        img.src = img.dataset.src;
+      }
+      obs.unobserve(img);
+    });
+  });
+
+  images.forEach((img) => observer.observe(img));
+};
+
+const initYear = () => {
+  const yearEl = select('#year');
+  if (yearEl) {
+    yearEl.textContent = new Date().getFullYear();
+  }
+};
+
+const initSmoothAnchors = () => {
+  selectAll('a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener('click', (event) => {
+      const hash = anchor.getAttribute('href');
+      if (!hash || hash === '#') return;
+      const target = document.querySelector(hash);
+      if (!target) return;
+      event.preventDefault();
+      smoothScrollTo(target);
+    });
+  });
+};
+
+const initHeroParallax = () => {
+  const hero = select('#hero');
+  const background = select('.hero__kenburns');
+  if (!hero || !background) return;
+
+  hero.addEventListener('mousemove', (event) => {
+    const rect = hero.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 10;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 10;
+    background.style.transform = `scale(1.1) translate(${clamp(-x, -12, 12)}px, ${clamp(
+      -y,
+      -12,
+      12
+    )}px)`;
+  });
+
+  hero.addEventListener('mouseleave', () => {
+    background.style.transform = 'scale(1.1) translate(0, 0)';
+  });
+};
+
+const init = () => {
+  initPreloader();
+  initNav();
+  initScrollAnimations();
+  initHeroParticles();
+  initGallery();
+  initWhatsappBookingForm();
+  initBackToTop();
+  initCookieBanner();
+  initCursor();
+  initLazyImages();
+  initYear();
+  initSmoothAnchors();
+  initHeroParallax();
+};
+
+document.addEventListener('DOMContentLoaded', init);
 
