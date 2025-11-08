@@ -106,7 +106,7 @@
   setMinDate();
 
   // Time constraints
-  if (timeInput) { timeInput.min = '09:00'; timeInput.max = '19:00'; }
+  if (timeInput) { timeInput.min = '10:00'; timeInput.max = '17:00'; }
 
   // Phone formatting: (555) 123-4567
   const formatPhone = (value) => {
@@ -159,7 +159,7 @@
     const t = qs('#time')?.value;
     if (!t) { setError('time', 'Choose a time'); ok = false; }
     else {
-      if (t < '09:00' || t > '19:00') { setError('time', 'Select a time between 9:00 and 19:00'); ok = false; }
+      if (t < '10:00' || t > '17:00') { setError('time', 'Select a time between 10:00 and 17:00'); ok = false; }
     }
 
     return ok;
@@ -215,7 +215,7 @@
   });
 
   // SMS integration
-  const barberPhoneDigits = '15551234567';
+  const barberPhoneDigits = '14138854440';
   const isMobile = () => /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Silk/.test(navigator.userAgent);
   smsBtn?.addEventListener('click', () => {
     const msg = encodeURIComponent("Hi! I'd like to book an appointment at Fade Empire.");
@@ -230,12 +230,12 @@
 
   copyPhoneBtn?.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText('(555) 123-4567');
+      await navigator.clipboard.writeText('(413) 885-4440');
       copiedToast?.removeAttribute('hidden');
       window.setTimeout(() => copiedToast?.setAttribute('hidden', ''), 2000);
     } catch {
       // Fallback prompt
-      window.prompt('Copy phone number:', '(555) 123-4567');
+      window.prompt('Copy phone number:', '(413) 885-4440');
     }
   });
 })();
