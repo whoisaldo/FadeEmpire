@@ -205,10 +205,11 @@ const initGallery = () => {
   items.forEach((item) => {
     item.addEventListener('click', () => {
       const img = item.querySelector('img');
-      const src = img?.getAttribute('src');
-      if (!src) return;
+      // Use original high-res image for lightbox, fallback to current src
+      const originalSrc = img?.dataset.original || img?.getAttribute('src')?.replace('/optimized/', '/').replace('_mobile', '').replace('_tablet', '') || img?.getAttribute('src');
+      if (!originalSrc) return;
       lastFocus = item;
-      openLightbox(src, item.dataset.type);
+      openLightbox(originalSrc, item.dataset.type);
     });
     item.addEventListener('keypress', (event) => {
       if (event.key === 'Enter') {
@@ -285,13 +286,27 @@ const initWhatsappBookingForm = () => {
   };
 
   const buildMessage = () => {
-    const formattedDate = dateInput?.value
-      ? new Date(dateInput.value).toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric'
-        })
-      : '';
+    const formatDateLocal = (dateString) => {
+      if (!dateString) return '';
+      // Parse YYYY-MM-DD directly to avoid any timezone conversion
+      const [year, month, day] = dateString.split('-').map(Number);
+      
+      // Create date object using local time components (month is 0-indexed)
+      // Using noon to avoid any midnight timezone edge cases
+      const date = new Date(year, month - 1, day, 12, 0, 0);
+      
+      // Get weekday and month names
+      const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      // Get the day of week and month from the date object
+      const weekday = weekdays[date.getDay()];
+      const monthName = months[date.getMonth()];
+      
+      return `${weekday}, ${monthName} ${day}`;
+    };
+    
+    const formattedDate = dateInput?.value ? formatDateLocal(dateInput.value) : '';
 
     const serviceValue = serviceSelect?.value || '';
     const serviceText =
@@ -367,27 +382,6 @@ const initBackToTop = () => {
   });
 };
 
-const initCookieBanner = () => {
-  const banner = select('#cookieBanner');
-  if (!banner) return;
-  const accept = select('#cookieAccept');
-  const decline = select('#cookieDecline');
-
-  const storageKey = 'fadeEmpireCookies';
-  const stored = localStorage.getItem(storageKey);
-
-  if (!stored) {
-    setTimeout(() => banner.classList.add('is-visible'), 1200);
-  }
-
-  const handleChoice = (choice) => {
-    localStorage.setItem(storageKey, choice);
-    banner.classList.remove('is-visible');
-  };
-
-  accept?.addEventListener('click', () => handleChoice('accepted'));
-  decline?.addEventListener('click', () => handleChoice('declined'));
-};
 
 const initCursor = () => {
   const cursor = select('#cursor');
@@ -477,7 +471,6 @@ const init = () => {
   initGallery();
   initWhatsappBookingForm();
   initBackToTop();
-  initCookieBanner();
   initCursor();
   initLazyImages();
   initYear();

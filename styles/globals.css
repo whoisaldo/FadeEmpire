@@ -470,8 +470,10 @@ button {
 .hero__kenburns {
   position: absolute;
   inset: -6%;
+  background-image: url('../assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_mobile.jpg'), url('../assets/FadeEmpireStore/FadeEmpireStoreFront.JPG');
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   animation: heroZoom 18s ease-in-out infinite alternate;
   will-change: transform;
 }
@@ -713,10 +715,24 @@ button {
   border: 1px solid rgba(255, 215, 0, 0.35);
 }
 
+.service-card__addon {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+  font-size: 0.9rem;
+  color: var(--gold);
+  text-align: center;
+}
+
+.service-card__addon strong {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
 /* Gallery */
 .gallery {
-  padding: 8rem 0;
-  background: linear-gradient(180deg, rgba(10, 10, 10, 1) 0%, rgba(26, 26, 26, 1) 100%);
+  padding: 3rem 0;
+  background: var(--black);
   position: relative;
 }
 
@@ -749,46 +765,82 @@ button {
 
 .gallery__grid {
   display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+  box-sizing: border-box;
 }
 
 .gallery__item {
   position: relative;
-  border-radius: 1.2rem;
+  border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   isolation: isolate;
   display: block;
-  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  background: var(--black-80);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gallery__item::before {
+  content: 'View';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
 }
 
 .gallery__item::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, transparent 100%);
-  opacity: 0.6;
-  transition: var(--transition);
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
   z-index: 1;
 }
 
 .gallery__item:hover,
 .gallery__item:focus-visible {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-gold);
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.gallery__item:hover::before,
+.gallery__item:focus-visible::before {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .gallery__item:hover::after,
 .gallery__item:focus-visible::after {
-  opacity: 0.2;
+  opacity: 1;
 }
 
 .gallery__item img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  display: block;
+  transition: transform 0.3s ease;
 }
 
 .gallery__item:hover img,
@@ -797,11 +849,11 @@ button {
 }
 
 .gallery__item--wide {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .gallery__item--tall {
-  grid-row: span 2;
+  grid-row: span 1;
 }
 
 .lightbox {
@@ -1363,43 +1415,7 @@ button {
   color: var(--gold-bright);
 }
 
-/* Cookie banner */
-.cookie-banner {
-  position: fixed;
-  inset: auto 0 0 0;
-  background: rgba(10, 10, 10, 0.9);
-  border-top: 1px solid rgba(212, 175, 55, 0.22);
-  padding: 1.8rem 5vw;
-  display: none;
-  z-index: 1300;
-  animation: slideUp 0.5s ease forwards;
-}
-
-.cookie-banner__content {
-  max-width: var(--container);
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-}
-
-.cookie-banner__content p {
-  margin: 0;
-  color: var(--gray-60);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-}
-
-.cookie-banner__actions {
-  display: flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.cookie-banner.is-visible {
-  display: block;
-}
+/* Cookie banner - Removed */
 
 /* Scroll animations */
 [data-animate] {

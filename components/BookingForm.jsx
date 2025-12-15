@@ -70,11 +70,28 @@ const BookingForm = () => {
 
   const buildMessage = () => {
     const { name, phone, service, customService, date, time, notes } = formData;
-    const formattedDate = new Date(date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    });
+    
+    // Parse YYYY-MM-DD directly to avoid any timezone conversion
+    const formatDateLocal = (dateString) => {
+      if (!dateString) return '';
+      const [year, month, day] = dateString.split('-').map(Number);
+      
+      // Create date object using local time components (month is 0-indexed)
+      // Using noon to avoid any midnight timezone edge cases
+      const dateObj = new Date(year, month - 1, day, 12, 0, 0);
+      
+      // Get weekday and month names
+      const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      // Get the day of week and month from the date object
+      const weekday = weekdays[dateObj.getDay()];
+      const monthName = months[dateObj.getMonth()];
+      
+      return `${weekday}, ${monthName} ${day}`;
+    };
+    
+    const formattedDate = formatDateLocal(date);
 
     const serviceText = service === 'Custom Request'
       ? `Custom Request: ${customService}`
@@ -148,9 +165,11 @@ const BookingForm = () => {
           <option value="Classic Cut ($30)">Classic Cut ($30)</option>
           <option value="Fade & Lineup ($35)">Fade &amp; Lineup ($35)</option>
           <option value="Beard Trim ($20)">Beard Trim ($20)</option>
-          <option value="Hot Towel Shave ($40)">Hot Towel Shave ($40)</option>
           <option value="Kids Cut ($25)">Kids Cut ($25)</option>
+          <option value="Military Cut ($25)">Military Cut ($25)</option>
+          <option value="Senior Cut ($25)">Senior Cut ($25)</option>
           <option value="Design & Patterns ($45+)">Design &amp; Patterns ($45+)</option>
+          <option value="Hot Towel Treatment (+$5)">Hot Towel Treatment (+$5)</option>
           <option value="Custom Request">Custom Request (Describe Below)</option>
         </select>
       </div>

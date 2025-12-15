@@ -13,8 +13,13 @@
   }
 
   .gallery__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.2rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 2rem 1rem;
+  }
+  
+  .gallery {
+    padding: 2rem 0;
   }
 
   .booking__grid {
@@ -22,6 +27,17 @@
     gap: 2.5rem;
   }
 }
+@media (min-width: 769px) {
+  .hero__kenburns {
+    background-image: url('../assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_tablet.jpg'), url('../assets/FadeEmpireStore/FadeEmpireStoreFront.JPG');
+  }
+  
+  .gallery__grid {
+    gap: 24px;
+    padding: 3rem 2rem;
+  }
+}
+
 @media (min-width: 768px) {
   .nav__toggle {
     display: none;
@@ -201,8 +217,9 @@
 
 @media (max-width: 520px) {
   .gallery__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 2rem 0.75rem;
   }
 
   .hero__title-outline {
@@ -246,3 +263,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms
+  }
+}

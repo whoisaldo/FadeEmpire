@@ -15,17 +15,19 @@
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Fade Empire · Luxury Barbershop">
-    <meta name="twitter:description" content="Tailored fades, hot towel shaves, and legendary service in Chicopee, MA.">
+    <meta name="twitter:description" content="Tailored fades, precision cuts, and legendary service in Chicopee, MA.">
     <meta name="twitter:image" content="https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png">
 
-  <link rel="icon" type="image/png" href="./assets/FadeEmpireStore/fadeempirelogo.png">
-  <link rel="apple-touch-icon" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="icon" type="image/png" href="./assets/FadeEmpireStore/optimized/fadeempirelogo_mobile.png">
+  <link rel="apple-touch-icon" href="./assets/FadeEmpireStore/optimized/fadeempirelogo_mobile.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
 
-    <link rel="preload" as="image" href="./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG" imagesrcset="./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG 1x">
+    <link rel="preload" as="image" href="./assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_mobile.jpg" media="(max-width: 768px)">
+    <link rel="preload" as="image" href="./assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_tablet.jpg" media="(min-width: 769px)">
     <link rel="preload" as="image" href="./assets/FadeEmpireStore/fadeempirelogo.png">
 
     <link rel="stylesheet" href="./styles/globals.css">
@@ -65,7 +67,7 @@
             "Sunday"
           ],
           "opens": "10:00",
-          "closes": "17:00"
+          "closes": "18:00"
         }],
         "sameAs": [
           "https://instagram.com/fadeempire",
@@ -93,7 +95,7 @@
       <nav class="nav" id="nav" aria-label="Primary">
         <div class="nav__inner container">
           <a class="nav__brand" href="#hero">
-            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="nav__logo" width="52" height="52">
+            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="nav__logo" width="52" height="52" loading="eager">
             <span class="nav__brand-text">Fade Empire</span>
           </a>
           <button class="nav__toggle" id="navToggle" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle menu">
@@ -115,7 +117,7 @@
   <main id="main">
       <section id="hero" class="hero" data-scroll-section>
         <div class="hero__background" role="presentation">
-          <div class="hero__kenburns" style="background-image:url('./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG');"></div>
+          <div class="hero__kenburns"></div>
         <div class="hero__overlay"></div>
           <canvas id="heroParticles" class="hero__particles" aria-hidden="true"></canvas>
       </div>
@@ -153,10 +155,10 @@
           </dl>
           </div>
           <div class="hero__card glass" data-animate="fade-left">
-            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="hero__card-logo" width="140" height="140">
+            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="hero__card-logo" width="140" height="140" loading="eager">
             <p>Fade Empire fuses the heritage of classic barbering with contemporary style architecture. Every visit is a curated ritual designed to leave you photo-shoot ready.</p>
             <a href="https://maps.google.com/?q=1193+Memorial+Dr,+Chicopee,+MA+01020" class="hero__card-link" target="_blank" rel="noopener">1193 Memorial Dr · Chicopee MA</a>
-            <span class="hero__hours">Open Daily · 10AM – 5PM</span>
+            <span class="hero__hours">Open Daily · 10AM – 6PM</span>
         </div>
       </div>
     </section>
@@ -174,12 +176,16 @@
               <h3>Classic Cut</h3>
               <span class="service-card__price">$30</span>
             </header>
-              <p>Tailored shear and clipper work with a precision neckline finish.</p>
+              <p>Professional haircut with precision clipper and shear work, finished with a clean neckline and styled to perfection.</p>
               <ul>
-                <li>Detailed consultation</li>
-                <li>Signature styling ritual</li>
-                <li>Finishing product coaching</li>
+                <li>Detailed consultation for your desired style</li>
+                <li>Precision cutting with clippers and shears</li>
+                <li>Clean neckline and edge work</li>
+                <li>Professional styling and finishing</li>
             </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
           </article>
             <article class="service-card glass hover-lift service-card--featured" data-animate="fade-up" data-delay="0.1">
               <div class="service-card__badge">Most Requested</div>
@@ -187,97 +193,136 @@
                 <h3>Fade &amp; Lineup</h3>
               <span class="service-card__price">$35</span>
             </header>
-              <p>Flawless gradients blended from temple to crown with razor sharp edges.</p>
-            <ul>
-              <li>Custom fade mapping</li>
-                <li>Razor detailing + hot towel</li>
-                <li>Complimentary neck trim between visits</li>
+              <p>Premium fade service with seamless gradient blending from skin to hair, finished with razor-sharp line work and edge detailing.</p>
+              <ul>
+                <li>Custom fade mapping (low, mid, or high)</li>
+                <li>Seamless gradient blending</li>
+                <li>Razor-sharp lineup and edge work</li>
+                <li>Professional styling and finish</li>
             </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.2">
             <header>
                 <h3>Beard Trim</h3>
               <span class="service-card__price">$20</span>
             </header>
-              <p>Structured sculpting for your beard with nourishing steam treatment.</p>
+              <p>Expert beard shaping and trimming to maintain your desired length and style with precise edge work and conditioning.</p>
               <ul>
-                <li>Cheek + neckline detailing</li>
-                <li>Beard oil massage</li>
-                <li>Finish with hot towel</li>
+                <li>Beard shaping and length adjustment</li>
+                <li>Cheek and neckline edge detailing</li>
+                <li>Beard oil application</li>
+                <li>Professional styling finish</li>
             </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.3">
-            <header>
-                <h3>Hot Towel Shave</h3>
-                <span class="service-card__price">$40</span>
-            </header>
-              <p>Ritualistic straight razor shave with aromatic steam and luxury balms.</p>
-              <ul>
-                <li>Pre-shave exfoliation</li>
-                <li>Multiple hot towel sequence</li>
-                <li>Cooling tonic finish</li>
-            </ul>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.4">
             <header>
               <h3>Kids Cut</h3>
               <span class="service-card__price">$25</span>
             </header>
-              <p>Confidence boosting cuts for the young prodigies.</p>
+              <p>Gentle, patient haircut service designed for children, ensuring comfort and a fresh, confident look.</p>
               <ul>
-                <li>Gentle consultation</li>
-                <li>Clean fade or classic styles</li>
-                <li>Style coaching for parents</li>
+                <li>Patient, child-friendly consultation</li>
+                <li>Clean fade or classic style options</li>
+                <li>Gentle cutting technique</li>
+                <li>Style maintenance tips for parents</li>
               </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
           </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.5">
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.4">
             <header>
                 <h3>Design &amp; Patterns</h3>
                 <span class="service-card__price">$45+</span>
             </header>
-              <p>Custom artwork, parting designs, and camera-ready signature looks.</p>
+              <p>Custom hair designs, intricate patterns, and artistic line work carved into your fade for a unique, camera-ready look.</p>
               <ul>
-                <li>Creative consult</li>
-                <li>Razor precision artistry</li>
-                <li>Complimentary retouch within 5 days</li>
+                <li>Creative design consultation</li>
+                <li>Razor precision pattern work</li>
+                <li>Custom artwork and geometric designs</li>
+                <li>Complimentary touch-up within 5 days</li>
               </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
+          </article>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.5">
+            <header>
+                <h3>Military Cut</h3>
+                <span class="service-card__price">$25</span>
+            </header>
+              <p>Precision military-style haircut with high and tight fade, clean lines, and regulation-compliant styling.</p>
+              <ul>
+                <li>High and tight fade style</li>
+                <li>Regulation-compliant length</li>
+                <li>Clean, sharp edge work</li>
+                <li>Professional military-grade finish</li>
+              </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
+          </article>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.6">
+            <header>
+                <h3>Senior Cut</h3>
+                <span class="service-card__price">$25</span>
+            </header>
+              <p>Comfortable, professional haircut service tailored for seniors with attention to comfort and classic styling preferences.</p>
+              <ul>
+                <li>Comfortable, patient service</li>
+                <li>Classic and traditional style options</li>
+                <li>Gentle cutting technique</li>
+                <li>Professional styling and finish</li>
+              </ul>
+            <div class="service-card__addon">
+              <strong>Add Hot Towel Treatment (+$5)</strong>
+            </div>
           </article>
         </div>
       </div>
     </section>
 
       <section id="gallery" class="gallery" data-scroll-section>
-      <div class="container">
+        <div class="container">
           <header class="section-header" data-animate="fade-up">
             <span class="section-tag">Gallery</span>
             <h2>Fade Empire Portfolio</h2>
             <p>Real clients. Real transformations. Filter by vibe and step inside the chair.</p>
           </header>
         </div>
-        <div class="gallery__grid container" data-gallery-grid>
+        <div class="gallery__grid" data-gallery-grid>
           <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up">
-            <img src="./assets/Haircuts/IMG_2573.jpg" alt="Precision fade with sharp lineup" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_2573_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2573_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2573_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Precision fade with sharp lineup" loading="lazy" data-original="./assets/Haircuts/IMG_2573.jpg">
           </figure>
           <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.05">
-            <img src="./assets/Haircuts/IMG_2607.jpg" alt="Beard sculpt with razor detailing" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_2607_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2607_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2607_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Beard sculpt with razor detailing" loading="lazy" data-original="./assets/Haircuts/IMG_2607.jpg">
           </figure>
           <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.1">
-            <img src="./assets/Haircuts/IMG_2609.jpg" alt="Temple lineup with gradient fade" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_2609_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2609_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2609_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Temple lineup with gradient fade" loading="lazy" data-original="./assets/Haircuts/IMG_2609.jpg">
           </figure>
-          <figure class="gallery__item gallery__item--wide" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.15">
-            <img src="./assets/Haircuts/IMG_2696.jpg" alt="Kids fade with textured top" loading="lazy">
+          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.15">
+            <img src="./assets/Haircuts/optimized/IMG_2696_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2696_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2696_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Kids fade with textured top" loading="lazy" data-original="./assets/Haircuts/IMG_2696.jpg">
           </figure>
           <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.2">
-            <img src="./assets/Haircuts/IMG_2781.jpg" alt="Modern fade with curls" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_2781_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2781_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2781_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Modern fade with curls" loading="lazy" data-original="./assets/Haircuts/IMG_2781.jpg">
           </figure>
           <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.25">
-            <img src="./assets/Haircuts/IMG_8034.jpg" alt="Razor fade with design" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_8034_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_8034_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_8034_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Razor fade with design" loading="lazy" data-original="./assets/Haircuts/IMG_8034.jpg">
           </figure>
           <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.3">
-            <img src="./assets/Haircuts/IMG_8232.jpg" alt="Hot towel shave precision" loading="lazy">
+            <img src="./assets/Haircuts/optimized/IMG_8232_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_8232_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_8232_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Hot towel shave precision" loading="lazy" data-original="./assets/Haircuts/IMG_8232.jpg">
           </figure>
-          <figure class="gallery__item gallery__item--tall" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.35">
-            <img src="./assets/Haircuts/IMG_9449.jpg" alt="Polished fade with textured top" loading="lazy">
+          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.35">
+            <img src="./assets/Haircuts/optimized/IMG_9449_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_9449_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_9449_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Polished fade with textured top" loading="lazy" data-original="./assets/Haircuts/IMG_9449.jpg">
+          </figure>
+          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.4">
+            <img src="./assets/Haircuts/optimized/IMG_0063_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_0063_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_0063_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Premium fade with precision styling" loading="lazy" data-original="./assets/Haircuts/IMG_0063.jpg">
           </figure>
       </div>
       <div class="lightbox" id="lightbox" hidden>
@@ -299,7 +344,7 @@
         </div>
         <div class="barbers__scroller" data-scroll-snap>
           <article class="barber-card hover-lift glass" data-animate="fade-up">
-            <img src="./assets/Barbers/Hassan/HassanBarber.png" alt="Master Barber Hassan" loading="lazy">
+            <img src="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png" srcset="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png 600w, ./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png 800w" sizes="(max-width: 768px) 80vw, 400px" alt="Master Barber Hassan" loading="lazy" width="600" height="800">
             <div class="barber-card__body">
               <h3>Hassan “The Craftsman”</h3>
               <p>Hassan is a licensed barber from Lebanon with Massachusetts Board certification.</p>
@@ -341,23 +386,23 @@
               <div class="calendar-grid">
                 <div class="calendar-day is-open">
                   <span>Mon</span>
-                  <strong>10a — 5p</strong>
+                  <strong>10a — 6p</strong>
                 </div>
                 <div class="calendar-day is-open">
                   <span>Tue</span>
-                  <strong>10a — 5p</strong>
+                  <strong>10a — 6p</strong>
                 </div>
                 <div class="calendar-day is-open">
                   <span>Wed</span>
-                  <strong>10a — 5p</strong>
+                  <strong>10a — 6p</strong>
                 </div>
                 <div class="calendar-day is-open">
                   <span>Thu</span>
-                  <strong>10a — 5p</strong>
+                  <strong>10a — 6p</strong>
                 </div>
                 <div class="calendar-day is-open">
                   <span>Fri</span>
-                  <strong>10a — 5p</strong>
+                  <strong>10a — 6p</strong>
                 </div>
                 <div class="calendar-day">
                   <span>Sat</span>
@@ -390,9 +435,11 @@
                   <option value="Classic Cut ($30)">Classic Cut ($30)</option>
                   <option value="Fade &amp; Lineup ($35)">Fade &amp; Lineup ($35)</option>
                   <option value="Beard Trim ($20)">Beard Trim ($20)</option>
-                  <option value="Hot Towel Shave ($40)">Hot Towel Shave ($40)</option>
                   <option value="Kids Cut ($25)">Kids Cut ($25)</option>
+                  <option value="Military Cut ($25)">Military Cut ($25)</option>
+                  <option value="Senior Cut ($25)">Senior Cut ($25)</option>
                   <option value="Design &amp; Patterns ($45+)">Design &amp; Patterns ($45+)</option>
+                  <option value="Hot Towel Treatment (+$5)">Hot Towel Treatment (+$5)</option>
                   <option value="Custom Request">Custom Request (Describe Below)</option>
             </select>
               </div>
@@ -440,7 +487,7 @@
               1193 Memorial Dr<br>
               Chicopee, MA 01020
             </address>
-            <p class="map-section__hours">Hours · 10AM – 5PM · Every Day</p>
+            <p class="map-section__hours">Hours · 10AM – 6PM · Every Day</p>
             <div class="map-section__contact">
               <a href="tel:+14138854440">Call 413-885-4440</a>
               <a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a>
@@ -465,7 +512,7 @@
     <footer class="footer" id="footer">
     <div class="container footer__inner">
       <div class="footer__brand">
-          <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" width="52" height="52">
+          <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" width="52" height="52" loading="eager">
           <div>
             <h3>Fade Empire</h3>
             <p>Precision Grooming · Chicopee, MA</p>
@@ -487,7 +534,7 @@
             </div>
         <div>
               <dt>Hours</dt>
-              <dd>Daily · 10AM – 5PM</dd>
+              <dd>Daily · 10AM – 6PM</dd>
             </div>
           </dl>
         </div>
@@ -512,17 +559,20 @@
       <span>Chat</span>
     </a>
 
-    <div class="cookie-banner" id="cookieBanner" role="dialog" aria-live="polite" aria-label="Cookie notice">
-      <div class="cookie-banner__content">
-        <p>Fade Empire uses cookies to elevate your booking experience. Tap accept to continue.</p>
-        <div class="cookie-banner__actions">
-          <button class="btn btn--ghost" id="cookieDecline">Decline</button>
-          <button class="btn btn--primary" id="cookieAccept">Accept</button>
-        </div>
-      </div>
-    </div>
 
     <script src="./script.js" type="module" defer></script>
+    <script>
+      // Optimize font loading
+      if ('fonts' in document) {
+        Promise.all([
+          document.fonts.load('400 1em Poppins'),
+          document.fonts.load('700 1em Montserrat'),
+          document.fonts.load('400 1em Bebas Neue')
+        ]).then(() => {
+          document.documentElement.classList.add('fonts-loaded');
+        });
+      }
+    </script>
 </body>
 </html>
 
