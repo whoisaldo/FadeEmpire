@@ -93,6 +93,45 @@
           padding: 2rem 1rem !important;
         }
       }
+
+      /* Services (locked): forces 2-up on mobile and prevents layout overrides */
+      #services .services__grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 2rem !important;
+      }
+
+      #services .service-card {
+        min-width: 0 !important;
+      }
+
+      @media (max-width: 767px) {
+        #services .services__grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 0.9rem !important;
+        }
+
+        #services .service-card {
+          padding: 1.15rem !important;
+          gap: 0.95rem !important;
+        }
+
+        #services .service-card h3 {
+          font-size: 1.05rem !important;
+        }
+
+        #services .service-card__price {
+          font-size: 1.5rem !important;
+        }
+
+        #services .service-card ul {
+          gap: 0.55rem !important;
+        }
+
+        #services .service-card li {
+          font-size: 0.85rem !important;
+        }
+      }
     </style>
 
     <title>Fade Empire · Where Legends Get Their Cut</title>
