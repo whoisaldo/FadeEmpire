@@ -224,9 +224,7 @@
     min-height: 280px;
   }
 
-  .whatsapp-button {
-    bottom: 5.5rem;
-  }
+  /* WhatsApp button removed */
 
   .footer__inner {
     grid-template-columns: 1fr;
@@ -281,10 +279,7 @@
     padding: 1.5rem;
   }
 
-  .whatsapp-button {
-    left: 1.2rem;
-    right: auto;
-  }
+  /* WhatsApp button removed */
 }
 
 @media (prefers-reduced-motion: reduce) {
