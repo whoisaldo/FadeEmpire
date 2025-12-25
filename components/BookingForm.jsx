@@ -164,7 +164,7 @@ const BookingForm = () => {
           <option value="">Select a service</option>
           <option value="Classic Cut ($30)">Classic Cut ($30)</option>
           <option value="Fade & Lineup ($35)">Fade &amp; Lineup ($35)</option>
-          <option value="Beard Trim ($20)">Beard Trim ($20)</option>
+          <option value="Beard Trim ($10)">Beard Trim ($10)</option>
           <option value="Kids Cut ($25)">Kids Cut ($25)</option>
           <option value="Military Cut ($25)">Military Cut ($25)</option>
           <option value="Senior Cut ($25)">Senior Cut ($25)</option>
