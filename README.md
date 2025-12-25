@@ -14,17 +14,16 @@ Fade Empire is a premium barbershop offering precision fades, custom designs, be
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **HTML5** - Semantic markup
+### Core Technologies
+- **HTML5** - Semantic markup, no frameworks
 - **CSS3** - Custom styling with:
   - CSS Grid & Flexbox for layouts
   - CSS Variables for theming
   - Responsive design with mobile-first approach
   - Custom animations and transitions
-- **JavaScript (ES6+)** - Vanilla JS for:
+- **JavaScript (ES6+)** - Vanilla JS (no frameworks) for:
   - DOM manipulation
   - Form handling
-  - Lightbox gallery
   - Scroll animations
   - WhatsApp/SMS booking integration
 
@@ -43,9 +42,11 @@ Fade Empire is a premium barbershop offering precision fades, custom designs, be
 - Responsive image loading with `srcset` and `sizes`
 - Lazy loading for performance
 
-### Development
-- **Local server** - Python `http.server` or Node.js `http-server`
-- **No build process** - Pure static site (HTML/CSS/JS)
+### Development & Deployment
+- **Static Site** - Pure HTML/CSS/JS, no build process required
+- **Local Development Server** (optional):
+  - Python 3.x `http.server` (simple local testing)
+  - Node.js `http-server` (alternative option)
 - **Expo** (optional) - For mobile app wrapper via WebView
 
 ## 📁 Project Structure
@@ -70,24 +71,26 @@ FadeEmpire/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.x (for local server) OR Node.js (for http-server)
 - Modern web browser
+- (Optional) Python 3.x OR Node.js for local development server
 
 ### Local Development
+
+**Note:** This is a static website - no build process or backend required. You can open `index.html` directly in a browser, but using a local server is recommended for proper asset loading.
 
 1. **Clone or navigate to the project:**
    ```bash
    cd FadeEmpire
    ```
 
-2. **Start a local server:**
+2. **Start a local server (choose one):**
    
-   **Option A: Python**
+   **Option A: Python (if installed)**
    ```bash
    python3 -m http.server 8000
    ```
    
-   **Option B: Node.js**
+   **Option B: Node.js (if installed)**
    ```bash
    npx http-server -p 8000
    ```
@@ -133,9 +136,11 @@ xcrun simctl openurl booted "http://YOUR_MAC_IP:8000"
 ## 📝 Notes
 
 - This is a **freelance project** for a local barbershop
-- Static site - no backend required
+- **Pure static website** - HTML, CSS, and JavaScript only
+- No backend, no build process, no frameworks (except React for booking form)
 - Booking handled via WhatsApp/SMS (no server-side processing)
 - All images are optimized for web (mobile/tablet/desktop variants)
+- Python/Node.js mentioned only as optional local development server tools
 
 ## 👨‍💻 Developer
 
