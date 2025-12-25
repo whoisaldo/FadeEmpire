@@ -13,9 +13,8 @@
   }
 
   .gallery__grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    padding: 2rem 1rem;
   }
   
   .gallery {
@@ -34,7 +33,6 @@
   
   .gallery__grid {
     gap: 24px;
-    padding: 3rem 2rem;
   }
 }
 
@@ -104,7 +102,7 @@
   }
 
   .gallery__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .booking__grid {
@@ -120,6 +118,32 @@
 @media (max-width: 767px) {
   .container {
     width: min(92vw, 640px);
+  }
+
+  .services__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .service-card {
+    padding: 1.2rem;
+    gap: 1rem;
+  }
+
+  .service-card h3 {
+    font-size: 1.05rem;
+  }
+
+  .service-card__price {
+    font-size: 1.5rem;
+  }
+
+  .service-card ul {
+    gap: 0.55rem;
+  }
+
+  .service-card li {
+    font-size: 0.85rem;
   }
 
   .hero {
@@ -216,10 +240,21 @@
 }
 
 @media (max-width: 520px) {
+  .developer-contact {
+    bottom: 5.6rem;
+    font-size: 0.6rem;
+    padding: 0.65rem 0.95rem;
+    max-width: calc(100vw - 2rem);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .gallery__grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 2rem 0.75rem;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+    padding: 2rem 0.75rem !important;
   }
 
   .hero__title-outline {

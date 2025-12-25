@@ -153,81 +153,8 @@ const initHeroParticles = () => {
   window.addEventListener('unload', () => cancelAnimationFrame(animationFrame));
 };
 
-const initGallery = () => {
-  const items = selectAll('.gallery__item');
-  const lightbox = select('#lightbox');
-  const lightboxImage = select('#lightboxImage');
-  const lightboxVideo = select('#lightboxVideo');
-  const lightboxClose = select('#lightboxClose');
-  let lastFocus = null;
-
-  const openLightbox = (src, type = 'image') => {
-    if (!lightbox) return;
-    lightbox.classList.add('is-open');
-    lightbox.removeAttribute('hidden');
-    document.body.style.overflow = 'hidden';
-
-    if (type === 'video' && lightboxVideo) {
-      lightboxVideo.src = src;
-      lightboxVideo.style.display = 'block';
-      lightboxVideo.play().catch(() => {});
-      lightboxImage?.removeAttribute('src');
-      if (lightboxImage) lightboxImage.style.display = 'none';
-    } else if (lightboxImage) {
-      lightboxImage.src = src;
-      lightboxImage.style.display = 'block';
-      if (lightboxVideo) {
-        lightboxVideo.pause();
-        lightboxVideo.removeAttribute('src');
-        lightboxVideo.style.display = 'none';
-      }
-    }
-    lightboxClose?.focus();
-  };
-
-  const closeLightbox = () => {
-    if (!lightbox) return;
-    lightbox.classList.remove('is-open');
-    lightbox.setAttribute('hidden', '');
-    document.body.style.overflow = '';
-    if (lightboxVideo) {
-      lightboxVideo.pause();
-      lightboxVideo.removeAttribute('src');
-      lightboxVideo.style.display = 'none';
-    }
-    if (lightboxImage) {
-      lightboxImage.removeAttribute('src');
-      lightboxImage.style.display = 'none';
-    }
-    lastFocus?.focus();
-  };
-
-  items.forEach((item) => {
-    item.addEventListener('click', () => {
-      const img = item.querySelector('img');
-      // Use original high-res image for lightbox, fallback to current src
-      const originalSrc = img?.dataset.original || img?.getAttribute('src')?.replace('/optimized/', '/').replace('_mobile', '').replace('_tablet', '') || img?.getAttribute('src');
-      if (!originalSrc) return;
-      lastFocus = item;
-      openLightbox(originalSrc, item.dataset.type);
-    });
-    item.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        item.click();
-      }
-    });
-    item.setAttribute('tabindex', '0');
-  });
-
-  lightboxClose?.addEventListener('click', closeLightbox);
-  lightbox?.addEventListener('click', (event) => {
-    if (event.target === lightbox) closeLightbox();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && lightbox?.classList.contains('is-open')) closeLightbox();
-  });
-};
+// Portfolio is a simple thumbnail grid; no click-to-view behavior.
+const initGallery = () => {};
 
 const initWhatsappBookingForm = () => {
   const form = select('#whatsappBookingForm');
@@ -468,7 +395,6 @@ const init = () => {
   initNav();
   initScrollAnimations();
   initHeroParticles();
-  initGallery();
   initWhatsappBookingForm();
   initBackToTop();
   initCursor();
