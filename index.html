@@ -30,10 +30,10 @@
     <link rel="preload" as="image" href="./assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_tablet.jpg" media="(min-width: 769px)">
     <link rel="preload" as="image" href="./assets/FadeEmpireStore/fadeempirelogo.png">
 
-    <link rel="stylesheet" href="./styles/globals.css?v=20251225-2">
-    <link rel="stylesheet" href="./styles/bookingForm.css?v=20251225-2">
-    <link rel="stylesheet" href="./styles/animations.css?v=20251225-2">
-    <link rel="stylesheet" href="./styles/responsive.css?v=20251225-2">
+    <link rel="stylesheet" href="./styles/globals.css?v=20251225-6">
+    <link rel="stylesheet" href="./styles/bookingForm.css?v=20251225-6">
+    <link rel="stylesheet" href="./styles/animations.css?v=20251225-6">
+    <link rel="stylesheet" href="./styles/responsive.css?v=20251225-6">
 
     <style>
       /* Portfolio gallery (locked): ensures grid always renders correctly */
@@ -272,7 +272,7 @@
         <div class="services__grid">
             <article class="service-card glass hover-lift" data-animate="fade-up">
             <header>
-              <h3>Classic Cut</h3>
+              <h3>Hair Cut</h3>
               <span class="service-card__price">$30</span>
             </header>
               <p>Professional haircut with precision clipper and shear work, finished with a clean neckline and styled to perfection.</p>
@@ -282,25 +282,32 @@
                 <li>Clean neckline and edge work</li>
                 <li>Professional styling and finishing</li>
             </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Hair Cut" data-base-price="30">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">30</span></div>
             </div>
           </article>
-            <article class="service-card glass hover-lift service-card--featured" data-animate="fade-up" data-delay="0.1">
-              <div class="service-card__badge">Most Requested</div>
+            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.1">
             <header>
-                <h3>Fade &amp; Lineup</h3>
-              <span class="service-card__price">$35</span>
+                <h3>Line Up</h3>
+              <span class="service-card__price">$10</span>
             </header>
-              <p>Premium fade service with seamless gradient blending from skin to hair, finished with razor-sharp line work and edge detailing.</p>
+              <p>Precision edge work and lineup service for sharp, clean lines around your hairline, sideburns, and neck.</p>
               <ul>
-                <li>Custom fade mapping (low, mid, or high)</li>
-                <li>Seamless gradient blending</li>
-                <li>Razor-sharp lineup and edge work</li>
-                <li>Professional styling and finish</li>
+                <li>Razor-sharp edge detailing</li>
+                <li>Hairline and sideburn cleanup</li>
+                <li>Neckline precision work</li>
+                <li>Professional finish</li>
             </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Line Up" data-base-price="10">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">10</span></div>
             </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.2">
@@ -315,8 +322,12 @@
                 <li>Beard oil application</li>
                 <li>Professional styling finish</li>
             </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Beard Trim" data-base-price="10">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">10</span></div>
             </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.3">
@@ -331,24 +342,12 @@
                 <li>Gentle cutting technique</li>
                 <li>Style maintenance tips for parents</li>
               </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.4">
-            <header>
-                <h3>Design &amp; Patterns</h3>
-                <span class="service-card__price">$45+</span>
-            </header>
-              <p>Custom hair designs, intricate patterns, and artistic line work carved into your fade for a unique, camera-ready look.</p>
-              <ul>
-                <li>Creative design consultation</li>
-                <li>Razor precision pattern work</li>
-                <li>Custom artwork and geometric designs</li>
-                <li>Complimentary touch-up within 5 days</li>
-              </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Kids Cut" data-base-price="25">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
             </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.5">
@@ -363,8 +362,12 @@
                 <li>Clean, sharp edge work</li>
                 <li>Professional military-grade finish</li>
               </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Military Cut" data-base-price="25">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
             </div>
           </article>
             <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.6">
@@ -379,8 +382,31 @@
                 <li>Gentle cutting technique</li>
                 <li>Professional styling and finish</li>
               </ul>
-            <div class="service-card__addon">
-              <strong>Add Hot Towel Treatment (+$5)</strong>
+            <div class="service-card__addons" data-service="Senior Cut" data-base-price="25">
+              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
+              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
+              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
+              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
+              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
+            </div>
+          </article>
+            <article class="service-card glass hover-lift service-card--featured" data-animate="fade-up" data-delay="0.7">
+              <div class="service-card__badge">VIP Experience</div>
+            <header>
+                <h3>VIP Haircut</h3>
+              <span class="service-card__price">$60</span>
+            </header>
+              <p>The ultimate luxury experience. Full haircut with all premium add-ons included: hot towel treatment, facial, wax, and all Fade Empire specials.</p>
+              <ul>
+                <li>Complete premium haircut service</li>
+                <li>Hot towel treatment included</li>
+                <li>Facial treatment included</li>
+                <li>Wax service included</li>
+                <li>All luxury Fade Empire specials</li>
+              </ul>
+            <div class="service-card__addons" data-service="VIP Haircut" data-base-price="60">
+              <p class="service-card__vip-note">All add-ons included in VIP package</p>
+              <div class="service-card__total">Total: $<span class="total-price">60</span></div>
             </div>
           </article>
         </div>
@@ -524,14 +550,13 @@
                 <label for="bookingService">Service *</label>
                 <select id="bookingService" name="service" required>
               <option value="">Select a service</option>
-                  <option value="Classic Cut ($30)">Classic Cut ($30)</option>
-                  <option value="Fade &amp; Lineup ($35)">Fade &amp; Lineup ($35)</option>
+                  <option value="Hair Cut ($30)">Hair Cut ($30)</option>
+                  <option value="Line Up ($10)">Line Up ($10)</option>
                   <option value="Beard Trim ($10)">Beard Trim ($10)</option>
                   <option value="Kids Cut ($25)">Kids Cut ($25)</option>
                   <option value="Military Cut ($25)">Military Cut ($25)</option>
                   <option value="Senior Cut ($25)">Senior Cut ($25)</option>
-                  <option value="Design &amp; Patterns ($45+)">Design &amp; Patterns ($45+)</option>
-                  <option value="Hot Towel Treatment (+$5)">Hot Towel Treatment (+$5)</option>
+                  <option value="VIP Haircut ($60)">VIP Haircut ($60)</option>
                   <option value="Custom Request">Custom Request (Describe Below)</option>
             </select>
               </div>
@@ -656,7 +681,7 @@
     </a>
 
 
-    <script src="./script.js?v=20251225-2" type="module" defer></script>
+    <script src="./script.js?v=20251225-6" type="module" defer></script>
     <script>
       // Optimize font loading
       if ('fonts' in document) {

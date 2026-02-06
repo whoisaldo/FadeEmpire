@@ -180,9 +180,9 @@ const initWhatsappBookingForm = () => {
   const populateTimes = () => {
     if (!timeSelect) return;
     const fragment = document.createDocumentFragment();
-    for (let hour = 10; hour <= 16; hour += 1) {
+    for (let hour = 10; hour <= 17; hour += 1) {
       for (let minute = 0; minute <= 30; minute += 30) {
-        if (hour === 16 && minute > 30) continue;
+        if (hour === 17 && minute > 30) continue;
         const suffix = hour >= 12 ? 'PM' : 'AM';
         const displayHour = hour > 12 ? hour - 12 : hour;
         const displayMinutes = minute === 0 ? '00' : '30';
@@ -390,6 +390,32 @@ const initHeroParallax = () => {
   });
 };
 
+const initServiceAddons = () => {
+  const addonContainers = selectAll('.service-card__addons');
+  
+  addonContainers.forEach((container) => {
+    const basePrice = parseInt(container.dataset.basePrice || '0');
+    const totalPriceEl = container.querySelector('.total-price');
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    
+    const updateTotal = () => {
+      let total = basePrice;
+      checkboxes.forEach((checkbox) => {
+        if (checkbox.checked) {
+          total += parseInt(checkbox.dataset.price || '0');
+        }
+      });
+      if (totalPriceEl) {
+        totalPriceEl.textContent = total;
+      }
+    };
+    
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', updateTotal);
+    });
+  });
+};
+
 const init = () => {
   initPreloader();
   initNav();
@@ -402,6 +428,7 @@ const init = () => {
   initYear();
   initSmoothAnchors();
   initHeroParallax();
+  initServiceAddons();
 };
 
 document.addEventListener('DOMContentLoaded', init);

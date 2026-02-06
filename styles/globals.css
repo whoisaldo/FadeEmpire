@@ -729,6 +729,68 @@ button {
   letter-spacing: 0.05em;
 }
 
+.service-card__addons {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.service-card__addons label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--gray-60);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  line-height: 1.5;
+  padding: 0.2rem 0;
+}
+
+.service-card__addons label:hover {
+  color: var(--gold);
+}
+
+.service-card__addons input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--gold);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+  margin: 0;
+  padding: 0;
+  margin-top: 2px;
+}
+
+.service-card__addons input[type="checkbox"]:checked {
+  background-color: var(--gold);
+  border-color: var(--gold);
+}
+
+.service-card__total {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.3);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.service-card__vip-note {
+  font-size: 0.8rem;
+  color: var(--gold);
+  text-align: center;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
 /* Gallery */
 .gallery {
   padding: 3rem 0;
