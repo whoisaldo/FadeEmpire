@@ -36,20 +36,50 @@
 
   <link rel="preload" as="image" href="./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png">
 
-  <link rel="stylesheet" href="./styles/tokens.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/type.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/layout.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/components.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/hero.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/menu.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/gallery.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/hassan.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/booking-grid.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/visit.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/motion.css?v=20260525-4">
-  <link rel="stylesheet" href="./styles/responsive.css?v=20260525-4">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BarberShop",
+    "name": "Fade Empire",
+    "image": "https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png",
+    "@id": "https://chicopeefadeempire.com",
+    "url": "https://chicopeefadeempire.com",
+    "telephone": "+1-413-885-4440",
+    "priceRange": "$10–$60",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "1193 Memorial Dr",
+      "addressLocality": "Chicopee",
+      "addressRegion": "MA",
+      "postalCode": "01020",
+      "addressCountry": "US"
+    },
+    "openingHoursSpecification": [{
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+      "opens": "10:00",
+      "closes": "17:30"
+    }],
+    "sameAs": [
+      "https://www.instagram.com/fade_empire_barbershop/"
+    ]
+  }
+  </script>
 
-  <script type="module" src="./scripts/main.js?v=20260525-4"></script>
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/type.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/layout.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/components.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/hero.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/menu.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/gallery.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/hassan.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/booking-grid.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/visit.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/motion.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/responsive.css?v=20260525-5">
+
+  <script type="module" src="./scripts/main.js?v=20260525-5"></script>
 </head>
 <body>
 
@@ -677,6 +707,15 @@
             <a class="btn btn--gold btn--lg" data-success-link target="_blank" rel="noopener" hidden>Open WhatsApp →</a>
           </div>
           <p class="booking__success-fine t-meta">If the message app didn't open automatically, tap the button above.</p>
+        </div>
+
+        <div class="booking__fallback-card" data-form-fallback hidden role="status">
+          <p class="t-eyebrow">Sending to Hassan directly</p>
+          <p class="booking__fallback-text" data-fallback-text></p>
+          <div class="booking__fallback-actions">
+            <a class="btn btn--gold btn--lg" data-fallback-link target="_blank" rel="noopener" hidden>Open WhatsApp →</a>
+          </div>
+          <p class="booking__fallback-fine t-meta">Tap the button if your messaging app didn't open automatically.</p>
         </div>
 
         <div class="booking__submit">

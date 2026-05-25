@@ -40,7 +40,7 @@ function renderDayRow() {
     btn.type = 'button';
     btn.className = 'booking__day' + (closed ? ' is-closed' : '');
     btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-selected', 'false');
     btn.dataset.date = iso;
     if (closed) btn.disabled = true;
 
@@ -65,10 +65,10 @@ function selectDate(iso) {
   state.selectedDate = iso;
   state.selectedTime = null;
 
-  // Update day-row aria-pressed
+  // Update day-row aria-selected
   document.querySelectorAll('[data-day-row] .booking__day').forEach(b => {
     const on = b.dataset.date === iso;
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
     b.classList.toggle('is-selected', on);
   });
 
@@ -118,7 +118,7 @@ function renderSlots() {
     btn.type = 'button';
     btn.className = 'booking__slot';
     btn.setAttribute('role', 'radio');
-    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-checked', 'false');
     btn.dataset.time = hms;
     btn.textContent = minutesToLabel(m);
 
@@ -146,7 +146,7 @@ function selectTime(hms) {
   state.selectedTime = hms;
   document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
     const on = b.dataset.time === hms;
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
     b.classList.toggle('is-selected', on);
   });
   syncForm();
@@ -202,10 +202,42 @@ function bindExternalPick() {
     state.selectedTime = null;
     syncForm();
     document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
-      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-checked', 'false');
       b.classList.remove('is-selected');
     });
   });
+}
+
+/* ---------- Auto-refresh: tab visibility + midnight rollover ---------- */
+
+let _cachedToday = null;
+function maybeRolloverDay() {
+  const today = isoDate(new Date());
+  if (_cachedToday && _cachedToday !== today) {
+    // Day rolled over while the tab was open. Rebuild the picker so yesterday
+    // drops off, and re-render the current slots to apply the past-slot filter.
+    _cachedToday = today;
+    renderDayRow();
+  } else if (!_cachedToday) {
+    _cachedToday = today;
+  }
+}
+
+function initAutoRefresh() {
+  // Refresh availability when the tab becomes visible again. Customers commonly
+  // tab away (e.g. to check calendar) — when they come back the slot grid
+  // shouldn't show stale "available" slots that someone else booked meanwhile.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    maybeRolloverDay();
+    loadAvailability();
+  });
+
+  // Long-open tabs: poll for midnight + refresh availability every 5 min.
+  setInterval(() => {
+    maybeRolloverDay();
+    if (!document.hidden) loadAvailability();
+  }, 5 * 60_000);
 }
 
 /* ---------- Boot ---------- */
@@ -214,6 +246,7 @@ export async function initBookingGrid() {
   if (!document.querySelector('[data-day-row]')) return;
   renderDayRow();
   bindExternalPick();
+  initAutoRefresh();
   await loadAvailability();
 }
 

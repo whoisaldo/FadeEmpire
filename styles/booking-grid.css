@@ -411,6 +411,70 @@
   letter-spacing: 0.08em;
 }
 
+/* Fallback card: shown when the RPC fails for non-conflict reasons, signaling
+   that we'll still ping Hassan even though the slot isn't locked in the DB.
+   Amber palette to differentiate from green-tinted success and red-tinted error. */
+.booking__fallback-card {
+  padding: 1.25rem 1.1rem 1.1rem;
+  background:
+    linear-gradient(180deg, rgba(230, 162, 60, 0.08), transparent 80%),
+    rgba(230, 162, 60, 0.03);
+  border: 1px solid rgba(230, 162, 60, 0.45);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.booking__fallback-card .t-eyebrow { color: var(--status-soon); }
+
+.booking__fallback-text {
+  margin: 0;
+  color: var(--bone);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+.booking__fallback-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.booking__fallback-actions .btn { flex: 1 1 240px; }
+
+.booking__fallback-fine {
+  margin: 0;
+  color: var(--bone-mute);
+  letter-spacing: 0.08em;
+}
+
+/* Group timeline overrun state */
+.booking__group-timeline[data-overrun] {
+  border-left-color: var(--status-closed);
+  background: rgba(192, 57, 43, 0.06);
+  color: var(--error);
+}
+
+/* Focus-visible outlines for keyboard navigation */
+.booking__day:focus-visible,
+.booking__slot:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.booking__group-add:focus-visible,
+.booking__guest-remove:focus-visible,
+.booking__selected-clear:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.booking__addon input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* =====================================================
    Group booking — guest rows
 ===================================================== */

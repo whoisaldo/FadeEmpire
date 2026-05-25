@@ -1,97 +1,161 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Fade Empire · 404</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600;700&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        --black: #0a0a0a;
-        --gold: #d4af37;
-        --gold-bright: #ffd700;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: radial-gradient(circle at top, rgba(212, 175, 55, 0.16), rgba(10, 10, 10, 0.95)),
-          url('./assets/FadeEmpireStore/FadeEmpireStoreFront.JPG') center/cover no-repeat;
-        color: #fff;
-        font-family: 'Poppins', sans-serif;
-      }
-      .overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(10, 10, 10, 0.82);
-        backdrop-filter: blur(8px);
-      }
-      main {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        padding: 4rem 2rem;
-        border-radius: 1.8rem;
-        background: rgba(10, 10, 10, 0.72);
-        border: 1px solid rgba(212, 175, 55, 0.28);
-        max-width: 520px;
-        width: min(90vw, 520px);
-        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
-      }
-      h1 {
-        font-family: 'Bebas Neue', sans-serif;
-        font-size: clamp(5rem, 18vw, 8rem);
-        margin: 0;
-        letter-spacing: 0.28em;
-      }
-      h1 span {
-        display: block;
-        font-size: clamp(1.6rem, 4vw, 2.4rem);
-        letter-spacing: 0.32em;
-        color: transparent;
-        background: linear-gradient(135deg, var(--gold), var(--gold-bright));
-        -webkit-background-clip: text;
-        margin-top: 1rem;
-      }
-      p {
-        margin: 1.5rem 0 2.5rem;
-        color: rgba(255, 255, 255, 0.72);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-      }
-      a {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.9rem 2.2rem;
-        border-radius: 999px;
-        background: linear-gradient(135deg, var(--gold), var(--gold-bright));
-        color: var(--black);
-        font-weight: 600;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        text-decoration: none;
-        box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
-      }
-      a:hover {
-        transform: translateY(-3px);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="overlay" aria-hidden="true"></div>
-    <main>
-      <h1>404<span>Chair Not Found</span></h1>
-      <p>The cut you’re looking for has left the building. Let’s bring you back to the empire.</p>
-      <a href="/">Return Home</a>
-    </main>
-  </body>
-</html>
+<head>
+  <meta charset="utf-8">
+  <title>Chair not found · Fade Empire</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, follow">
+  <meta name="theme-color" content="#0A0908">
+  <meta name="color-scheme" content="dark">
 
+  <link rel="icon" type="image/png" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="apple-touch-icon" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260525-5">
+  <link rel="stylesheet" href="./styles/type.css?v=20260525-5">
+
+  <style>
+    /* 404-specific layout — kept self-contained so the page works even if
+       the rest of the site's CSS is unreachable. */
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: clamp(2rem, 6vw, 5rem) 1.25rem;
+      text-align: left;
+    }
+
+    .nf {
+      width: min(720px, 92vw);
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1.25rem, 3vw, 2rem);
+    }
+
+    .nf__eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--gold);
+    }
+
+    .nf__rule {
+      flex: 1;
+      height: 1px;
+      background: var(--rule-gold);
+    }
+
+    .nf__title {
+      font-size: clamp(3.25rem, 11vw, 6.5rem);
+      line-height: 0.92;
+      letter-spacing: -0.025em;
+    }
+
+    .nf__dek {
+      max-width: 38ch;
+      font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+      color: var(--bone-soft);
+    }
+
+    .nf__actions {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .nf__btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.95rem 1.5rem;
+      border-radius: 2px;
+      font-family: 'General Sans', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 0.875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform var(--t-fast) var(--ease-out),
+                  background var(--t-fast) var(--ease-out),
+                  border-color var(--t-fast) var(--ease-out),
+                  color var(--t-fast) var(--ease-out);
+      min-height: 52px;
+    }
+
+    .nf__btn--gold {
+      background: var(--gold);
+      color: var(--ink);
+      border: 1px solid var(--gold);
+    }
+    .nf__btn--gold:hover { background: var(--gold-pale); border-color: var(--gold-pale); }
+
+    .nf__btn--ghost {
+      background: transparent;
+      color: var(--bone);
+      border: 1px solid var(--rule-strong);
+    }
+    .nf__btn--ghost:hover { color: var(--gold); border-color: var(--gold); }
+
+    .nf__btn:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .nf__foot {
+      margin-top: clamp(1.5rem, 3vw, 2.5rem);
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2rem;
+      align-items: baseline;
+    }
+
+    .nf__foot .t-meta { color: var(--bone-mute); }
+    .nf__foot a { color: var(--bone); }
+    .nf__foot a:hover { color: var(--gold); }
+
+    @media (max-width: 600px) {
+      .nf__actions .nf__btn { flex: 1 1 auto; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="nf">
+  <p class="nf__eyebrow t-eyebrow">
+    <span>404 · Memorial Dr</span>
+    <span class="nf__rule" aria-hidden="true"></span>
+    <span>Chicopee · MA</span>
+  </p>
+
+  <h1 class="nf__title t-display">Chair not<br>found.</h1>
+
+  <p class="nf__dek t-italic">
+    That page slipped out of the shop. The chair you're looking for might be at the
+    front door instead — or Hassan can take care of you the old-fashioned way.
+  </p>
+
+  <div class="nf__actions">
+    <a class="nf__btn nf__btn--gold" href="/">← Back to the shop</a>
+    <a class="nf__btn nf__btn--ghost" href="tel:+14138854440">Call 413·885·4440</a>
+  </div>
+
+  <footer class="nf__foot">
+    <span class="t-meta">Fade Empire</span>
+    <span class="t-mono">1193 Memorial Dr · Chicopee · MA 01020</span>
+    <a href="https://www.instagram.com/fade_empire_barbershop/" target="_blank" rel="noopener" class="t-mono">Instagram →</a>
+  </footer>
+</main>
+
+</body>
+</html>

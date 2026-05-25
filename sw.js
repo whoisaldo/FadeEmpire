@@ -11,9 +11,20 @@
 // claims existing clients, so a tab reload picks it up. Old caches get nuked
 // in the `activate` event.
 
-const VERSION = 'fe-3';
+const VERSION = 'fe-5';
 const STATIC_CACHE = `fe-static-${VERSION}`;
 const HTML_CACHE   = `fe-html-${VERSION}`;
+
+// Known-old version caches to nuke aggressively on activate. The generic
+// "delete everything not matching the current name" loop below covers these,
+// but listing them explicitly is belt-and-suspenders for devices that
+// somehow accumulate multiple stale generations.
+const KNOWN_OLD = [
+  'fe-static-fe-1', 'fe-html-fe-1',
+  'fe-static-fe-2', 'fe-html-fe-2',
+  'fe-static-fe-3', 'fe-html-fe-3',
+  'fe-static-fe-4', 'fe-html-fe-4',
+];
 
 const PRECACHE = [
   '/',
@@ -32,13 +43,17 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== STATIC_CACHE && k !== HTML_CACHE)
-          .map((k) => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+    Promise.all([
+      // Belt: aggressively delete known-old caches by name.
+      ...KNOWN_OLD.map((k) => caches.delete(k)),
+      // Suspenders: generic cleanup of anything not on the current generation.
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== STATIC_CACHE && k !== HTML_CACHE)
+              .map((k) => caches.delete(k))
+        )
+      ),
+    ]).then(() => self.clients.claim())
   );
 });
 

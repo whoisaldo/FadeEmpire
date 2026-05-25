@@ -47,12 +47,14 @@ export async function bookSlot({
     console.error('[booking] book_slot RPC failed:', error);
     throw new BookingError(mapBookingErrorCode(error), error);
   }
-  return data && data[0];
+  // After 0006, book_slot returns N rows (one per 30-min slot a service occupies).
+  // Row 0 is the primary booking (carries booking_id + price + addons).
+  return data || [];
 }
 
 /**
  * Atomically book a group of consecutive slots starting at `startTime`.
- * `people` is an array of { name, serviceSlug, addons?, notes? }.
+ * `people` is an array of { name, serviceSlug, addons?, notes?, customRequest? }.
  * All-or-nothing: any conflict raises BookingError('slot_taken') and the
  * transaction rolls back. Returns array of { booking_id, person_index,
  * person_name, service_slug, booking_time, total_price_cents }.
@@ -72,10 +74,11 @@ export async function bookSlotGroup({
     p_start_time:     startTime,
     p_customer_phone: phone,
     p_people:         people.map(p => ({
-      name:         p.name,
-      service_slug: p.serviceSlug,
-      addons:       p.addons || [],
-      notes:        p.notes || null,
+      name:           p.name,
+      service_slug:   p.serviceSlug,
+      addons:         p.addons || [],
+      notes:          p.notes || null,
+      custom_request: p.customRequest || null,
     })),
     p_hold_minutes:   holdMinutes,
     p_source:         source,
@@ -86,6 +89,19 @@ export async function bookSlotGroup({
     throw new BookingError(mapBookingErrorCode(error), error);
   }
   return data || [];
+}
+
+/**
+ * Fire-and-forget client-side error log. Inserts into booking_errors so Hassan
+ * can review failed booking attempts in Supabase Studio. Never throws — if
+ * logging itself fails, we don't want to block the customer's fallback path.
+ */
+export async function logBookingError(payload) {
+  try {
+    await sb.rpc('log_booking_error', { p: payload });
+  } catch (err) {
+    console.warn('[booking] log_booking_error failed (ignored):', err);
+  }
 }
 
 /**

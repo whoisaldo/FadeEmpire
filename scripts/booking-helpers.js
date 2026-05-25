@@ -125,23 +125,37 @@ export function mapBookingErrorCode(err) {
   if (msg.includes('outside_working_hours'))   return 'outside_hours';
   if (msg.includes('barber_closed'))           return 'closed';
   if (msg.includes('too_many_active_bookings'))return 'too_many';
+  if (msg.includes('too_many_people'))         return 'too_many_people';
+  if (msg.includes('invalid_people'))          return 'invalid_people';
   if (msg.includes('invalid_phone'))           return 'bad_phone';
   if (msg.includes('invalid_name'))            return 'bad_name';
   if (msg.includes('date_out_of_range'))       return 'bad_date';
   if (msg.includes('invalid_slot_alignment'))  return 'bad_slot';
+  if (msg.includes('barber_not_found'))        return 'barber_not_found';
+  if (msg.includes('service_not_found'))       return 'service_not_found';
   return 'unknown';
 }
 
+/** Which error codes should NOT fall back to the messaging path.
+ *  `slot_taken` must hard-fail to prevent real double-booking. Everything else
+ *  is recoverable — we still want to ping Hassan via WhatsApp/SMS.
+ */
+export const HARD_FAIL_CODES = new Set(['slot_taken']);
+
 export const ERROR_MESSAGES = {
-  slot_taken:    'That time was just booked. Pick another slot above.',
-  outside_hours: "We're closed at that time. Try a different slot.",
-  closed:        'The shop is closed that day. Try another date.',
-  too_many:      'You already have several active holds. Cancel one first or call us.',
-  bad_phone:     'Please enter a valid 10-digit phone number.',
-  bad_name:      'Please enter your name.',
-  bad_date:      'Date is too far out — we book up to 60 days ahead.',
-  bad_slot:      "That time doesn't line up with our slots. Pick a slot pill instead.",
-  not_setup:     'Online booking is being set up. Please call or text 413·885·4440 to reserve.',
-  network:       "Can't reach our booking system right now. Call or text 413·885·4440 to reserve.",
-  unknown:       'Something went wrong. Please try again, or call 413·885·4440.',
+  slot_taken:      'That time was just booked. Pick another slot above.',
+  outside_hours:   "We're closed at that time. Try a different slot.",
+  closed:          'The shop is closed that day. Try another date.',
+  too_many:        'You already have several active holds. Cancel one first or call us.',
+  bad_phone:       'Please enter a valid 10-digit phone number.',
+  bad_name:        'Please enter a name (at least 2 characters).',
+  bad_date:        'Date is too far out — we book up to 60 days ahead.',
+  bad_slot:        "That time doesn't line up with our slots. Pick a slot pill instead.",
+  invalid_people:  'The guest list looks off. Remove and re-add guests, or refresh the page.',
+  too_many_people: 'Max 6 people per group. Split into two bookings.',
+  barber_not_found:'Shop is not accepting online bookings right now. Call 413·885·4440.',
+  service_not_found:'That service isn\'t available. Pick another from the menu.',
+  not_setup:       'Online booking is being set up. Please call or text 413·885·4440 to reserve.',
+  network:         "Can't reach our booking system right now. Call or text 413·885·4440 to reserve.",
+  unknown:         'Something went wrong. Please try again, or call 413·885·4440.',
 };
