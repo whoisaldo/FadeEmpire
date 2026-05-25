@@ -257,14 +257,24 @@ async function submit(form, mode) {
   } catch (err) {
     if (placeholder) placeholder.close();
     if (err instanceof BookingError) {
-      showError(form, err.code);
+      // Surface the raw PG message under known-but-unmapped codes so the user
+      // (and we, in mobile diagnostics) can see what's actually wrong.
+      const detail = err.cause && (err.cause.message || err.cause.details);
+      if (err.code === 'unknown' && detail) {
+        showError(form, 'unknown',
+          `${ERROR_MESSAGES.unknown}\n\n[${detail}]`);
+      } else {
+        showError(form, err.code);
+      }
       if (err.code === 'slot_taken') {
         await gridRefresh();
         clearSelection();
       }
     } else {
       console.error('[booking] submit failed', err);
-      showError(form, 'unknown');
+      const detail = err && (err.message || String(err));
+      showError(form, 'unknown',
+        detail ? `${ERROR_MESSAGES.unknown}\n\n[${detail}]` : undefined);
     }
     submitBtns.forEach(b => (b.disabled = false));
     return;

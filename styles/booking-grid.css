@@ -370,6 +370,8 @@
   border-radius: var(--r-sm);
   color: var(--error);
   font-size: 0.9375rem;
+  white-space: pre-line;  /* honor \n in diagnostic detail lines */
+  word-break: break-word;
 }
 
 /* Success card: prominent so the user immediately taps the WhatsApp link
