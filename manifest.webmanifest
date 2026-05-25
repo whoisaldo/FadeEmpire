@@ -1,0 +1,32 @@
+{
+  "name": "Fade Empire — Chicopee",
+  "short_name": "Fade Empire",
+  "description": "Master barber Hassan. One chair on Memorial Drive, Chicopee MA.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0908",
+  "theme_color": "#0A0908",
+  "categories": ["lifestyle", "shopping"],
+  "icons": [
+    {
+      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

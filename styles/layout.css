@@ -1,0 +1,87 @@
+/* layout.css — containers, sections, hairline rules, the editorial frame */
+
+.container        { width: var(--container);        margin-inline: auto; padding-inline: 1rem; }
+.container-wide   { width: var(--container-wide);   margin-inline: auto; padding-inline: 1rem; }
+.container-tight  { width: var(--container-tight);  margin-inline: auto; padding-inline: 1rem; }
+
+/* --- Section frame ---
+   Every section gets a hairline top + bottom rule, generous vertical padding,
+   and an eyebrow / display / dek head pattern.
+*/
+.section {
+  position: relative;
+  padding: var(--section-pad-y) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.section--alt {
+  background: var(--ink-2);
+}
+
+.section--tight {
+  padding: var(--section-pad-y-sm) 0;
+}
+
+.section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: clamp(2rem, 4vw, 4rem);
+  max-width: 720px;
+}
+
+.section__head .t-eyebrow {
+  color: var(--gold);
+}
+
+.section__dek {
+  max-width: 520px;
+  color: var(--bone-soft);
+}
+
+/* --- Hairline rules ---
+   Decorative dividers used between rows. Scale-X animation handled in motion.css.
+*/
+.rule {
+  height: 1px;
+  width: 100%;
+  background: var(--rule);
+  border: 0;
+  transform-origin: left center;
+}
+
+.rule--gold        { background: var(--rule-gold); height: 1px; }
+.rule--strong      { background: var(--rule-strong); }
+.rule--vertical    { width: 1px; height: 100%; background: var(--rule); }
+.rule--short       { width: 56px; height: 1px; background: var(--gold); }
+
+/* --- Folio mark — small "Chapter II · The Menu" tag in corners --- */
+.folio {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 3;
+  color: var(--bone-mute);
+}
+
+/* --- Note section --- */
+.note {
+  padding: var(--section-pad-y-sm) 0;
+  text-align: left;
+}
+
+.note .t-pullquote {
+  margin: 1.5rem 0;
+  max-width: 32ch;
+}
+
+.note__sign {
+  display: block;
+  margin-top: 1rem;
+  color: var(--bone-soft);
+}
+
+.note .rule {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  max-width: 240px;
+}

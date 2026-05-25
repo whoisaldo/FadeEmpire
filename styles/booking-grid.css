@@ -1,0 +1,544 @@
+/* booking-grid.css — visual time-grid + form (chapter VI)
+   The biggest interactive piece. Day chips + slot pills + form, all on dark.
+*/
+
+.booking {
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+/* --- Next-available callout pill --- */
+.booking__callout {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 0.9rem 0.7rem 1.1rem;
+  background: rgba(200, 162, 74, 0.06);
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-pill);
+}
+
+.booking__callout-slot {
+  color: var(--bone);
+  font-size: 0.9375rem;
+}
+
+/* --- Day picker (horizontal chips) --- */
+.booking__days {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+}
+.booking__days::-webkit-scrollbar { display: none; }
+
+.booking__day {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: 88px;
+  padding: 0.85rem 0.5rem 1rem;
+  text-align: center;
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--bone-soft);
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.booking__day:hover {
+  border-color: var(--rule-strong);
+  color: var(--bone);
+}
+
+.booking__day[aria-pressed="true"],
+.booking__day.is-selected {
+  background: rgba(200, 162, 74, 0.08);
+  border-color: var(--gold);
+  color: var(--bone);
+}
+
+.booking__day[disabled],
+.booking__day.is-closed {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.booking__day-weekday {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--bone-mute);
+}
+.booking__day[aria-pressed="true"] .booking__day-weekday { color: var(--gold); }
+
+.booking__day-num {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: inherit;
+}
+
+.booking__day-month {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bone-mute);
+}
+
+.booking__day-skeleton {
+  height: 92px;
+  width: 100%;
+  background:
+    linear-gradient(90deg, transparent, rgba(237,230,214,0.04), transparent),
+    var(--ink-2);
+  background-size: 300% 100%;
+  animation: dayShimmer 1.6s linear infinite;
+  border-radius: var(--r-sm);
+}
+@keyframes dayShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* --- Slot pills --- */
+.booking__slots-wrap {
+  border-top: 1px solid var(--rule);
+  padding-top: clamp(1rem, 2vw, 1.5rem);
+}
+
+.booking__slots-head {
+  margin: 0 0 1rem;
+  color: var(--gold);
+}
+
+.booking__slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 0.5rem;
+}
+
+.booking__slot {
+  appearance: none;
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  padding: 0.75rem 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+
+.booking__slot:hover:not([disabled]):not(.is-taken) {
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.booking__slot[aria-pressed="true"],
+.booking__slot.is-selected {
+  background: var(--gold);
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+.booking__slot.is-taken {
+  color: var(--bone-mute);
+  text-decoration: line-through;
+  text-decoration-color: var(--bone-mute);
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.booking__slot.is-past {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.booking__slot.is-lunch {
+  border-style: dashed;
+  color: var(--bone-mute);
+  cursor: not-allowed;
+}
+
+.booking__slots-empty {
+  grid-column: 1 / -1;
+  color: var(--bone-mute);
+  margin: 0;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+/* --- Selected slot pill above form --- */
+.booking__selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(200,162,74,0.08);
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-pill);
+  margin-bottom: 1rem;
+  align-self: flex-start;
+}
+
+.booking__selected-clear {
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+/* --- Form fields --- */
+.booking__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0;
+}
+
+.booking__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .booking__grid { grid-template-columns: 1fr; }
+}
+
+.booking__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.booking__field--full { grid-column: 1 / -1; }
+
+.booking__field input,
+.booking__field select,
+.booking__field textarea {
+  background: var(--ink-2);
+  color: var(--bone);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  padding: 0.85rem 0.95rem;
+  font-family: 'General Sans', sans-serif;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition:
+    border-color var(--t-fast) var(--ease-out),
+    background var(--t-fast) var(--ease-out);
+  width: 100%;
+}
+
+.booking__field input:focus,
+.booking__field select:focus,
+.booking__field textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--ink-3);
+}
+
+.booking__field input::placeholder,
+.booking__field textarea::placeholder {
+  color: var(--bone-mute);
+}
+
+.booking__field textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.booking__field select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--bone-soft) 50%),
+    linear-gradient(135deg, var(--bone-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+/* --- Add-ons --- */
+.booking__addons {
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  padding: 1rem 1.1rem;
+  background: var(--ink-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.booking__addons legend {
+  padding: 0 0.5rem;
+  margin-left: -0.5rem;
+  color: var(--gold);
+}
+
+.booking__addon {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  color: var(--bone-soft);
+  font-size: 0.9375rem;
+}
+
+.booking__addon input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  flex-shrink: 0;
+}
+
+.booking__addon input:checked {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.booking__addon input:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px; top: 1px;
+  width: 5px; height: 9px;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(45deg);
+}
+
+.booking__addon span:nth-of-type(2) {
+  margin-left: auto;
+  color: var(--bone-mute);
+}
+
+/* --- Total + submit --- */
+.booking__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.booking__error {
+  padding: 0.85rem 1rem;
+  background: rgba(224, 122, 107, 0.08);
+  border: 1px solid rgba(224, 122, 107, 0.3);
+  border-radius: var(--r-sm);
+  color: var(--error);
+  font-size: 0.9375rem;
+}
+
+/* Success card: prominent so the user immediately taps the WhatsApp link
+   if the auto-redirect didn't fire (popup blocked, etc) */
+.booking__success-card {
+  padding: 1.25rem 1.1rem 1.1rem;
+  background:
+    linear-gradient(180deg, rgba(200,162,74,0.08), transparent 80%),
+    rgba(143, 190, 146, 0.04);
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.booking__success-card .t-eyebrow { color: var(--gold); }
+
+.booking__success-text {
+  margin: 0;
+  color: var(--bone);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+.booking__success-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.booking__success-actions .btn { flex: 1 1 240px; }
+
+.booking__success-fine {
+  margin: 0;
+  color: var(--bone-mute);
+  letter-spacing: 0.08em;
+}
+
+/* =====================================================
+   Group booking — guest rows
+===================================================== */
+.booking__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+}
+
+.booking__group-head {
+  margin: 0;
+  color: var(--gold);
+}
+
+.booking__group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.booking__group-list:empty { display: none; }
+
+.booking__guest {
+  position: relative;
+  padding: 0.95rem;
+  background: var(--ink-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.booking__guest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.booking__guest-label {
+  color: var(--bone-soft);
+  letter-spacing: 0.14em;
+}
+
+.booking__guest-remove {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--bone-mute);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.booking__guest-remove:hover {
+  color: var(--bone);
+  border-color: var(--bone-mute);
+}
+
+.booking__guest-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+@media (max-width: 600px) {
+  .booking__guest-grid { grid-template-columns: 1fr; }
+}
+
+.booking__group-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.65rem 0.95rem;
+  background: transparent;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--r-sm);
+  color: var(--bone-soft);
+  cursor: pointer;
+  font-family: 'General Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.booking__group-add:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.booking__group-add span:first-child {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.booking__group-add[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.booking__group-timeline {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  background: rgba(200, 162, 74, 0.06);
+  border-left: 2px solid var(--gold);
+  color: var(--bone);
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.booking__submit {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.booking__submit .btn { flex: 1 1 220px; }
+
+.booking__fine {
+  color: var(--bone-mute);
+  letter-spacing: 0.08em;
+  text-align: center;
+}

@@ -1,0 +1,137 @@
+/* tokens.css — design tokens for FadeEmpire
+   Refined dark luxury: warm-tinted ink, brass-not-yellow gold, bone-white.
+   Replaces the old #0a0a0a / #d4af37 palette with a more cinematic version.
+*/
+
+/* --- Font loading: Fraunces (display), General Sans (body), JetBrains Mono (numerals) --- */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,700;1,9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+
+:root {
+  /* Ink — primary background system */
+  --ink:        #0A0908;          /* near-black, warm-tinted */
+  --ink-2:      #14110F;          /* alt sections / cards */
+  --ink-3:      #1E1A16;          /* elevated surfaces, hover */
+  --ink-deep:   #050403;          /* footer, deepest depth */
+
+  /* Bone — text on dark */
+  --bone:       #EDE6D6;          /* primary text — warm white, not pure */
+  --bone-soft:  rgba(237, 230, 214, 0.65);
+  --bone-mute:  rgba(237, 230, 214, 0.40);
+  --bone-faint: rgba(237, 230, 214, 0.16);
+
+  /* Gold — restrained accent */
+  --gold:       #C8A24A;          /* softened brass; less yellow than #d4af37 */
+  --gold-deep:  #A07F2F;          /* hover / pressed */
+  --gold-pale:  #E0C078;          /* highlight on dark surfaces */
+  --gold-soft:  rgba(200, 162, 74, 0.18);
+  --gold-faint: rgba(200, 162, 74, 0.08);
+
+  /* Rules — hairline section dividers */
+  --rule:       rgba(237, 230, 214, 0.12);
+  --rule-strong:rgba(237, 230, 214, 0.28);
+  --rule-gold:  rgba(200, 162, 74, 0.32);
+
+  /* Status colors (for booking grid pills, stamp, etc.) */
+  --status-open:   #6BBF73;       /* OPEN stamp green — used sparingly */
+  --status-soon:   #E6A23C;       /* CLOSING SOON amber */
+  --status-closed: #C0392B;       /* CLOSED red */
+  --error:         #E07A6B;       /* form error text */
+  --success:       #8FBE92;       /* form success */
+
+  /* Sizing */
+  --container:        min(1240px, 92vw);
+  --container-wide:   min(1440px, 96vw);
+  --container-tight:  min(960px, 90vw);
+  --section-pad-y:    clamp(4rem, 9vw, 9rem);
+  --section-pad-y-sm: clamp(2.5rem, 5vw, 4.5rem);
+
+  /* Radii — kept minimal; this aesthetic is mostly square */
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-lg: 8px;
+  --r-pill: 999px;
+
+  /* Shadows — physical and warm, never blue/gray */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.30);
+  --shadow-deep: 0 16px 48px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-gold: 0 0 0 1px var(--gold-soft), 0 12px 32px rgba(200, 162, 74, 0.18);
+
+  /* Motion — one shared curve and timing */
+  --ease-curtain: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:     cubic-bezier(0.33, 1, 0.68, 1);
+  --t-fast:   180ms;
+  --t-base:   360ms;
+  --t-slow:   900ms;
+
+  /* Grain overlay opacity */
+  --grain-opacity: 0.045;
+}
+
+/* --- Body reset + grain texture overlay ---
+   The grain is the single biggest aesthetic lift vs the old site.
+   SVG feTurbulence rendered once as a data URI, tiled, blended over the body.
+*/
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: 'General Sans', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'ss01', 'cv11', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Grain overlay — fixed-position, pointer-events:none, sits above background but below content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.45 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  background-repeat: repeat;
+}
+
+/* A subtle warm vignette to seat content into the page */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(200, 162, 74, 0.04), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(0, 0, 0, 0.40), transparent 60%);
+}
+
+/* All real content sits above grain + vignette */
+main, header, footer, nav { position: relative; z-index: 2; }
+
+/* Default link reset */
+a { color: inherit; text-decoration: none; }
+
+/* Image hygiene */
+img, picture, video, svg { display: block; max-width: 100%; height: auto; }
+
+/* Selection */
+::selection {
+  background: var(--gold);
+  color: var(--ink);
+}

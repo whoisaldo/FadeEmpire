@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Supabase CLI local cache (linked project ref, version pins, etc.)
+supabase/.temp/

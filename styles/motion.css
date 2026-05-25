@@ -1,0 +1,69 @@
+/* motion.css — scroll-reveal motion language */
+
+/* --- Reveal base ---
+   Elements with class="reveal" start hidden, rise 24px + fade in once they enter
+   the viewport. JS adds .is-visible.
+*/
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+  transition:
+    opacity 900ms var(--ease-curtain),
+    transform 900ms var(--ease-curtain);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Stagger via data-reveal-delay (ms). Common values: 100/200/300/400. */
+.reveal[data-reveal-delay="100"]  { transition-delay: 100ms; }
+.reveal[data-reveal-delay="120"]  { transition-delay: 120ms; }
+.reveal[data-reveal-delay="200"]  { transition-delay: 200ms; }
+.reveal[data-reveal-delay="280"]  { transition-delay: 280ms; }
+.reveal[data-reveal-delay="300"]  { transition-delay: 300ms; }
+.reveal[data-reveal-delay="380"]  { transition-delay: 380ms; }
+.reveal[data-reveal-delay="460"]  { transition-delay: 460ms; }
+
+/* --- Section heads get a special headline mask reveal --- */
+.section__head h2.reveal {
+  clip-path: inset(0 0 100% 0);
+  transition:
+    clip-path 1100ms var(--ease-curtain),
+    opacity 600ms var(--ease-curtain),
+    transform 1100ms var(--ease-curtain);
+}
+.section__head h2.reveal.is-visible {
+  clip-path: inset(0 0 0 0);
+}
+
+/* --- Hairline rule draws in horizontally --- */
+.rule.reveal {
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 1;
+  transition: transform 900ms var(--ease-curtain);
+}
+.rule.reveal.is-visible {
+  transform: scaleX(1);
+}
+
+/* --- Reduced motion: collapse to a 200ms opacity fade --- */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .section__head h2.reveal,
+  .rule.reveal {
+    transition:
+      opacity 200ms linear,
+      transform 0ms,
+      clip-path 0ms;
+    transform: none;
+    clip-path: none;
+  }
+  .hero__title-rule { animation: none !important; transform: scaleX(1); }
+  [data-dial-hand] { transition: none; }
+  .essay__plate:hover img { transform: none; }
+}

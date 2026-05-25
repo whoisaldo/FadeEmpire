@@ -1,0 +1,170 @@
+/* type.css — typography roles for FadeEmpire
+   Display:    Fraunces (italic 700/900, optical-size 144)
+   Body:       General Sans (400/500/600)
+   Numerals:   JetBrains Mono (500/700, tabular figures)
+*/
+
+/* --- Type roles ---
+   Use these utility classes on elements rather than re-declaring fonts everywhere.
+*/
+
+.t-display,
+h1, h2, h3 {
+  font-family: 'Fraunces', 'Times New Roman', serif;
+  font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 0;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  line-height: 0.92;
+  color: var(--bone);
+  margin: 0;
+}
+
+h1, .t-display-xl {
+  font-size: clamp(3.5rem, 11vw, 9rem);
+  letter-spacing: -0.03em;
+}
+
+h2, .t-display-lg {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  letter-spacing: -0.025em;
+}
+
+h3, .t-display-md {
+  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.t-display-sm {
+  font-family: 'Fraunces', serif;
+  font-variation-settings: 'opsz' 72;
+  font-weight: 700;
+  font-style: italic;
+  font-size: clamp(1.25rem, 2vw, 1.625rem);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--bone);
+}
+
+/* Subdued italic — pull-quotes, editor's notes, deks */
+.t-italic {
+  font-family: 'Fraunces', serif;
+  font-variation-settings: 'opsz' 72;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0;
+  line-height: 1.3;
+  color: var(--bone);
+}
+
+.t-pullquote {
+  font-family: 'Fraunces', serif;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: var(--bone);
+}
+
+/* Body */
+.t-body, p {
+  font-family: 'General Sans', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--bone-soft);
+  letter-spacing: -0.005em;
+}
+p { margin: 0 0 1em; }
+p:last-child { margin-bottom: 0; }
+
+.t-body-lg {
+  font-size: 1.1875rem;
+  line-height: 1.55;
+  color: var(--bone);
+}
+
+.t-body-sm {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--bone-soft);
+}
+
+/* Labels — small caps, tracked, the editorial folio voice */
+.t-eyebrow,
+.t-label {
+  font-family: 'General Sans', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: var(--bone-mute);
+  line-height: 1;
+}
+
+.t-eyebrow--gold { color: var(--gold); }
+
+/* Monospace — prices, times, addresses, metadata */
+.t-mono,
+.t-price,
+.t-time,
+.t-meta {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  font-feature-settings: 'tnum' 1, 'cv01' 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.t-price {
+  font-weight: 500;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  color: var(--bone);
+}
+
+.t-price--lg {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--gold);
+}
+
+.t-time {
+  font-weight: 500;
+  font-size: 0.9375rem;
+  letter-spacing: 0;
+}
+
+.t-meta {
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bone-mute);
+}
+
+/* --- Tone helpers --- */
+.tone-gold     { color: var(--gold); }
+.tone-bone     { color: var(--bone); }
+.tone-soft     { color: var(--bone-soft); }
+.tone-mute     { color: var(--bone-mute); }
+
+/* --- Inline accent: thin gold underline on hover, used in nav + links --- */
+.link-underline {
+  position: relative;
+  transition: color var(--t-fast) var(--ease-out);
+}
+.link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--t-base) var(--ease-curtain);
+}
+.link-underline:hover { color: var(--gold); }
+.link-underline:hover::after { transform: scaleX(1); }

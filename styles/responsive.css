@@ -1,369 +1,341 @@
-@media (max-width: 899px) {
-  .hero__content {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* responsive.css — MOBILE FIRST.
+   Phone is the primary canvas. This file holds the small-screen
+   refinements that override or coordinate across sections.
+*/
 
-  .hero__card {
-    max-width: 75%;
-  }
-
-  .services__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-  }
-
-  .gallery__grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-  
-  .gallery {
-    padding: 2rem 0;
-  }
-
-  .booking__grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2.5rem;
-  }
-}
-@media (min-width: 769px) {
-  .hero__kenburns {
-    background-image: url('../assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_tablet.jpg'), url('../assets/FadeEmpireStore/FadeEmpireStoreFront.JPG');
-  }
-  
-  .gallery__grid {
-    gap: 24px;
-  }
+/* =====================================================
+   Safe-area handling (iOS notch + home indicator)
+===================================================== */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
 }
 
-@media (min-width: 768px) {
-  .nav__toggle {
-    display: none;
-  }
+/* iOS: prevent input zoom by enforcing 16px+ font on all form elements */
+input, select, textarea, button {
+  font-size: 16px;
+}
+/* But allow our smaller-typed buttons to still look small visually */
+.btn, .btn--mini {
+  font-size: 0.875rem;
+}
+.btn--mini { font-size: 0.75rem; }
 
-  .nav__menu {
-    position: static;
-    width: auto;
-    background: transparent;
-    padding: 0;
-    transform: none;
-    flex-direction: row;
+/* =====================================================
+   ≤ 600px  ·  PHONE PRIORITY OVERRIDES
+===================================================== */
+@media (max-width: 600px) {
+
+  /* --- Sections: tighter vertical rhythm, less wasted scroll --- */
+  .section          { padding: 3.25rem 0; }
+  .section--alt     { padding: 3.25rem 0; }
+  .section--tight   { padding: 2rem 0; }
+  .section__head    { margin-bottom: 1.5rem; gap: 0.5rem; }
+  .section__head h2 { font-size: clamp(2.25rem, 11vw, 3.5rem); line-height: 0.94; }
+  .section__dek     { font-size: 1.0625rem; line-height: 1.45; }
+
+  .container,
+  .container-wide,
+  .container-tight { padding-inline: 1.25rem; width: 100%; }
+
+  /* --- Body type a hair larger for readability at arm's length --- */
+  .t-body, p { font-size: 1.0625rem; line-height: 1.55; }
+  .t-meta { font-size: 0.6875rem; letter-spacing: 0.16em; }
+
+  /* --- Nav: shorter, easier-tap hamburger, hide locale --- */
+  .nav__inner    { height: 56px; gap: 0.75rem; padding-inline: 1rem; }
+  .nav__wordmark { font-size: 1.25rem; letter-spacing: -0.015em; }
+  .nav__locale   { display: none; }
+  .nav__meta     { gap: 0.65rem; }
+  .nav__toggle   {
+    width: 44px; height: 44px;
     align-items: center;
-    gap: 1rem;
+    padding: 13px 8px;
   }
-
-  .hero__content {
-    grid-template-columns: 1.1fr 0.9fr;
+  .stamp {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.16em;
   }
+  .stamp__text { display: none; }   /* On phone, just the colored dot */
+  .stamp .stamp__dot { width: 8px; height: 8px; }
 
-  .hero__card {
-    justify-self: end;
-  }
-
-  .services::before {
-    inset: -10% -25%;
-  }
-
-  .barbers__scroller {
-    grid-auto-flow: initial;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    overflow: visible;
-    padding: 0;
-  }
-
-  .booking__grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .form-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .map-section__grid {
-    grid-template-columns: 1fr 1.1fr;
-  }
-
-  .footer__inner {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .nav__inner {
-    min-height: 90px;
-  }
-
+  /* --- Hero: shorter, more CTA-forward --- */
   .hero {
-    padding: 8rem 0 10rem;
+    min-height: 78svh;
+    min-height: 78vh;
+    padding: 5.5rem 0 2.5rem;
   }
-
-  .services__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .hero__inner  { gap: 1.1rem; }
+  .hero__title  {
+    font-size: clamp(3.5rem, 18vw, 5.75rem);
+    line-height: 0.88;
+    margin-top: 0.25rem;
   }
+  .hero__dek    { font-size: 1.0625rem; max-width: 30ch; }
+  .hero__ctas   { gap: 0.5rem; }
+  .hero__ctas .btn { flex: 1 1 auto; min-height: 52px; padding: 0.95rem 1rem; justify-content: center; }
+  .hero__ctas .btn--ghost span:nth-child(2) { display: none; }  /* hide the phone digits on tiny CTA */
+  .hero__next  { gap: 0.6rem; padding: 0.6rem 0.85rem; width: 100%; flex-wrap: wrap; }
+  .hero__next .t-eyebrow { font-size: 0.625rem; }
+  .hero__meta  { gap: 1.25rem; margin-top: 1.5rem; padding-top: 1rem; }
+  .hero__meta li { gap: 0.2rem; }
+  .hero__meta-num { font-size: 1.0625rem; }
+  .hero__folio { display: none; }
 
-  .gallery__grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  /* --- Note section: tighter quote --- */
+  .note { padding: 2.5rem 0; }
+  .note .t-pullquote { font-size: 1.5rem; line-height: 1.25; }
 
-  .booking__grid {
-    gap: 3.5rem;
-  }
+  /* --- Menu: bigger names, snappier rows --- */
+  .menu { gap: 2rem; }
+  .menu__item { padding-bottom: 1rem; }
+  .menu__name { font-size: 1.375rem; }
+  .menu__price { font-size: 1.125rem; }
+  .menu__note { font-size: 0.6875rem; margin-top: 0.3rem; }
+  .menu__feature { padding: 1.5rem 1.25rem; gap: 0.6rem; }
+  .menu__feature h3 { font-size: 1.875rem; }
+  .menu__footnote { margin-top: 2.25rem; padding-top: 1.5rem; }
+  .menu__addons { grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
+  .menu__addons li { padding-bottom: 0.6rem; gap: 0.5rem; }
+  .menu__addons li .t-display-sm { font-size: 1rem; }
 
-  .footer__inner {
-    grid-template-columns: auto 1fr auto;
-    align-items: start;
-  }
-}
+  /* --- Field guide compare table -> mobile cards ---
+     Hide the table on phone and reveal a card-per-service layout instead.
+  */
+  .compare { overflow: visible; }
+  .compare__table { display: none; }
 
-@media (max-width: 767px) {
-  .container {
-    width: min(92vw, 640px);
-  }
-
-  .services__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem;
-  }
-
-  .service-card {
-    padding: 1.2rem;
-    gap: 1rem;
-  }
-
-  .service-card h3 {
-    font-size: 1.05rem;
-  }
-
-  .service-card__price {
-    font-size: 1.5rem;
-  }
-
-  .service-card ul {
-    gap: 0.55rem;
-  }
-
-  .service-card li {
-    font-size: 0.85rem;
-  }
-
-  .service-card__addons {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    gap: 0.6rem;
-  }
-
-  .service-card__addons label {
+  .compare__cards {
     display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    min-height: 24px;
-    padding: 0.15rem 0;
-  }
-
-  .service-card__addons label span {
-    flex: 1;
-    line-height: 1.5;
-  }
-
-  .service-card__addons input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    min-width: 16px;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .service-card__total {
-    margin-top: 0.6rem;
-    padding-top: 0.6rem;
-    font-size: 0.95rem;
-  }
-
-  .service-card__vip-note {
-    font-size: 0.75rem;
-    padding: 0.5rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .hero {
-    padding: 7rem 0 6rem;
-  }
-
-  .hero__content {
-    gap: 2.5rem;
-  }
-
-  .hero__title-outline {
-    font-size: clamp(2.6rem, 9vw, 3.4rem);
-    letter-spacing: 0.12em;
-  }
-
-  .hero__title-glow {
-    font-size: clamp(1.1rem, 4.8vw, 1.4rem);
-    letter-spacing: 0.24em;
-  }
-
-  .hero__stats {
-    gap: 1rem;
-    width: 100%;
-  }
-
-  .hero__actions {
     flex-direction: column;
+    gap: 0.85rem;
   }
 
-  .hero__actions .btn {
-    width: 100%;
+  /* --- Gallery: less aggressive aspect ratios on phone --- */
+  .essay { gap: 1rem; }
+  .essay__plate--lead    { aspect-ratio: 4 / 5; border-radius: var(--r-sm); }
+  .essay__plate--sm,
+  .essay__plate--lg      { aspect-ratio: 4 / 5; }
+  .essay__row--triptych  .essay__plate { aspect-ratio: 4 / 5; }
+  .essay__cap            { padding: 0.35rem 0.55rem; font-size: 0.625rem; letter-spacing: 0.10em; }
+  .essay__quote          { padding: 1.5rem 0.5rem; margin: 0.5rem auto; }
+  .essay__quote .t-pullquote { font-size: 1.375rem; line-height: 1.3; }
+  .essay__quote cite     { margin-top: 0.85rem; font-size: 0.625rem; letter-spacing: 0.18em; }
+
+  /* --- Hassan feature: portrait above body --- */
+  .feature { gap: 1.75rem; }
+  .feature__portrait { aspect-ratio: 4 / 5; }
+  .feature__name     { font-size: 2rem; }
+  .feature__quote    { margin: 1rem 0; padding: 1rem 0 1rem 1rem; }
+  .feature__quote .t-pullquote { font-size: 1.25rem; }
+  .feature__tools    { grid-template-columns: 1fr; gap: 0.25rem; }
+
+  /* --- Booking: full-bleed card edge, bigger taps --- */
+  .booking {
+    padding: 1.1rem 1rem 1.25rem;
+    border-radius: var(--r-sm);
+    gap: 1.25rem;
   }
+  .booking__callout { width: 100%; flex-wrap: wrap; justify-content: space-between; }
+  .booking__callout-slot { font-size: 0.875rem; flex: 1; }
 
-  .hero__card {
-    max-width: 100%;
-    padding: 2rem;
-  }
+  /* Day chips: a bit bigger touch target */
+  .booking__days { gap: 0.45rem; padding-bottom: 0.4rem; margin: 0 -1rem; padding-inline: 1rem; }
+  .booking__day  { width: 72px; padding: 0.7rem 0.4rem 0.85rem; min-height: 88px; }
+  .booking__day-weekday { font-size: 0.625rem; letter-spacing: 0.14em; }
+  .booking__day-num     { font-size: 1.625rem; }
+  .booking__day-month   { font-size: 0.625rem; letter-spacing: 0.10em; }
 
-  .gallery__item--wide,
-  .gallery__item--tall {
-    grid-column: span 1;
-    grid-row: span 1;
-  }
-
-  .barbers__scroller {
-    grid-auto-flow: column;
-    grid-auto-columns: 80%;
-    overflow-x: auto;
-    padding: 0 1rem 1rem;
-  }
-
-  .booking__grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2rem;
-  }
-
-  .booking__form,
-  .booking__intro {
-    padding: 1.8rem;
-    border-radius: 1.2rem;
-  }
-
-  .booking__contact a {
-    flex-direction: column;
-    gap: 0.4rem;
-    text-align: center;
-  }
-
-  .booking__calendar {
-    padding: 1.6rem;
-  }
-
-  .calendar-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .map-section__map iframe {
-    min-height: 280px;
-  }
-
-  /* WhatsApp button removed */
-
-  .footer__inner {
-    grid-template-columns: 1fr;
-    text-align: center;
-    gap: 2rem;
-  }
-
-  .footer__nav {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 520px) {
-  .developer-contact {
-    bottom: 5.6rem;
-    font-size: 0.6rem;
-    padding: 0.65rem 0.95rem;
-    max-width: calc(100vw - 2rem);
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .gallery__grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 12px !important;
-    padding: 2rem 0.75rem !important;
-  }
-
-  .hero__title-outline {
-    font-size: clamp(2.2rem, 8.5vw, 3rem);
-  }
-
-  .hero__title-glow {
-    font-size: clamp(1rem, 4.5vw, 1.3rem);
-  }
-
-  .booking__contact {
-    gap: 0.8rem;
-  }
-
-  .booking__calendar {
-    padding: 1.2rem;
-  }
-
-  .calendar-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .booking-form {
-    padding: 1.5rem;
-  }
-
-  .service-card__addons {
-    gap: 0.5rem;
-  }
-
-  .service-card__addons label {
-    font-size: 0.75rem;
+  /* Slot pills: 3 per row at 360px, big enough to fat-finger */
+  .booking__slots {
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.45rem;
-    padding: 0.2rem 0;
-    align-items: flex-start;
+  }
+  .booking__slot {
+    padding: 0.95rem 0.25rem;
+    min-height: 52px;
+    font-size: 0.9375rem;
   }
 
-  .service-card__addons input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    min-width: 15px;
-    margin-top: 2px;
-  }
+  .booking__slots-head { font-size: 0.6875rem; letter-spacing: 0.18em; }
 
-  .service-card__total {
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
+  .booking__selected {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
+  .booking__selected .t-mono { flex: 1; font-size: 0.875rem; }
 
-  /* WhatsApp button removed */
+  /* Form: single column with comfortable inputs */
+  .booking__grid    { grid-template-columns: 1fr; gap: 0.95rem; }
+  .booking__field input,
+  .booking__field select,
+  .booking__field textarea {
+    padding: 1rem 0.95rem;
+    min-height: 52px;
+    border-radius: var(--r-sm);
+  }
+  .booking__field textarea { min-height: 5.5rem; }
+
+  .booking__addons { padding: 0.9rem; grid-template-columns: 1fr 1fr; gap: 0.6rem 0.85rem; }
+  .booking__addon  { min-height: 36px; }
+  .booking__addon input { width: 22px; height: 22px; }
+  .booking__addon input:checked::after { left: 6px; top: 2px; width: 6px; height: 11px; }
+
+  .booking__total  { padding: 1rem 0; }
+
+  .booking__submit { flex-direction: column; gap: 0.6rem; }
+  .booking__submit .btn { min-height: 56px; flex: 1; }
+
+  .booking__fine   { font-size: 0.625rem; letter-spacing: 0.10em; line-height: 1.5; }
+
+  /* Add bottom space for the floating book bar */
+  body { padding-bottom: calc(72px + var(--safe-bottom)); }
+
+  /* --- Visit: tighten map + dial --- */
+  .visit            { gap: 1.5rem; }
+  .visit__hours     { padding: 1.25rem; gap: 1rem; }
+  .visit__dial      { width: 160px; height: 160px; }
+  .visit__contact   { padding: 1.25rem; }
+  .visit__row       { padding: 0.65rem 0; gap: 0.5rem; }
+  .visit__row .t-meta { font-size: 0.625rem; }
+
+  /* --- Footer: tighter, no big copyright margin --- */
+  .footer        { padding: 2.5rem 0 calc(2rem + 72px + var(--safe-bottom)); }
+  .footer__grid  { gap: 1.75rem; padding-top: 1.5rem; }
+  .footer__copy  { margin-top: 2rem; font-size: 0.625rem; line-height: 1.6; }
+
+  /* --- Reveal motion: trim distance on small screens --- */
+  .reveal { transform: translate3d(0, 16px, 0); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* =====================================================
+   ≤ 360px  ·  ULTRA-SMALL (iPhone SE 1st gen, etc.)
+===================================================== */
+@media (max-width: 360px) {
+  .hero__title       { font-size: 3rem; }
+  .hero__ctas .btn   { font-size: 0.8125rem; padding: 0.85rem 0.75rem; }
+  .booking__day      { width: 64px; min-height: 80px; }
+  .booking__day-num  { font-size: 1.375rem; }
+  .booking__slots    { grid-template-columns: repeat(2, 1fr); }
+  .menu__addons      { grid-template-columns: 1fr; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms
-  }
+/* =====================================================
+   601-899  ·  Tablet portrait
+===================================================== */
+@media (min-width: 601px) and (max-width: 899px) {
+  .hero__title       { font-size: clamp(4rem, 11vw, 7rem); }
+  .booking__slots    { grid-template-columns: repeat(4, 1fr); }
+  body               { padding-bottom: 0; }  /* sticky bar is mobile-only */
+}
+
+/* =====================================================
+   Sticky mobile "Book a Chair" CTA bar (≤ 768px only)
+   Floats at bottom edge, hides when user is inside #book.
+===================================================== */
+.mobile-cta {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 0.65rem 0.85rem calc(0.65rem + var(--safe-bottom));
+  background: rgba(10, 9, 8, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--rule);
+  display: none;          /* hidden by default; shown on mobile */
+  gap: 0.6rem;
+  align-items: stretch;
+  transform: translateY(110%);
+  transition: transform var(--t-base) var(--ease-curtain),
+              opacity var(--t-base) linear;
+  opacity: 0;
+}
+
+.mobile-cta.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.mobile-cta__book {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.95rem 1rem;
+  background: var(--gold);
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--r-sm);
+  font-family: 'General Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 52px;
+}
+
+.mobile-cta__book strong { font-weight: 700; }
+.mobile-cta__next {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink);
+  opacity: 0.78;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mobile-cta__call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.mobile-cta__call svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+@media (max-width: 768px) {
+  .mobile-cta { display: flex; }
+}
+
+/* When we're inside the booking section, slide it off so it doesn't double up */
+.mobile-cta.is-in-book {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* =====================================================
+   Wide screens: tighten container max
+===================================================== */
+@media (min-width: 1280px) {
+  .container       { max-width: 1240px; }
+  .container-wide  { max-width: 1440px; }
+}
+
+/* =====================================================
+   Print
+===================================================== */
+@media print {
+  .nav, .hero__bg, .hero__folio,
+  .booking__submit, .booking__addons,
+  .footer, .mobile-cta, .reveal { display: none !important; }
+  body { background: #fff; color: #000; }
+  body::before, body::after { display: none; }
 }

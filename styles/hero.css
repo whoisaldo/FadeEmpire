@@ -1,0 +1,172 @@
+/* hero.css — cover/hero section */
+
+.hero {
+  position: relative;
+  min-height: clamp(620px, 92vh, 880px);
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(6rem, 12vh, 9rem) 0 clamp(3rem, 6vh, 5rem);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.hero__bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  filter: contrast(1.05) saturate(0.85) brightness(0.7);
+}
+
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(10, 9, 8, 0.55) 0%,
+      rgba(10, 9, 8, 0.30) 30%,
+      rgba(10, 9, 8, 0.70) 70%,
+      var(--ink) 100%);
+}
+
+.hero__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: var(--container);
+}
+
+.hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--gold);
+  margin: 0;
+}
+
+.hero__eyebrow-rule {
+  display: inline-block;
+  width: 56px;
+  height: 1px;
+  background: var(--gold);
+  opacity: 0.6;
+}
+
+.hero__title {
+  margin-top: 0.5rem;
+  font-size: clamp(4rem, 14vw, 11rem);
+  line-height: 0.86;
+  letter-spacing: -0.035em;
+  color: var(--bone);
+}
+
+.hero__title-line {
+  display: block;
+}
+
+.hero__title-line--accent {
+  position: relative;
+  color: var(--bone);
+  padding-bottom: 0.05em;
+  display: inline-block;
+}
+
+.hero__title-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--gold);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: heroRule 1.4s var(--ease-curtain) 0.6s forwards;
+}
+
+@keyframes heroRule {
+  to { transform: scaleX(1); }
+}
+
+.hero__dek {
+  max-width: 36ch;
+  font-size: clamp(1.125rem, 1.6vw, 1.375rem);
+  color: var(--bone);
+  margin-top: 0.5rem;
+}
+
+.hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.hero__ctas .btn__call-num,
+.hero__ctas .t-mono {
+  display: inline-block;
+  margin-left: 0.25rem;
+}
+
+/* Next available banner */
+.hero__next {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  align-self: flex-start;
+  padding: 0.7rem 1rem;
+  margin-top: 1rem;
+  background: rgba(200, 162, 74, 0.08);
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+}
+
+.hero__next-cta {
+  color: var(--gold);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* Meta stats strip */
+.hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  margin: 2.25rem 0 0;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--rule);
+  list-style: none;
+}
+
+.hero__meta li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hero__meta-num {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+
+/* Folio in corner */
+.hero__folio {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.25rem;
+  color: var(--bone-mute);
+  z-index: 1;
+}
+@media (max-width: 767px) {
+  .hero__folio { display: none; }
+}

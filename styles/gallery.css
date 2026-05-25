@@ -1,0 +1,122 @@
+/* gallery.css — asymmetric editorial photo essay (chapter IV) */
+
+.essay {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 3.5vw, 3rem);
+}
+
+/* --- Plate base --- */
+.essay__plate {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ink-3);
+  border-radius: var(--r-sm);
+}
+
+.essay__plate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 1.2s var(--ease-curtain);
+}
+
+.essay__plate:hover img {
+  transform: scale(1.02);
+}
+
+.essay__cap {
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  padding: 0.4rem 0.7rem;
+  background: rgba(10, 9, 8, 0.78);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--bone-soft);
+  border-left: 2px solid var(--gold);
+  letter-spacing: 0.08em;
+}
+
+/* --- Lead plate: full-bleed within the container --- */
+.essay__plate--lead {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-md);
+}
+
+@media (max-width: 600px) {
+  .essay__plate--lead { aspect-ratio: 4 / 5; }
+}
+
+/* --- Row layouts --- */
+.essay__row {
+  display: grid;
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+.essay__row--pair {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .essay__row--pair {
+    grid-template-columns: 1fr 1.6fr;
+    align-items: end;
+  }
+  .essay__row--pair.essay__row--reverse {
+    grid-template-columns: 1.6fr 1fr;
+  }
+}
+
+.essay__row--triptych {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) {
+  .essay__row--triptych {
+    grid-template-columns: 1fr 1.2fr 0.9fr;
+    align-items: start;
+  }
+  .essay__row--triptych .essay__plate:nth-child(2) {
+    margin-top: clamp(2rem, 5vw, 4rem);
+  }
+}
+
+.essay__plate--sm { aspect-ratio: 3 / 4; }
+.essay__plate--lg { aspect-ratio: 4 / 5; }
+
+@media (max-width: 720px) {
+  .essay__plate--sm,
+  .essay__plate--lg { aspect-ratio: 4 / 5; }
+}
+
+/* --- Pull-quote between plates --- */
+.essay__quote {
+  margin: clamp(1rem, 3vw, 2rem) auto;
+  max-width: 720px;
+  text-align: center;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 3vw, 2rem);
+}
+
+.essay__quote .t-pullquote {
+  color: var(--bone);
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+.essay__quote cite {
+  display: block;
+  margin-top: 1.25rem;
+  font-style: normal;
+  color: var(--gold);
+  letter-spacing: 0.18em;
+}
+
+/* triptych middle item, on mobile, just sits in the normal flow */
+.essay__row--triptych .essay__plate {
+  aspect-ratio: 3 / 4;
+}
+@media (max-width: 719px) {
+  .essay__row--triptych .essay__plate { aspect-ratio: 4 / 5; }
+}

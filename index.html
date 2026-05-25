@@ -1,699 +1,886 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="Fade Empire is the premier luxury barbershop in Chicopee, MA. Precision fades, bespoke cuts, tailored grooming, and white-glove hospitality.">
-    <meta name="keywords" content="Fade Empire, barbershop, luxury haircut, fade, Chicopee barbers, beard trim">
 
-    <meta property="og:title" content="Fade Empire · Luxury Barbershop">
-    <meta property="og:description" content="Where legends get their cut. Reserve your chair at Fade Empire, Chicopee MA.">
-    <meta property="og:image" content="https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png">
+  <title>Fade Empire — Chicopee MA · Master Barber Hassan</title>
+  <meta name="description" content="Fade Empire is a one-chair barbershop in Chicopee, MA. Precision fades, beard work, and master cuts by Hassan. Book your chair.">
+  <meta name="keywords" content="Fade Empire, barbershop, Chicopee MA, fade, beard trim, line up, Hassan barber">
+  <meta name="theme-color" content="#0A0908">
+  <meta name="color-scheme" content="dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fade Empire">
+
+  <meta property="og:title" content="Fade Empire — Chicopee MA">
+  <meta property="og:description" content="Where the chair tells the story. Book Hassan in Chicopee, MA.">
+  <meta property="og:image" content="https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://chicopeefadeempire.com">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Fade Empire — Chicopee MA">
+  <meta name="twitter:description" content="Where the chair tells the story. Book Hassan in Chicopee, MA.">
+  <meta name="twitter:image" content="https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png">
 
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Fade Empire · Luxury Barbershop">
-    <meta name="twitter:description" content="Tailored fades, precision cuts, and legendary service in Chicopee, MA.">
-    <meta name="twitter:image" content="https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="icon" type="image/png" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="apple-touch-icon" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="manifest" href="./manifest.webmanifest">
 
-  <link rel="icon" type="image/png" href="./assets/FadeEmpireStore/optimized/fadeempirelogo_mobile.png">
-  <link rel="apple-touch-icon" href="./assets/FadeEmpireStore/optimized/fadeempirelogo_mobile.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://mjehfaonibgobimfiijk.supabase.co" crossorigin>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" as="image" href="./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png">
 
-    <link rel="preload" as="image" href="./assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_mobile.jpg" media="(max-width: 768px)">
-    <link rel="preload" as="image" href="./assets/FadeEmpireStore/optimized/FadeEmpireStoreFront_tablet.jpg" media="(min-width: 769px)">
-    <link rel="preload" as="image" href="./assets/FadeEmpireStore/fadeempirelogo.png">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/type.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/layout.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/components.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/hero.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/menu.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/gallery.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/hassan.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/booking-grid.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/visit.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/motion.css?v=20260525-1">
+  <link rel="stylesheet" href="./styles/responsive.css?v=20260525-1">
 
-    <link rel="stylesheet" href="./styles/globals.css?v=20251225-6">
-    <link rel="stylesheet" href="./styles/bookingForm.css?v=20251225-6">
-    <link rel="stylesheet" href="./styles/animations.css?v=20251225-6">
-    <link rel="stylesheet" href="./styles/responsive.css?v=20251225-6">
-
-    <style>
-      /* Portfolio gallery (locked): ensures grid always renders correctly */
-      #gallery .gallery__grid {
-        display: grid !important;
-        grid-template-columns: repeat(3, 1fr) !important;
-        gap: 24px !important;
-        width: min(1200px, 92vw) !important;
-        margin: 0 auto !important;
-        padding: 3rem 1rem !important;
-        box-sizing: border-box !important;
-      }
-
-      #gallery .gallery__grid > * {
-        margin: 0 !important;
-      }
-
-      #gallery .gallery__item {
-        position: relative !important;
-        display: block !important;
-        width: 100% !important;
-        aspect-ratio: 1 / 1 !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-        background: #1a1a1a !important;
-        transition: transform 0.3s ease, box-shadow 0.3s ease !important;
-      }
-
-      @supports not (aspect-ratio: 1 / 1) {
-        #gallery .gallery__item::after {
-          content: "" !important;
-          display: block !important;
-          padding-bottom: 100% !important;
-        }
-      }
-
-      #gallery .gallery__item img {
-        position: absolute !important;
-        inset: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        display: block !important;
-      }
-
-      /* Subtle luxury interaction (no View overlay, no click-to-open) */
-      #gallery .gallery__item:hover,
-      #gallery .gallery__item:focus-visible {
-        transform: scale(1.03) !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
-      }
-
-      @media (max-width: 767px) {
-        #gallery .gallery__grid {
-          grid-template-columns: repeat(2, 1fr) !important;
-          gap: 16px !important;
-          padding: 2rem 1rem !important;
-        }
-      }
-
-      /* Services (locked): forces 2-up on mobile and prevents layout overrides */
-      #services .services__grid {
-        display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 2rem !important;
-      }
-
-      #services .service-card {
-        min-width: 0 !important;
-      }
-
-      @media (max-width: 767px) {
-        #services .services__grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          gap: 0.9rem !important;
-        }
-
-        #services .service-card {
-          padding: 1.15rem !important;
-          gap: 0.95rem !important;
-        }
-
-        #services .service-card h3 {
-          font-size: 1.05rem !important;
-        }
-
-        #services .service-card__price {
-          font-size: 1.5rem !important;
-        }
-
-        #services .service-card ul {
-          gap: 0.55rem !important;
-        }
-
-        #services .service-card li {
-          font-size: 0.85rem !important;
-        }
-      }
-    </style>
-
-    <title>Fade Empire · Where Legends Get Their Cut</title>
-
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-        "@type": "Barbershop",
-    "name": "Fade Empire",
-    "image": "https://chicopeefadeempire.com/assets/FadeEmpireStore/fadeempirelogo.png",
-        "@id": "https://chicopeefadeempire.com",
-        "url": "https://chicopeefadeempire.com",
-    "telephone": "+14138854440",
-        "priceRange": "$$",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "1193 Memorial Dr",
-      "addressLocality": "Chicopee",
-      "addressRegion": "MA",
-          "postalCode": "01020",
-          "addressCountry": "US"
-        },
-        "openingHoursSpecification": [{
-          "@type": "OpeningHoursSpecification",
-          "dayOfWeek": [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday"
-          ],
-          "opens": "10:00",
-          "closes": "18:00"
-        }],
-        "sameAs": [
-          "https://instagram.com/fadeempire",
-          "https://facebook.com/fadeempire",
-          "https://tiktok.com/@fadeempire"
-        ]
-  }
-  </script>
+  <script type="module" src="./scripts/main.js?v=20260525-1"></script>
 </head>
 <body>
-    <div id="preloader" class="preloader" aria-hidden="true">
-      <div class="preloader__inner">
-        <div class="preloader__pole" role="presentation">
-          <span></span><span></span><span></span>
-        </div>
-        <p class="preloader__text">Polishing blades&hellip;</p>
-      </div>
-    </div>
 
-    <div class="cursor" id="cursor" aria-hidden="true"></div>
-
-  <a class="skip-link" href="#main">Skip to main content</a>
-
-    <header class="nav-wrapper" data-parallax>
-      <nav class="nav" id="nav" aria-label="Primary">
-        <div class="nav__inner container">
-          <a class="nav__brand" href="#hero">
-            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="nav__logo" width="52" height="52" loading="eager">
-            <span class="nav__brand-text">Fade Empire</span>
-          </a>
-          <button class="nav__toggle" id="navToggle" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle menu">
-        <span></span><span></span><span></span>
-      </button>
-          <div class="nav__menu" id="navMenu">
-            <a href="#hero" class="nav__link" data-nav>Home</a>
-            <a href="#services" class="nav__link" data-nav>Services</a>
-            <a href="#gallery" class="nav__link" data-nav>Gallery</a>
-            <a href="#barbers" class="nav__link" data-nav>Barbers</a>
-            <a href="#booking" class="nav__link" data-nav>Book Now</a>
-            <a href="#footer" class="nav__link" data-nav>Visit</a>
-            <a href="#booking" class="nav__cta" data-nav>Reserve Chair</a>
-          </div>
-    </div>
-  </nav>
-    </header>
-
-  <main id="main">
-      <section id="hero" class="hero" data-scroll-section>
-        <div class="hero__background" role="presentation">
-          <div class="hero__kenburns"></div>
-        <div class="hero__overlay"></div>
-          <canvas id="heroParticles" class="hero__particles" aria-hidden="true"></canvas>
-      </div>
-      <div class="hero__content container">
-          <div class="hero__copy" data-animate="fade-up">
-            <p class="hero__tag">Chicopee, Massachusetts</p>
-          <h1 class="hero__title">
-              <span class="hero__title-outline">FADE EMPIRE</span>
-              <span class="hero__title-glow">WHERE LEGENDS GET THEIR CUT</span>
-          </h1>
-          <p class="hero__subtitle">
-              A luxury grooming sanctuary engineered for modern kings. Precision fades, bespoke design work, and tailored service delivered with relentless detail.
-          </p>
-          <div class="hero__actions">
-              <a href="#booking" class="btn btn--primary cta-button" data-nav>
-                <span class="btn__text">Book Your Experience</span>
-            </a>
-              <a href="tel:+14138854440" class="btn btn--secondary">
-                <span class="btn__text">Call 413-885-4440</span>
-            </a>
-          </div>
-          <dl class="hero__stats">
-              <div data-animate="fade-up" data-delay="0.1">
-                <dt>2000+</dt>
-                <dd>Cuts Perfected</dd>
-            </div>
-              <div data-animate="fade-up" data-delay="0.2">
-                <dt>7</dt>
-                <dd>Years Mastery</dd>
-            </div>
-              <div data-animate="fade-up" data-delay="0.3">
-              <dt>5.0</dt>
-                <dd>Google Rated</dd>
-            </div>
-          </dl>
-          </div>
-          <div class="hero__card glass" data-animate="fade-left">
-            <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" class="hero__card-logo" width="140" height="140" loading="eager">
-            <p>Fade Empire fuses the heritage of classic barbering with contemporary style architecture. Every visit is a curated ritual designed to leave you photo-shoot ready.</p>
-            <a href="https://maps.google.com/?q=1193+Memorial+Dr,+Chicopee,+MA+01020" class="hero__card-link" target="_blank" rel="noopener">1193 Memorial Dr · Chicopee MA</a>
-            <span class="hero__hours">Open Daily · 10AM – 6PM</span>
-        </div>
-      </div>
-    </section>
-
-      <section id="services" class="services" data-scroll-section>
-      <div class="container">
-          <header class="section-header" data-animate="fade-up">
-          <span class="section-tag">Services</span>
-            <h2>Signature Grooming Menu</h2>
-            <p>Engineered for longevity, impact, and a flawless finish. Select the service that matches your moment.</p>
-          </header>
-        <div class="services__grid">
-            <article class="service-card glass hover-lift" data-animate="fade-up">
-            <header>
-              <h3>Hair Cut</h3>
-              <span class="service-card__price">$30</span>
-            </header>
-              <p>Professional haircut with precision clipper and shear work, finished with a clean neckline and styled to perfection.</p>
-              <ul>
-                <li>Detailed consultation for your desired style</li>
-                <li>Precision cutting with clippers and shears</li>
-                <li>Clean neckline and edge work</li>
-                <li>Professional styling and finishing</li>
-            </ul>
-            <div class="service-card__addons" data-service="Hair Cut" data-base-price="30">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">30</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.1">
-            <header>
-                <h3>Line Up</h3>
-              <span class="service-card__price">$10</span>
-            </header>
-              <p>Precision edge work and lineup service for sharp, clean lines around your hairline, sideburns, and neck.</p>
-              <ul>
-                <li>Razor-sharp edge detailing</li>
-                <li>Hairline and sideburn cleanup</li>
-                <li>Neckline precision work</li>
-                <li>Professional finish</li>
-            </ul>
-            <div class="service-card__addons" data-service="Line Up" data-base-price="10">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">10</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.2">
-            <header>
-                <h3>Beard Trim</h3>
-              <span class="service-card__price">$10</span>
-            </header>
-              <p>Expert beard shaping and trimming to maintain your desired length and style with precise edge work and conditioning.</p>
-              <ul>
-                <li>Beard shaping and length adjustment</li>
-                <li>Cheek and neckline edge detailing</li>
-                <li>Beard oil application</li>
-                <li>Professional styling finish</li>
-            </ul>
-            <div class="service-card__addons" data-service="Beard Trim" data-base-price="10">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">10</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.3">
-            <header>
-              <h3>Kids Cut</h3>
-              <span class="service-card__price">$25</span>
-            </header>
-              <p>Gentle, patient haircut service designed for children, ensuring comfort and a fresh, confident look.</p>
-              <ul>
-                <li>Patient, child-friendly consultation</li>
-                <li>Clean fade or classic style options</li>
-                <li>Gentle cutting technique</li>
-                <li>Style maintenance tips for parents</li>
-              </ul>
-            <div class="service-card__addons" data-service="Kids Cut" data-base-price="25">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.5">
-            <header>
-                <h3>Military Cut</h3>
-                <span class="service-card__price">$25</span>
-            </header>
-              <p>Precision military-style haircut with high and tight fade, clean lines, and regulation-compliant styling.</p>
-              <ul>
-                <li>High and tight fade style</li>
-                <li>Regulation-compliant length</li>
-                <li>Clean, sharp edge work</li>
-                <li>Professional military-grade finish</li>
-              </ul>
-            <div class="service-card__addons" data-service="Military Cut" data-base-price="25">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift" data-animate="fade-up" data-delay="0.6">
-            <header>
-                <h3>Senior Cut</h3>
-                <span class="service-card__price">$25</span>
-            </header>
-              <p>Comfortable, professional haircut service tailored for seniors with attention to comfort and classic styling preferences.</p>
-              <ul>
-                <li>Comfortable, patient service</li>
-                <li>Classic and traditional style options</li>
-                <li>Gentle cutting technique</li>
-                <li>Professional styling and finish</li>
-              </ul>
-            <div class="service-card__addons" data-service="Senior Cut" data-base-price="25">
-              <label><input type="checkbox" data-addon="Eyebrows" data-price="0"> Eyebrows (FREE)</label>
-              <label><input type="checkbox" data-addon="Hot Towel" data-price="5"> Hot Towel (+$5)</label>
-              <label><input type="checkbox" data-addon="Facial" data-price="20"> Facial (+$20)</label>
-              <label><input type="checkbox" data-addon="Wax" data-price="5"> Wax (+$5)</label>
-              <div class="service-card__total">Total: $<span class="total-price">25</span></div>
-            </div>
-          </article>
-            <article class="service-card glass hover-lift service-card--featured" data-animate="fade-up" data-delay="0.7">
-              <div class="service-card__badge">VIP Experience</div>
-            <header>
-                <h3>VIP Haircut</h3>
-              <span class="service-card__price">$60</span>
-            </header>
-              <p>The ultimate luxury experience. Full haircut with all premium add-ons included: hot towel treatment, facial, wax, and all Fade Empire specials.</p>
-              <ul>
-                <li>Complete premium haircut service</li>
-                <li>Hot towel treatment included</li>
-                <li>Facial treatment included</li>
-                <li>Wax service included</li>
-                <li>All luxury Fade Empire specials</li>
-              </ul>
-            <div class="service-card__addons" data-service="VIP Haircut" data-base-price="60">
-              <p class="service-card__vip-note">All add-ons included in VIP package</p>
-              <div class="service-card__total">Total: $<span class="total-price">60</span></div>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-      <section id="gallery" class="gallery" data-scroll-section>
-        <div class="container">
-          <header class="section-header" data-animate="fade-up">
-            <span class="section-tag">Gallery</span>
-            <h2>Fade Empire Portfolio</h2>
-            <p>Real clients. Real transformations. Filter by vibe and step inside the chair.</p>
-          </header>
-        </div>
-        <div class="gallery__grid" data-gallery-grid>
-          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up">
-            <img src="./assets/Haircuts/optimized/IMG_2573_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2573_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2573_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Precision fade with sharp lineup" loading="lazy" data-original="./assets/Haircuts/IMG_2573.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.05">
-            <img src="./assets/Haircuts/optimized/IMG_2607_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2607_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2607_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Beard sculpt with razor detailing" loading="lazy" data-original="./assets/Haircuts/IMG_2607.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.1">
-            <img src="./assets/Haircuts/optimized/IMG_2609_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2609_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2609_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Temple lineup with gradient fade" loading="lazy" data-original="./assets/Haircuts/IMG_2609.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.15">
-            <img src="./assets/Haircuts/optimized/IMG_2696_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2696_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2696_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Kids fade with textured top" loading="lazy" data-original="./assets/Haircuts/IMG_2696.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.2">
-            <img src="./assets/Haircuts/optimized/IMG_2781_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_2781_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_2781_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Modern fade with curls" loading="lazy" data-original="./assets/Haircuts/IMG_2781.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="designs" data-type="image" data-animate="fade-up" data-delay="0.25">
-            <img src="./assets/Haircuts/optimized/IMG_8034_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_8034_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_8034_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Razor fade with design" loading="lazy" data-original="./assets/Haircuts/IMG_8034.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="beards" data-type="image" data-animate="fade-up" data-delay="0.3">
-            <img src="./assets/Haircuts/optimized/IMG_8232_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_8232_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_8232_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Hot towel shave precision" loading="lazy" data-original="./assets/Haircuts/IMG_8232.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.35">
-            <img src="./assets/Haircuts/optimized/IMG_9449_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_9449_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_9449_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Polished fade with textured top" loading="lazy" data-original="./assets/Haircuts/IMG_9449.jpg">
-          </figure>
-          <figure class="gallery__item" data-category="fades" data-type="image" data-animate="fade-up" data-delay="0.4">
-            <img src="./assets/Haircuts/optimized/IMG_0063_mobile.jpg" srcset="./assets/Haircuts/optimized/IMG_0063_mobile.jpg 800w, ./assets/Haircuts/optimized/IMG_0063_tablet.jpg 1200w" sizes="(max-width: 768px) 33vw, 200px" alt="Premium fade with precision styling" loading="lazy" data-original="./assets/Haircuts/IMG_0063.jpg">
-          </figure>
-      </div>
-    </section>
-
-      <section id="barbers" class="barbers" data-scroll-section>
-        <div class="container">
-          <header class="section-header" data-animate="fade-up">
-            <span class="section-tag">Barbers</span>
-            <h2>The Empire Architects</h2>
-            <p>Meet the talent sculpting Chicopee’s freshest lineups. Each artist brings a signature mastery.</p>
-          </header>
-        </div>
-        <div class="barbers__scroller" data-scroll-snap>
-          <article class="barber-card hover-lift glass" data-animate="fade-up">
-            <img src="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png" srcset="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png 600w, ./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png 800w" sizes="(max-width: 768px) 80vw, 400px" alt="Master Barber Hassan" loading="lazy" width="600" height="800">
-            <div class="barber-card__body">
-              <h3>Hassan “The Craftsman”</h3>
-              <p>Hassan is a licensed barber from Lebanon with Massachusetts Board certification.</p>
-              <p>He chases precision and perfection in every session, sending each client out confident, camera-ready, and sharpened to the last detail.</p>
-              <a href="#booking" class="btn btn--ghost">Book Hassan</a>
-          </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="booking" class="booking" data-scroll-section>
-        <div class="booking__background" role="presentation">
-          <div class="booking__overlay"></div>
-          </div>
-        <div class="container booking__grid">
-          <div class="booking__intro" data-animate="fade-right">
-            <span class="section-tag">Reserve</span>
-            <h2>Secure Your Chair</h2>
-            <p>Walk-ins welcome, but reservations guarantee your expert and your moment. Expect a personal confirmation within minutes.</p>
-            <div class="booking__contact">
-              <a href="tel:+14138854440">
-                <span>Call</span>
-                <strong>413-885-4440</strong>
-              </a>
-              <a href="sms:+14138854440">
-                <span>Text</span>
-                <strong>Immediate Response</strong>
-              </a>
-              <a href="mailto:ChicopeeFadeEmpire@gmail.com">
-                <span>Email</span>
-                <strong>ChicopeeFadeEmpire@gmail.com</strong>
-              </a>
-            </div>
-            <div class="booking__calendar glass">
-              <header>
-                <h3>Availability Snapshot</h3>
-                <p>Updated hourly · Eastern Time</p>
-              </header>
-              <div class="calendar-grid">
-                <div class="calendar-day is-open">
-                  <span>Mon</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Tue</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Wed</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Thu</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Fri</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Sat</span>
-                  <strong>10a — 6p</strong>
-                </div>
-                <div class="calendar-day is-open">
-                  <span>Sun</span>
-                  <strong>10a — 6p</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="booking__form-wrapper" data-animate="fade-left">
-            <form class="booking-form" id="whatsappBookingForm" noValidate>
-              <h2 class="form-title">BOOK YOUR APPOINTMENT</h2>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="bookingName">Full Name *</label>
-                  <input id="bookingName" type="text" name="name" placeholder="Your Name" required>
-                </div>
-                <div class="form-group">
-                  <label for="bookingPhone">Phone</label>
-                  <input id="bookingPhone" type="tel" name="phone" placeholder="(413) 885-4440" inputmode="tel">
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="bookingService">Service *</label>
-                <select id="bookingService" name="service" required>
-              <option value="">Select a service</option>
-                  <option value="Hair Cut ($30)">Hair Cut ($30)</option>
-                  <option value="Line Up ($10)">Line Up ($10)</option>
-                  <option value="Beard Trim ($10)">Beard Trim ($10)</option>
-                  <option value="Kids Cut ($25)">Kids Cut ($25)</option>
-                  <option value="Military Cut ($25)">Military Cut ($25)</option>
-                  <option value="Senior Cut ($25)">Senior Cut ($25)</option>
-                  <option value="VIP Haircut ($60)">VIP Haircut ($60)</option>
-                  <option value="Custom Request">Custom Request (Describe Below)</option>
-            </select>
-              </div>
-              <div class="form-group" id="customServiceGroup" hidden>
-                <label for="bookingCustomService">Describe Your Custom Service *</label>
-                <textarea id="bookingCustomService" name="customService" placeholder="Describe your desired haircut, design, or style..." rows="3"></textarea>
-          </div>
-          <div class="form-row">
-                <div class="form-group">
-                  <label for="bookingDate">Preferred Date *</label>
-                  <input id="bookingDate" type="date" name="date" required>
-            </div>
-                <div class="form-group">
-                  <label for="bookingTime">Preferred Time *</label>
-                  <select id="bookingTime" name="time" required>
-                    <option value="">Select time</option>
-                  </select>
-            </div>
-          </div>
-              <div class="form-group">
-                <label for="bookingNotes">Additional Notes</label>
-                <textarea id="bookingNotes" name="notes" placeholder="Any special requests or important info?" rows="3"></textarea>
-          </div>
-              <div class="booking-form__actions">
-                <button type="button" class="submit-btn submit-btn--sms" id="smsPrimary">
-                  <span aria-hidden="true">📱</span>
-                  Send Booking via Messages
-                </button>
-                <button type="submit" class="submit-btn submit-btn--whatsapp">
-                  <span aria-hidden="true">💬</span>
-                  Send Booking via WhatsApp
-                </button>
-          </div>
-        </form>
-        </div>
-      </div>
-    </section>
-
-      <section class="map-section" data-scroll-section>
-        <div class="container map-section__grid">
-          <div class="map-section__content" data-animate="fade-up">
-            <span class="section-tag">Visit</span>
-          <h2>Fade Empire Barbershop</h2>
-            <address>
-              1193 Memorial Dr<br>
-              Chicopee, MA 01020
-            </address>
-            <p class="map-section__hours">Hours · 10AM – 6PM · Every Day</p>
-            <div class="map-section__contact">
-              <a href="tel:+14138854440">Call 413-885-4440</a>
-              <a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a>
-          </div>
-            <div class="map-section__social">
-            <a href="https://instagram.com/fadeempire" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a>
-            <a href="https://facebook.com/fadeempire" target="_blank" rel="noopener" aria-label="Facebook">Facebook</a>
-            <a href="https://tiktok.com/@fadeempire" target="_blank" rel="noopener" aria-label="TikTok">TikTok</a>
-          </div>
-        </div>
-          <div class="map-section__map glass" data-animate="fade-left">
-          <iframe
-            title="Fade Empire on Google Maps"
-              src="https://www.google.com/maps?q=1193+Memorial+Dr,+Chicopee,+MA+01020&output=embed&hl=en&z=15"
-            loading="lazy"
-            allowfullscreen></iframe>
-        </div>
-      </div>
-    </section>
-  </main>
-
-    <footer class="footer" id="footer">
-    <div class="container footer__inner">
-      <div class="footer__brand">
-          <img src="./assets/FadeEmpireStore/fadeempirelogo.png" alt="Fade Empire crest" width="52" height="52" loading="eager">
-          <div>
-            <h3>Fade Empire</h3>
-            <p>Precision Grooming · Chicopee, MA</p>
-          </div>
-        </div>
-        <div class="footer__info">
-          <dl>
-            <div>
-              <dt>Address</dt>
-              <dd>1193 Memorial Dr, Chicopee, MA 01020</dd>
-            </div>
-            <div>
-              <dt>Phone</dt>
-              <dd><a href="tel:+14138854440">413-885-4440</a></dd>
-            </div>
-            <div>
-              <dt>Email</dt>
-              <dd><a href="mailto:ChicopeeFadeEmpire@gmail.com">ChicopeeFadeEmpire@gmail.com</a></dd>
-            </div>
-        <div>
-              <dt>Hours</dt>
-              <dd>Daily · 10AM – 6PM</dd>
-            </div>
-          </dl>
-        </div>
-        <nav class="footer__nav" aria-label="Footer">
-          <a href="#services">Services</a>
-          <a href="#gallery">Gallery</a>
-          <a href="#barbers">Barbers</a>
-          <a href="#booking">Reserve</a>
-        </nav>
-        <div class="footer__bottom">
-          <p>© <span id="year"></span> Fade Empire. All rights reserved.</p>
-          <p>Crafted for the legends of Chicopee.</p>
-        </div>
-      </div>
-    </footer>
-
-    <button class="back-to-top" id="backToTop" aria-label="Back to top">
-      <span class="pole"></span>
-    </button>
-
-    <a
-      class="btn btn--primary developer-contact"
-      href="mailto:aliyounes@eternalreverse.com?subject=Fade%20Empire%20Bug%20Report&body=Hi%2C%0A%0AI%20found%20a%20bug%20on%20Fade%20Empire%3A%0A%0A-%20What%20happened%3A%20%0A-%20Steps%20to%20reproduce%3A%20%0A-%20Device%2Fbrowser%3A%20%0A%0AThanks!"
-      aria-label="Contact developer to report bugs"
-    >
-      Contact developer · report a bug
+<!-- ============================================================
+     NAV — sticky thin masthead with live OPEN/CLOSED stamp
+============================================================ -->
+<header class="nav" data-nav>
+  <div class="nav__inner container-wide">
+    <a class="nav__brand" href="#" aria-label="Fade Empire — home">
+      <span class="nav__wordmark">Fade Empire</span>
+      <span class="nav__locale t-meta">Chicopee · MA</span>
     </a>
 
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#menu"        class="nav__link link-underline">The Menu</a>
+      <a href="#gallery"     class="nav__link link-underline">The Work</a>
+      <a href="#hassan"      class="nav__link link-underline">Hassan</a>
+      <a href="#book"        class="nav__link link-underline">Book a Chair</a>
+      <a href="#visit"       class="nav__link link-underline">Visit</a>
+    </nav>
 
-    <script src="./script.js?v=20251225-6" type="module" defer></script>
-    <script>
-      // Optimize font loading
-      if ('fonts' in document) {
-        Promise.all([
-          document.fonts.load('400 1em Poppins'),
-          document.fonts.load('700 1em Montserrat'),
-          document.fonts.load('400 1em Bebas Neue')
-        ]).then(() => {
-          document.documentElement.classList.add('fonts-loaded');
-        });
-      }
-    </script>
+    <div class="nav__meta">
+      <span class="stamp" data-open-stamp aria-live="polite">
+        <span class="stamp__dot"></span>
+        <span class="stamp__text">Open</span>
+      </span>
+      <a href="tel:+14138854440" class="nav__phone t-mono">413·885·4440</a>
+      <button class="nav__toggle" type="button" data-nav-toggle aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================================================
+     HERO — full-bleed portrait, oversized italic wordmark, gold rule
+============================================================ -->
+<section class="hero" id="hero">
+  <div class="hero__bg" aria-hidden="true">
+    <picture>
+      <source media="(max-width: 767px)" srcset="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png">
+      <img src="./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png" alt="">
+    </picture>
+    <div class="hero__scrim"></div>
+  </div>
+
+  <div class="hero__inner container">
+    <p class="hero__eyebrow t-eyebrow">
+      <span>Established 2018</span>
+      <span class="hero__eyebrow-rule" aria-hidden="true"></span>
+      <span>Issue No. <span data-issue-no>—</span></span>
+    </p>
+
+    <h1 class="hero__title t-display">
+      <span class="hero__title-line">Fade</span>
+      <span class="hero__title-line hero__title-line--accent">Empire<span class="hero__title-rule" aria-hidden="true"></span></span>
+    </h1>
+
+    <p class="hero__dek t-italic">
+      A one-chair barbershop on Memorial Drive. Hassan cuts. You sit. The chair tells the story.
+    </p>
+
+    <div class="hero__ctas">
+      <a href="#book" class="btn btn--gold">Book a Chair</a>
+      <a href="tel:+14138854440" class="btn btn--ghost">
+        <span>Call</span>
+        <span class="t-mono">413·885·4440</span>
+      </a>
+    </div>
+
+    <div class="hero__next" data-next-available hidden>
+      <span class="t-eyebrow tone-gold">Next Available</span>
+      <span class="t-mono" data-next-available-slot>—</span>
+      <a href="#book" class="hero__next-cta t-meta">Reserve →</a>
+    </div>
+
+    <ul class="hero__meta">
+      <li><span class="t-mono hero__meta-num">2,000+</span><span class="t-meta">Cuts</span></li>
+      <li><span class="t-mono hero__meta-num">7</span><span class="t-meta">Years</span></li>
+      <li><span class="t-mono hero__meta-num">★ 5.0</span><span class="t-meta">Rating</span></li>
+    </ul>
+  </div>
+
+  <div class="hero__folio t-meta" aria-hidden="true">
+    Chapter I &nbsp;·&nbsp; The Cover
+  </div>
+</section>
+
+<!-- ============================================================
+     NOTE — short editor's letter from Hassan
+============================================================ -->
+<section class="note section" id="note">
+  <div class="container-tight">
+    <p class="t-eyebrow tone-gold reveal">A note from the chair</p>
+    <p class="t-pullquote reveal" data-reveal-delay="100">
+      I came from Lebanon in 2018 with one set of clippers and the idea that a barbershop is a quiet place to be heard.
+      Seven years later, the chair is the same. Sit down. We'll talk.
+    </p>
+    <p class="note__sign t-italic reveal" data-reveal-delay="200">— Hassan</p>
+    <div class="rule rule--gold reveal" data-reveal-delay="300"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     MENU — services as a typeset restaurant menu
+============================================================ -->
+<section class="section section--alt" id="menu">
+  <div class="container">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter II</p>
+      <h2 class="t-display reveal">The Menu.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="120">
+        Plain prices. No subscriptions. Cash, card, or Apple Pay at the chair.
+      </p>
+    </header>
+
+    <div class="menu reveal" data-reveal-delay="200">
+      <ol class="menu__list">
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Hair Cut</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$30</span>
+          <span class="menu__note t-meta">30 min · scissor or clipper, your call</span>
+        </li>
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Line Up</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$10</span>
+          <span class="menu__note t-meta">15 min · edges, hairline, sideburns</span>
+        </li>
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Beard Trim</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$10</span>
+          <span class="menu__note t-meta">20 min · shape, taper, hot towel optional</span>
+        </li>
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Kids Cut</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$25</span>
+          <span class="menu__note t-meta">12 &amp; under · candy at the end</span>
+        </li>
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Military Cut</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$25</span>
+          <span class="menu__note t-meta">regulation length · ID at the chair</span>
+        </li>
+        <li class="menu__item">
+          <span class="menu__name t-display-sm">Senior Cut</span>
+          <span class="menu__leader" aria-hidden="true"></span>
+          <span class="menu__price t-price">$25</span>
+          <span class="menu__note t-meta">65+ · scissor work, careful hands</span>
+        </li>
+      </ol>
+
+      <aside class="menu__feature">
+        <p class="t-eyebrow tone-gold">Featured</p>
+        <h3 class="t-display-md">The VIP.</h3>
+        <p class="menu__feature-dek t-italic">
+          Cut, line up, beard, hot towel, facial, eyebrows. Take an hour. Walk out a different shape.
+        </p>
+        <div class="menu__feature-row">
+          <span class="t-meta">All in</span>
+          <span class="t-price--lg">$60</span>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="menu__footnote reveal" data-reveal-delay="300">
+      <p class="t-eyebrow">Add-ons</p>
+      <ul class="menu__addons">
+        <li><span class="t-display-sm">Eyebrows</span><span class="t-price">free</span></li>
+        <li><span class="t-display-sm">Hot Towel</span><span class="t-price">+$5</span></li>
+        <li><span class="t-display-sm">Facial</span><span class="t-price">+$20</span></li>
+        <li><span class="t-display-sm">Wax</span><span class="t-price">+$5</span></li>
+      </ul>
+    </footer>
+  </div>
+</section>
+
+<!-- ============================================================
+     FIELD GUIDE — service comparison table
+============================================================ -->
+<section class="section" id="field-guide">
+  <div class="container">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter III</p>
+      <h2 class="t-display reveal">Field Guide.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+        Not sure which one you need? Here's the difference, in plain English.
+      </p>
+    </header>
+
+    <div class="compare reveal" data-reveal-delay="200">
+      <!-- Mobile-only stacked cards (table is hidden on phone) -->
+      <div class="compare__cards">
+        <article class="compare__card">
+          <header class="compare__card-head">
+            <span class="t-display-sm">Line Up</span>
+            <span class="t-mono compare__price">$10</span>
+          </header>
+          <ul class="compare__card-rows">
+            <li><span class="t-meta">Chair time</span><span class="t-mono">15 min</span></li>
+            <li><span class="t-meta">Cuts hair</span><span>—</span></li>
+            <li><span class="t-meta">Beard work</span><span>—</span></li>
+            <li><span class="t-meta">Edges &amp; line</span><span>Yes</span></li>
+            <li><span class="t-meta">Best for</span><span class="t-body-sm">Tightening between cuts</span></li>
+          </ul>
+        </article>
+        <article class="compare__card">
+          <header class="compare__card-head">
+            <span class="t-display-sm">Beard Trim</span>
+            <span class="t-mono compare__price">$10</span>
+          </header>
+          <ul class="compare__card-rows">
+            <li><span class="t-meta">Chair time</span><span class="t-mono">20 min</span></li>
+            <li><span class="t-meta">Cuts hair</span><span>—</span></li>
+            <li><span class="t-meta">Beard work</span><span>Yes</span></li>
+            <li><span class="t-meta">Edges &amp; line</span><span>Beard line only</span></li>
+            <li><span class="t-meta">Best for</span><span class="t-body-sm">Shape &amp; taper a beard</span></li>
+          </ul>
+        </article>
+        <article class="compare__card">
+          <header class="compare__card-head">
+            <span class="t-display-sm">Hair Cut</span>
+            <span class="t-mono compare__price">$30</span>
+          </header>
+          <ul class="compare__card-rows">
+            <li><span class="t-meta">Chair time</span><span class="t-mono">30 min</span></li>
+            <li><span class="t-meta">Cuts hair</span><span>Yes</span></li>
+            <li><span class="t-meta">Beard work</span><span>Add-on</span></li>
+            <li><span class="t-meta">Edges &amp; line</span><span>Yes</span></li>
+            <li><span class="t-meta">Best for</span><span class="t-body-sm">Your everyday look</span></li>
+          </ul>
+        </article>
+        <article class="compare__card compare__card--featured">
+          <header class="compare__card-head">
+            <span class="t-display-sm">VIP</span>
+            <span class="t-mono compare__price">$60</span>
+          </header>
+          <ul class="compare__card-rows">
+            <li><span class="t-meta">Chair time</span><span class="t-mono">60 min</span></li>
+            <li><span class="t-meta">Cuts hair</span><span>Yes</span></li>
+            <li><span class="t-meta">Beard work</span><span>Yes</span></li>
+            <li><span class="t-meta">Hot towel</span><span>Yes</span></li>
+            <li><span class="t-meta">Facial</span><span>Yes</span></li>
+            <li><span class="t-meta">Best for</span><span class="t-body-sm">A wedding, a job, a Saturday</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <table class="compare__table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="t-meta">Vs.</span></th>
+            <th scope="col"><span class="t-display-sm">Line Up</span><br><span class="t-mono compare__price">$10</span></th>
+            <th scope="col"><span class="t-display-sm">Beard Trim</span><br><span class="t-mono compare__price">$10</span></th>
+            <th scope="col"><span class="t-display-sm">Hair Cut</span><br><span class="t-mono compare__price">$30</span></th>
+            <th scope="col" class="compare__featured"><span class="t-display-sm">VIP</span><br><span class="t-mono compare__price">$60</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" class="t-meta">Time in chair</th>
+            <td class="t-mono">15 min</td>
+            <td class="t-mono">20 min</td>
+            <td class="t-mono">30 min</td>
+            <td class="t-mono compare__featured">60 min</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Cuts hair length</th>
+            <td>—</td>
+            <td>—</td>
+            <td>Yes</td>
+            <td class="compare__featured">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Beard work</th>
+            <td>—</td>
+            <td>Yes</td>
+            <td>Add-on</td>
+            <td class="compare__featured">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Edges &amp; line</th>
+            <td>Yes</td>
+            <td>Beard line only</td>
+            <td>Yes</td>
+            <td class="compare__featured">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Hot towel</th>
+            <td>—</td>
+            <td>Add-on</td>
+            <td>Add-on</td>
+            <td class="compare__featured">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Facial</th>
+            <td>—</td>
+            <td>—</td>
+            <td>Add-on</td>
+            <td class="compare__featured">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row" class="t-meta">Best for</th>
+            <td class="t-body-sm">Tightening between cuts</td>
+            <td class="t-body-sm">Shape &amp; taper a beard</td>
+            <td class="t-body-sm">Your everyday look</td>
+            <td class="t-body-sm compare__featured">A wedding, a job, a Saturday</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     GALLERY — asymmetric editorial photo essay
+============================================================ -->
+<section class="section section--alt" id="gallery">
+  <div class="container-wide">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter IV</p>
+      <h2 class="t-display reveal">The Work.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+        Nine plates from the chair. No filters, no retouching, no AI hair.
+      </p>
+    </header>
+
+    <div class="essay">
+
+      <!-- 1. Lead plate (full bleed) -->
+      <figure class="essay__plate essay__plate--lead reveal">
+        <picture>
+          <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_2573_mobile.jpg">
+          <img src="./assets/Haircuts/optimized/IMG_2573_tablet.jpg" alt="Tapered mid-fade with sharp line up" loading="lazy">
+        </picture>
+        <figcaption class="essay__cap t-meta">
+          Plate 01 &middot; Mid-fade with line up
+        </figcaption>
+      </figure>
+
+      <!-- 2-3. Pair (asymmetric: small + large) -->
+      <div class="essay__row essay__row--pair">
+        <figure class="essay__plate essay__plate--sm reveal">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_2607_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_2607_tablet.jpg" alt="Full beard, contoured and trimmed" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 02 &middot; Beard shape</figcaption>
+        </figure>
+        <figure class="essay__plate essay__plate--lg reveal" data-reveal-delay="100">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_2609_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_2609_tablet.jpg" alt="Hair design with a clean part" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 03 &middot; Designed part</figcaption>
+        </figure>
+      </div>
+
+      <!-- 4. Pull-quote between plates -->
+      <blockquote class="essay__quote reveal">
+        <p class="t-pullquote">"A fade is just a conversation between two lengths of hair."</p>
+        <cite class="t-meta">— Hassan</cite>
+      </blockquote>
+
+      <!-- 5-7. Triptych -->
+      <div class="essay__row essay__row--triptych">
+        <figure class="essay__plate reveal">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_2696_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_2696_tablet.jpg" alt="Kids' high fade" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 04 &middot; Kids high fade</figcaption>
+        </figure>
+        <figure class="essay__plate reveal" data-reveal-delay="100">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_2781_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_2781_tablet.jpg" alt="Curly top with skin fade" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 05 &middot; Curls with skin fade</figcaption>
+        </figure>
+        <figure class="essay__plate reveal" data-reveal-delay="200">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_8034_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_8034_tablet.jpg" alt="Hair design with razor work" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 06 &middot; Razor design</figcaption>
+        </figure>
+      </div>
+
+      <!-- 8-9. Closing pair (large + small) -->
+      <div class="essay__row essay__row--pair essay__row--reverse">
+        <figure class="essay__plate essay__plate--lg reveal">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_8232_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_8232_tablet.jpg" alt="Beard with shape-up" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 07 &middot; Beard with shape-up</figcaption>
+        </figure>
+        <figure class="essay__plate essay__plate--sm reveal" data-reveal-delay="100">
+          <picture>
+            <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_9449_mobile.jpg">
+            <img src="./assets/Haircuts/optimized/IMG_9449_tablet.jpg" alt="Low fade with textured top" loading="lazy">
+          </picture>
+          <figcaption class="essay__cap t-meta">Plate 08 &middot; Low fade</figcaption>
+        </figure>
+      </div>
+
+      <!-- Final solo plate -->
+      <figure class="essay__plate essay__plate--lead reveal">
+        <picture>
+          <source media="(max-width: 767px)" srcset="./assets/Haircuts/optimized/IMG_0063_mobile.jpg">
+          <img src="./assets/Haircuts/optimized/IMG_0063_tablet.jpg" alt="High fade with textured top" loading="lazy">
+        </picture>
+        <figcaption class="essay__cap t-meta">
+          Plate 09 &middot; High fade, textured top
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     HASSAN — feature spread
+============================================================ -->
+<section class="section" id="hassan">
+  <div class="container">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter V</p>
+      <h2 class="t-display reveal">The Barber.</h2>
+    </header>
+
+    <div class="feature">
+      <figure class="feature__portrait reveal">
+        <picture>
+          <source media="(max-width: 767px)" srcset="./assets/Barbers/Hassan/optimized/HassanBarber_mobile.png">
+          <img src="./assets/Barbers/Hassan/optimized/HassanBarber_tablet.png" alt="Hassan, master barber" loading="lazy">
+        </picture>
+        <figcaption class="feature__cap t-meta">Hassan &middot; Master barber &middot; Lic. 2018</figcaption>
+      </figure>
+
+      <div class="feature__body">
+        <p class="t-eyebrow tone-gold reveal">Profile</p>
+        <h3 class="feature__name t-display-md reveal" data-reveal-delay="100">Hassan,<br>Master Barber.</h3>
+        <p class="reveal" data-reveal-delay="200">
+          Hassan trained in Lebanon before opening Fade Empire in 2018. Seven years and two thousand cuts in,
+          he still uses the same pair of scissors he started with — sharpened twice a year, never replaced.
+        </p>
+        <p class="reveal" data-reveal-delay="280">
+          His house style is restraint: a fade that earns its name without screaming, a beard that
+          looks like you grew it that way, edges that hold for two weeks. He works on one head at a time.
+          There is no second chair.
+        </p>
+
+        <blockquote class="feature__quote reveal" data-reveal-delay="380">
+          <p class="t-pullquote">"A good haircut is one that nobody compliments — they just look at you longer."</p>
+        </blockquote>
+
+        <dl class="feature__bench reveal" data-reveal-delay="460">
+          <dt class="t-meta">On the bench</dt>
+          <dd>
+            <ul class="feature__tools">
+              <li><span class="t-display-sm">Wahl Magic Clip</span><span class="t-meta">cordless</span></li>
+              <li><span class="t-display-sm">Andis T-Outliner</span><span class="t-meta">edges</span></li>
+              <li><span class="t-display-sm">Joewell hair shears</span><span class="t-meta">6.5"</span></li>
+              <li><span class="t-display-sm">Straight razor</span><span class="t-meta">line work</span></li>
+            </ul>
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     BOOK — visual time-grid + booking form
+============================================================ -->
+<section class="section section--alt" id="book">
+  <div class="container">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter VI</p>
+      <h2 class="t-display reveal">Book a Chair.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+        Pick a day. Pick a time. We hold the slot for fifteen minutes while we confirm.
+      </p>
+    </header>
+
+    <div class="booking reveal" data-reveal-delay="200">
+
+      <!-- Next available callout (also populated by cover.js) -->
+      <div class="booking__callout" data-next-available-callout hidden>
+        <span class="t-eyebrow tone-gold">Next Available</span>
+        <span class="t-mono booking__callout-slot" data-next-available-slot-callout>—</span>
+        <button type="button" class="btn btn--mini" data-pick-next>Pick this</button>
+      </div>
+
+      <!-- Day picker (horizontal scrolling chip row) -->
+      <div class="booking__days" role="tablist" aria-label="Choose a day" data-day-row>
+        <!-- Day chips injected by booking-grid.js -->
+        <div class="booking__day-skeleton" aria-hidden="true"></div>
+      </div>
+
+      <!-- Slot column for selected day -->
+      <div class="booking__slots-wrap">
+        <p class="t-eyebrow booking__slots-head">
+          <span data-slots-day-label>Select a day</span>
+        </p>
+        <div class="booking__slots" role="radiogroup" aria-label="Available time slots" data-slot-grid>
+          <p class="booking__slots-empty t-italic">Pick a day above to see open slots.</p>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form class="booking__form" data-booking-form novalidate>
+        <input type="hidden" name="date" data-form-date>
+        <input type="hidden" name="time" data-form-time>
+
+        <div class="booking__selected" data-selected-pill hidden>
+          <span class="t-eyebrow">Selected</span>
+          <span class="t-mono" data-selected-text>—</span>
+          <button type="button" class="booking__selected-clear" data-clear-selected aria-label="Clear selection">×</button>
+        </div>
+
+        <div class="booking__grid">
+          <label class="booking__field">
+            <span class="t-eyebrow">Name</span>
+            <input type="text" name="name" required autocomplete="name" maxlength="60" placeholder="Your name">
+          </label>
+
+          <label class="booking__field">
+            <span class="t-eyebrow">Phone</span>
+            <input type="tel" name="phone" required autocomplete="tel" inputmode="tel" maxlength="16" placeholder="(413) 555-0123" data-phone-input>
+          </label>
+
+          <label class="booking__field booking__field--full">
+            <span class="t-eyebrow">Service</span>
+            <select name="service" required data-service-select>
+              <option value="">Choose a service…</option>
+              <option value="hair-cut">Hair Cut — $30</option>
+              <option value="line-up">Line Up — $10</option>
+              <option value="beard-trim">Beard Trim — $10</option>
+              <option value="kids-cut">Kids Cut — $25</option>
+              <option value="military-cut">Military Cut — $25</option>
+              <option value="senior-cut">Senior Cut — $25</option>
+              <option value="vip-haircut">VIP Haircut — $60</option>
+              <option value="custom">Custom request</option>
+            </select>
+          </label>
+
+          <fieldset class="booking__addons booking__field--full" data-addons>
+            <legend class="t-eyebrow">Add-ons</legend>
+            <label class="booking__addon"><input type="checkbox" name="addons" value="eyebrows"><span>Eyebrows</span><span class="t-mono">free</span></label>
+            <label class="booking__addon"><input type="checkbox" name="addons" value="hot-towel"><span>Hot Towel</span><span class="t-mono">+$5</span></label>
+            <label class="booking__addon"><input type="checkbox" name="addons" value="facial"><span>Facial</span><span class="t-mono">+$20</span></label>
+            <label class="booking__addon"><input type="checkbox" name="addons" value="wax"><span>Wax</span><span class="t-mono">+$5</span></label>
+          </fieldset>
+
+          <label class="booking__field booking__field--full booking__field--custom" data-custom-field hidden>
+            <span class="t-eyebrow">Custom request</span>
+            <textarea name="custom_request" rows="2" maxlength="300" placeholder="Tell Hassan what you have in mind."></textarea>
+          </label>
+
+          <!-- Group booking: add a friend or a kid -->
+          <div class="booking__field--full booking__group">
+            <p class="booking__group-head t-eyebrow">Bringing someone?</p>
+            <div class="booking__group-list" data-guest-list></div>
+            <button type="button" class="booking__group-add" data-add-guest>
+              <span aria-hidden="true">+</span>
+              <span>Add a friend or kid</span>
+            </button>
+            <p class="booking__group-timeline t-meta" data-group-timeline hidden></p>
+          </div>
+
+          <label class="booking__field booking__field--full">
+            <span class="t-eyebrow">Notes <span class="tone-mute">(optional)</span></span>
+            <textarea name="notes" rows="2" maxlength="300" placeholder="Anything else we should know?"></textarea>
+          </label>
+        </div>
+
+        <!-- Hidden template for guest rows; cloned by booking-submit.js -->
+        <template data-guest-template>
+          <div class="booking__guest" data-guest>
+            <div class="booking__guest-head">
+              <span class="t-eyebrow booking__guest-label">Friend / Kid</span>
+              <button type="button" class="booking__guest-remove" data-remove-guest aria-label="Remove">×</button>
+            </div>
+            <div class="booking__guest-grid">
+              <label class="booking__field">
+                <span class="t-eyebrow">Name</span>
+                <input type="text" data-guest-name maxlength="40" placeholder="Their name" required>
+              </label>
+              <label class="booking__field">
+                <span class="t-eyebrow">Service</span>
+                <select data-guest-service required>
+                  <option value="">Choose a service…</option>
+                  <option value="hair-cut">Hair Cut — $30</option>
+                  <option value="line-up">Line Up — $10</option>
+                  <option value="beard-trim">Beard Trim — $10</option>
+                  <option value="kids-cut">Kids Cut — $25</option>
+                  <option value="military-cut">Military Cut — $25</option>
+                  <option value="senior-cut">Senior Cut — $25</option>
+                  <option value="vip-haircut">VIP Haircut — $60</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        <div class="booking__total">
+          <span class="t-eyebrow">Total</span>
+          <span class="t-price--lg t-mono" data-total-display>$0</span>
+        </div>
+
+        <div class="booking__error" data-form-error hidden role="alert"></div>
+
+        <div class="booking__success-card" data-form-success hidden role="status">
+          <p class="t-eyebrow tone-gold">Slot held ✓</p>
+          <p class="booking__success-text" data-success-text></p>
+          <div class="booking__success-actions">
+            <a class="btn btn--gold btn--lg" data-success-link target="_blank" rel="noopener" hidden>Open WhatsApp →</a>
+          </div>
+          <p class="booking__success-fine t-meta">If the message app didn't open automatically, tap the button above.</p>
+        </div>
+
+        <div class="booking__submit">
+          <button type="submit" class="btn btn--gold btn--lg" data-submit-whatsapp>
+            <span>Reserve via WhatsApp</span>
+          </button>
+          <button type="button" class="btn btn--ghost btn--lg" data-submit-sms>
+            <span>Reserve via SMS</span>
+          </button>
+        </div>
+
+        <p class="booking__fine t-meta">
+          Holds expire in 15 minutes. We confirm by WhatsApp. Cancellations welcome anytime.
+        </p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VISIT — illustrated map + clock-dial hours
+============================================================ -->
+<section class="section" id="visit">
+  <div class="container">
+    <header class="section__head">
+      <p class="t-eyebrow">Chapter VII</p>
+      <h2 class="t-display reveal">The Visit.</h2>
+    </header>
+
+    <div class="visit">
+
+      <!-- Illustrated map (replaces Google Maps iframe) -->
+      <figure class="visit__map reveal">
+        <svg class="visit__map-svg" viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Map of Fade Empire on Memorial Drive, Chicopee MA">
+          <!-- Background plate -->
+          <rect width="600" height="420" fill="#14110F"/>
+          <!-- Grid -->
+          <g stroke="rgba(237,230,214,0.05)" stroke-width="0.5">
+            <line x1="0" y1="60"  x2="600" y2="60"/>
+            <line x1="0" y1="120" x2="600" y2="120"/>
+            <line x1="0" y1="180" x2="600" y2="180"/>
+            <line x1="0" y1="240" x2="600" y2="240"/>
+            <line x1="0" y1="300" x2="600" y2="300"/>
+            <line x1="0" y1="360" x2="600" y2="360"/>
+            <line x1="100" y1="0" x2="100" y2="420"/>
+            <line x1="200" y1="0" x2="200" y2="420"/>
+            <line x1="300" y1="0" x2="300" y2="420"/>
+            <line x1="400" y1="0" x2="400" y2="420"/>
+            <line x1="500" y1="0" x2="500" y2="420"/>
+          </g>
+          <!-- Memorial Drive (main road, gold) -->
+          <path d="M 30 250 Q 200 220, 330 240 T 590 230" fill="none" stroke="#C8A24A" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+          <text x="40" y="240" fill="#C8A24A" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" font-weight="500">MEMORIAL DR</text>
+          <!-- Cross streets -->
+          <path d="M 150 50 L 180 380" fill="none" stroke="rgba(237,230,214,0.20)" stroke-width="2.5"/>
+          <path d="M 380 30 L 420 400" fill="none" stroke="rgba(237,230,214,0.20)" stroke-width="2.5"/>
+          <path d="M 0 110 L 600 90" fill="none" stroke="rgba(237,230,214,0.15)" stroke-width="2"/>
+          <path d="M 0 350 L 600 370" fill="none" stroke="rgba(237,230,214,0.15)" stroke-width="2"/>
+          <!-- River hint (Connecticut River) -->
+          <path d="M 0 30 Q 100 50, 200 35 T 600 40 L 600 0 L 0 0 Z" fill="rgba(74, 110, 162, 0.06)"/>
+          <text x="450" y="20" fill="rgba(237,230,214,0.35)" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.5">CT RIVER</text>
+          <!-- Buildings (blocks) -->
+          <g fill="rgba(237,230,214,0.05)">
+            <rect x="60" y="130" width="60" height="40"/>
+            <rect x="220" y="280" width="80" height="50"/>
+            <rect x="440" y="140" width="70" height="50"/>
+            <rect x="450" y="290" width="60" height="40"/>
+          </g>
+          <!-- Shop marker -->
+          <g transform="translate(300, 240)">
+            <circle r="34" fill="none" stroke="#C8A24A" stroke-width="1" opacity="0.3"/>
+            <circle r="22" fill="none" stroke="#C8A24A" stroke-width="1" opacity="0.5"/>
+            <circle r="11" fill="#C8A24A"/>
+            <line x1="-6" y1="-6" x2="6" y2="6" stroke="#0A0908" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="6" y1="-6" x2="-6" y2="6" stroke="#0A0908" stroke-width="2.5" stroke-linecap="round"/>
+          </g>
+          <text x="300" y="200" fill="#EDE6D6" font-family="Fraunces, serif" font-style="italic" font-weight="700" font-size="20" text-anchor="middle">Fade Empire</text>
+          <text x="300" y="218" fill="rgba(237,230,214,0.55)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1.5" text-anchor="middle">1193 MEMORIAL DR</text>
+          <!-- Compass -->
+          <g transform="translate(540, 60)">
+            <circle r="18" fill="none" stroke="rgba(237,230,214,0.25)" stroke-width="0.5"/>
+            <line x1="0" y1="-14" x2="0" y2="-4" stroke="#C8A24A" stroke-width="1.5"/>
+            <line x1="0" y1="4" x2="0" y2="14" stroke="rgba(237,230,214,0.35)" stroke-width="1"/>
+            <text x="0" y="-22" fill="#C8A24A" font-family="JetBrains Mono, monospace" font-size="9" text-anchor="middle">N</text>
+          </g>
+        </svg>
+        <figcaption class="t-meta visit__map-cap">1193 Memorial Dr · Chicopee · MA 01020</figcaption>
+      </figure>
+
+      <!-- Right column: hours dial + contact -->
+      <div class="visit__panel">
+        <div class="visit__hours reveal">
+          <p class="t-eyebrow">Hours</p>
+          <svg class="visit__dial" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Today's hours: 10 AM to 5:30 PM">
+            <!-- Background ring -->
+            <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(237,230,214,0.10)" stroke-width="1"/>
+            <!-- Tick marks at each hour (12-hour face, 30° per hour) -->
+            <g stroke="rgba(237,230,214,0.45)" stroke-width="1">
+              <line x1="100" y1="14" x2="100" y2="22"/>  <!-- 12 -->
+              <line x1="143" y1="23" x2="139" y2="30"/>
+              <line x1="171" y1="50" x2="164" y2="54"/>
+              <line x1="186" y1="100" x2="178" y2="100"/> <!-- 3 -->
+              <line x1="171" y1="150" x2="164" y2="146"/>
+              <line x1="143" y1="177" x2="139" y2="170"/>
+              <line x1="100" y1="186" x2="100" y2="178"/> <!-- 6 -->
+              <line x1="57" y1="177" x2="61" y2="170"/>
+              <line x1="29" y1="150" x2="36" y2="146"/>
+              <line x1="14" y1="100" x2="22" y2="100"/>  <!-- 9 -->
+              <line x1="29" y1="50" x2="36" y2="54"/>
+              <line x1="57" y1="23" x2="61" y2="30"/>
+            </g>
+            <!-- Hour numerals -->
+            <g fill="rgba(237,230,214,0.55)" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">
+              <text x="100" y="38">12</text>
+              <text x="162" y="104">3</text>
+              <text x="100" y="170">6</text>
+              <text x="40" y="104">9</text>
+            </g>
+            <!-- Open arc: 10 AM → 5:30 PM is 300° → 165° measuring from 12 o'clock clockwise
+                 In SVG arc, we go from angle 300° (10 AM) to 165° (5:30 PM) — sweep through 12, 3.
+                 Using path A command -->
+            <path data-dial-arc d="M 100 100" fill="none" stroke="#C8A24A" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+            <!-- Current-time hand -->
+            <line data-dial-hand x1="100" y1="100" x2="100" y2="40" stroke="#EDE6D6" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="100" cy="100" r="3" fill="#C8A24A"/>
+          </svg>
+          <p class="visit__hours-text">
+            <span class="t-display-sm" data-hours-status>Mon — Sat</span>
+            <span class="t-mono visit__hours-times">10:00 AM &nbsp;—&nbsp; 5:30 PM</span>
+            <span class="t-meta">Sunday · closed</span>
+          </p>
+        </div>
+
+        <div class="visit__contact reveal" data-reveal-delay="120">
+          <p class="t-eyebrow">Contact</p>
+          <a href="tel:+14138854440" class="visit__row link-underline">
+            <span class="t-meta">Phone</span>
+            <span class="t-mono">413·885·4440</span>
+          </a>
+          <a href="https://wa.me/14138854440" target="_blank" rel="noopener" class="visit__row link-underline">
+            <span class="t-meta">WhatsApp</span>
+            <span class="t-mono">→ Message</span>
+          </a>
+          <a href="mailto:hello@chicopeefadeempire.com" class="visit__row link-underline">
+            <span class="t-meta">Email</span>
+            <span class="t-mono">hello@…</span>
+          </a>
+          <a href="https://maps.google.com/?q=1193+Memorial+Dr+Chicopee+MA" target="_blank" rel="noopener" class="visit__row link-underline">
+            <span class="t-meta">Directions</span>
+            <span class="t-mono">→ Google Maps</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================================================
+     STICKY MOBILE CTA BAR — phone only
+============================================================ -->
+<div class="mobile-cta" data-mobile-cta aria-hidden="true">
+  <a href="#book" class="mobile-cta__book" data-mobile-cta-book>
+    <strong>Book a Chair</strong>
+    <span class="mobile-cta__next" data-mobile-cta-next hidden>· <span data-mobile-cta-next-slot>—</span></span>
+  </a>
+  <a href="tel:+14138854440" class="mobile-cta__call" aria-label="Call Fade Empire">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.13 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+</div>
+
+<!-- ============================================================
+     FOOTER — minimal
+============================================================ -->
+<footer class="footer" id="footer">
+  <div class="container">
+    <div class="footer__top rule rule--top"></div>
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <span class="footer__wordmark t-display-md">Fade Empire</span>
+        <p class="t-meta">Est. 2018 · Chicopee · MA</p>
+      </div>
+      <div class="footer__col">
+        <p class="t-eyebrow">Social</p>
+        <ul>
+          <li><a href="https://www.instagram.com/fade_empire_barbershop/" target="_blank" rel="noopener" class="link-underline t-mono">Instagram →</a></li>
+          <li><a href="https://facebook.com/chicopeefadeempire" target="_blank" rel="noopener" class="link-underline t-mono">Facebook →</a></li>
+          <li><a href="https://tiktok.com/@chicopeefadeempire" target="_blank" rel="noopener" class="link-underline t-mono">TikTok →</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <p class="t-eyebrow">Visit</p>
+        <p class="t-mono">1193 Memorial Dr<br>Chicopee · MA · 01020</p>
+        <p class="t-mono"><a href="tel:+14138854440" class="link-underline">413·885·4440</a></p>
+      </div>
+    </div>
+    <p class="footer__copy t-meta">
+      © <span data-year>2026</span> &nbsp;·&nbsp; Fade Empire &nbsp;·&nbsp; All rights reserved
+    </p>
+  </div>
+</footer>
+
 </body>
 </html>
-
