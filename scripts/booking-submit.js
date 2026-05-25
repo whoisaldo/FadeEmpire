@@ -191,10 +191,15 @@ async function submit(form, mode) {
     return;
   }
 
-  // -------- Open a placeholder tab SYNCHRONOUSLY so popup blockers don't fire --------
-  // On mobile Safari especially, window.open after `await` is blocked. Pre-opening
-  // a blank tab preserves the user-gesture context; we redirect it after the RPC.
-  const placeholder = (mode === 'whatsapp' || mode === 'sms')
+  // -------- Determine redirect strategy --------
+  // On phones, opening a placeholder tab is fragile (iOS Safari often refuses to
+  // .close() it on RPC failure, leaving an orphan about:blank). Instead we
+  // navigate the current tab once the RPC succeeds — the booking is locked into
+  // Supabase before we leave the page, so it's safe.
+  //
+  // On desktop, we still pre-open a placeholder so the original tab stays put.
+  const isMobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+  const placeholder = (!isMobile && (mode === 'whatsapp' || mode === 'sms'))
     ? window.open('about:blank', '_blank', 'noopener')
     : null;
 
@@ -296,18 +301,8 @@ async function submit(form, mode) {
     ? `https://wa.me/${SHOP_PHONE}?text=${encoded}`
     : `sms:+${SHOP_PHONE}?&body=${encoded}`;
 
-  if (placeholder && !placeholder.closed) {
-    try { placeholder.location.href = url; } catch (_) { /* cross-origin nav blocked? */ }
-  } else {
-    // Popup blocked. Fall back to current-window navigation on mobile,
-    // or rely on the manual click-through link in the success card.
-    if (window.innerWidth < 768) {
-      window.location.href = url;
-      return;
-    }
-  }
-
-  // -------- Show success card with manual fallback link --------
+  // -------- Show the success card FIRST so the user sees confirmation
+  //          even if a popup blocker or iOS quirk eats the redirect.
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const slotLabel = bookings.length > 1
     ? `${bookings.length} chairs · ${dateLabel} · starting ${minutesToLabel(hmsToMinutes(bookings[0].booking_time))}`
@@ -321,7 +316,19 @@ async function submit(form, mode) {
     link: url,
   });
 
-  // Refresh availability so booked slots disappear, then clear the form selection.
+  // -------- Redirect ---------------------------------------------------
+  if (isMobile) {
+    // Phone: navigate current tab. Brief delay so the success card flashes
+    // before we leave. The user lands directly in WhatsApp/SMS.
+    setTimeout(() => { window.location.href = url; }, 700);
+  } else if (placeholder && !placeholder.closed) {
+    // Desktop: redirect the placeholder tab we opened pre-flight.
+    try { placeholder.location.href = url; } catch (_) { /* cross-origin nav blocked? */ }
+  }
+  // If neither path applies (popup blocked, no JS redirect possible), the
+  // user can tap the gold "Open WhatsApp" button in the success card.
+
+  // Refresh availability so booked slots disappear.
   await gridRefresh();
   submitBtns.forEach(b => (b.disabled = false));
 }

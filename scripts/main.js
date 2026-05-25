@@ -22,6 +22,17 @@ function registerSW() {
       console.warn('[sw] register failed', err);
     });
   });
+  // When a new SW takes control of this page (because we bumped the cache
+  // version), reload once so the user is running against fresh code. Guard
+  // against the very-first install (no prior controller) which would otherwise
+  // reload on first visit.
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    if (!navigator.serviceWorker.controller) return; // shouldn't fire, but guard
+    reloaded = true;
+    window.location.reload();
+  });
 }
 
 ready(() => {
