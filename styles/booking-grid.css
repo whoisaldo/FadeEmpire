@@ -66,9 +66,9 @@
   color: var(--bone);
 }
 
-.booking__day[aria-pressed="true"],
+.booking__day[aria-selected="true"],
 .booking__day.is-selected {
-  background: rgba(200, 162, 74, 0.08);
+  background: var(--gold-soft);
   border-color: var(--gold);
   color: var(--bone);
 }
@@ -87,7 +87,8 @@
   text-transform: uppercase;
   color: var(--bone-mute);
 }
-.booking__day[aria-pressed="true"] .booking__day-weekday { color: var(--gold); }
+.booking__day[aria-selected="true"] .booking__day-weekday,
+.booking__day.is-selected .booking__day-weekday { color: var(--gold); }
 
 .booking__day-num {
   font-family: 'Fraunces', serif;
@@ -163,25 +164,33 @@
   transform: translateY(-1px);
 }
 
-.booking__slot[aria-pressed="true"],
+.booking__slot[aria-checked="true"],
 .booking__slot.is-selected {
   background: var(--gold);
   color: var(--ink);
   border-color: var(--gold);
+  font-weight: 600;
+  box-shadow: var(--shadow-gold);
+  transform: translateY(-1px);
 }
 
+/* Taken: clearly unavailable — muted fill + strikethrough, reads as "gone". */
 .booking__slot.is-taken {
   color: var(--bone-mute);
   text-decoration: line-through;
-  text-decoration-color: var(--bone-mute);
+  text-decoration-color: var(--bone-faint);
   cursor: not-allowed;
-  background: transparent;
+  background: var(--ink-3);
+  border-color: transparent;
 }
 
+/* Past: simply faded, no strikethrough — visually distinct from "taken". */
 .booking__slot.is-past {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
   background: transparent;
+  border-style: dotted;
+  text-decoration: none;
 }
 
 .booking__slot.is-lunch {

@@ -3,3 +3,8 @@
 
 # Supabase CLI local cache (linked project ref, version pins, etc.)
 supabase/.temp/
+
+# Local dev tooling — secrets + exported customer data must never be committed
+tools/.env.local
+tools/*.local.*
+tools/appointments.local.*

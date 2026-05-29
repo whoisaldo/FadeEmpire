@@ -437,7 +437,7 @@ async function submit(form, mode) {
     : `${dateLabel} at ${minutesToLabel(hmsToMinutes(primaryBooking.booking_time))}`;
 
   showSuccess(form, {
-    text: `${slotLabel} — held for 15 minutes. ${
+    text: `${slotLabel} — reserved. ${
       guests.length > 0
         ? `Hassan will be expecting ${guests.length + 1} of you.`
         : `Hassan will be expecting you.`

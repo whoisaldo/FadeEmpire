@@ -1,5 +1,5 @@
 // visit.js — clock-dial:
-//   * draws the open-arc for today's schedule (10am–5:30pm Mon–Sat)
+//   * draws the open-arc for today's schedule (10am–6pm daily)
 //   * positions the "now" hand at the current shop-local time
 
 import { SCHEDULE } from './config.js';

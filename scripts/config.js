@@ -14,13 +14,13 @@ export const SHOP_TZ     = 'America/New_York';
 // and time-grid construction. 0 = Sunday … 6 = Saturday.
 // Hours expressed in minutes from midnight to make math easy.
 export const SCHEDULE = {
-  // Sunday closed
-  1: { open: 10 * 60, close: 17 * 60 + 30 }, // Mon
-  2: { open: 10 * 60, close: 17 * 60 + 30 }, // Tue
-  3: { open: 10 * 60, close: 17 * 60 + 30 }, // Wed
-  4: { open: 10 * 60, close: 17 * 60 + 30 }, // Thu
-  5: { open: 10 * 60, close: 17 * 60 + 30 }, // Fri
-  6: { open: 10 * 60, close: 17 * 60 + 30 }, // Sat
+  0: { open: 10 * 60, close: 18 * 60 }, // Sun
+  1: { open: 10 * 60, close: 18 * 60 }, // Mon
+  2: { open: 10 * 60, close: 18 * 60 }, // Tue
+  3: { open: 10 * 60, close: 18 * 60 }, // Wed
+  4: { open: 10 * 60, close: 18 * 60 }, // Thu
+  5: { open: 10 * 60, close: 18 * 60 }, // Fri
+  6: { open: 10 * 60, close: 18 * 60 }, // Sat
 };
 
 export const SLOT_MINUTES = 30;
