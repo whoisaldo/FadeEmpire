@@ -44,4 +44,5 @@ export const ADDON_PRICES_CENTS = {
   'hot-towel':  500,
   'facial':     2000,
   'wax':        500,
+  'beard':      1000,
 };

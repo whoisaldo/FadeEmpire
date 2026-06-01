@@ -501,7 +501,8 @@ insert into addons (slug, display_name, price_cents, sort_order) values
   ('eyebrows',  'Eyebrows',    0, 10),
   ('hot-towel', 'Hot Towel',  500, 20),
   ('facial',    'Facial',    2000, 30),
-  ('wax',       'Wax',        500, 40);
+  ('wax',       'Wax',        500, 40),
+  ('beard',     'Beard',     1000, 50);
 
 -- Hassan's working hours: Monday–Saturday, 10:00 AM – 5:30 PM.
 -- Sunday is closed (no row = closed for that weekday).
