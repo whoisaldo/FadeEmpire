@@ -9,10 +9,11 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_vCj7QAuA2-9Wp_ufQiv84Q_qDYwP9fd
 export const SHOP_PHONE  = '14138854440';            // E.164 minus the '+', for wa.me / sms:
 export const SHOP_TZ     = 'America/New_York';
 
-// STORE hours mirrored from `store_hours`. The shop is open Mon–Sat 9–6 and
-// closed Sundays. Used for the OPEN/CLOSED stamp and the clock dial.
-// 0 = Sunday … 6 = Saturday; hours in minutes-from-midnight. No entry = closed.
+// STORE hours mirrored from `store_hours`. Open every day: Mon–Sat 9–6 and
+// Sunday 10–6 (Hassan's Sunday shift). Used for the OPEN/CLOSED stamp and
+// the clock dial. 0 = Sunday … 6 = Saturday; minutes-from-midnight.
 export const STORE_HOURS = {
+  0: { open: 10 * 60, close: 18 * 60 }, // Sun (Hassan only)
   1: { open: 9 * 60, close: 18 * 60 }, // Mon
   2: { open: 9 * 60, close: 18 * 60 }, // Tue
   3: { open: 9 * 60, close: 18 * 60 }, // Wed
@@ -35,6 +36,7 @@ export const BARBERS = {
     },
     hoursLabel: '10 AM – 6 PM · Off Tuesdays',
     schedule: {
+      0: { open: 10 * 60, close: 18 * 60 }, // Sun
       1: { open: 10 * 60, close: 18 * 60 }, // Mon
       3: { open: 10 * 60, close: 18 * 60 }, // Wed
       4: { open: 10 * 60, close: 18 * 60 }, // Thu

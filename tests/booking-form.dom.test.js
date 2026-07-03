@@ -119,11 +119,18 @@ describe('booking grid', () => {
     expect(chips[0].getAttribute('aria-selected')).toBe('true');
   });
 
-  it('disables Tuesday and Sunday chips for Hassan', () => {
+  it('disables Tuesday for Hassan but keeps his Sunday open', () => {
     const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
     const sun = $('[data-day-row] .booking__day[data-date="2026-07-12"]');
     expect(tue.disabled).toBe(true);
-    expect(sun.disabled).toBe(true);
+    expect(sun.disabled).toBe(false);
+  });
+
+  it("renders Hassan's Sunday slots from 10:00 (store opens late on Sundays)", () => {
+    clickDay('2026-07-12');
+    const pills = $$('[data-slot-grid] .booking__slot');
+    expect(pills[0].dataset.time).toBe('10:00:00');
+    expect(pills[pills.length - 1].dataset.time).toBe('17:30:00');
   });
 
   it("renders Hassan's Monday slots from 10:00 with past ones disabled", () => {
@@ -136,7 +143,7 @@ describe('booking grid', () => {
     expect(pills[1].disabled).toBe(false);
   });
 
-  it('switching to Javier opens Tuesday and adds the 9 AM start', () => {
+  it('switching to Javier opens Tuesday, closes Sunday, and adds the 9 AM start', () => {
     $('[data-barber-option="javier"]').click();
 
     expect($('[data-barber-option="javier"]').getAttribute('aria-checked')).toBe('true');
@@ -144,6 +151,8 @@ describe('booking grid', () => {
 
     const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
     expect(tue.disabled).toBe(false);
+    const sun = $('[data-day-row] .booking__day[data-date="2026-07-12"]');
+    expect(sun.disabled).toBe(true);
 
     clickDay('2026-07-07');
     const pills = $$('[data-slot-grid] .booking__slot');
