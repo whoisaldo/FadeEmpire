@@ -92,7 +92,8 @@ FadeEmpire/
 │       ├── 0007_lock_web_bookings_and_hours.sql  Confirm-on-create (no holds)
 │       ├── 0008_add_beard_addon.sql
 │       ├── 0009_javier_store_hours_cancellation.sql  Javier + store_hours + cancel lookup
-│       └── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
+│       ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
+│       └── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos

@@ -11,6 +11,21 @@ create function tap_next_dow(p_dow int) returns date language sql as $$
   select (current_date + ((p_dow - extract(dow from current_date)::int + 7) % 7 + 7))::date
 $$;
 
+-- A table is "hidden" from the current role if reading it either raises
+-- permission-denied (no grant — fresh databases) or yields zero rows
+-- (legacy grant + RLS with no policy — the hosted project). Both are a
+-- correct lockdown; readable ROWS are the regression we're guarding against.
+create function tap_table_hidden(p_table text) returns boolean
+language plpgsql as $$
+declare v_count int;
+begin
+  execute format('select count(*) from %I', p_table) into v_count;
+  return v_count = 0;
+exception when insufficient_privilege then
+  return true;
+end;
+$$;
+
 -- Seed one real booking as the superuser so there is PII worth protecting.
 select lives_ok(
   $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(6), '10:00', 'Private Person', '5553330001') $$,
@@ -28,12 +43,12 @@ select columns_are(
 set local role anon;
 
 select is(
-  (select count(*)::int from bookings),
-  0, 'anon sees ZERO rows in bookings (RLS lockdown)'
+  tap_table_hidden('bookings'),
+  true, 'anon cannot read any bookings rows (denied or RLS-empty)'
 );
 select is(
-  (select count(*)::int from booking_errors),
-  0, 'anon sees ZERO rows in booking_errors'
+  tap_table_hidden('booking_errors'),
+  true, 'anon cannot read any booking_errors rows (denied or RLS-empty)'
 );
 select throws_ok(
   $$ insert into bookings (barber_id, service_id, booking_date, booking_time,
