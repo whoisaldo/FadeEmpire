@@ -5,7 +5,7 @@
 //   * sticky-nav solidification on scroll
 //   * year injection in footer
 
-import { SCHEDULE, CLOSING_SOON_MIN } from './config.js';
+import { STORE_HOURS, CLOSING_SOON_MIN } from './config.js';
 import { nowMinutesInShopTz, shopWeekday } from './booking-helpers.js';
 import { fetchNextAvailable } from './booking-rpc.js';
 
@@ -15,7 +15,7 @@ function updateOpenStamp() {
   const el = document.querySelector('[data-open-stamp]');
   if (!el) return;
   const wk    = shopWeekday();
-  const sched = SCHEDULE[wk];
+  const sched = STORE_HOURS[wk];
   const nowM  = nowMinutesInShopTz();
 
   let state = 'closed';

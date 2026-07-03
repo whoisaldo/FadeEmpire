@@ -1,0 +1,40 @@
+# Live health — end-to-end checks against the PRODUCTION site + database.
+#
+# Read-only: every request is one the public website itself makes from a
+# visitor's browser (public anon key only — no secrets needed). Catches:
+#   * site down or serving a stale deploy
+#   * config drift: prices/hours/barbers differ between Supabase and config.js
+#   * missing RPCs after a migration mishap (booking/cancellation broken)
+#   * security regressions (booking PII readable, owner RPCs executable)
+#
+# Runs every morning before the store opens, after every push to main
+# (with retries while GitHub Pages finishes deploying), and on demand.
+
+name: Live health
+
+on:
+  schedule:
+    - cron: '0 11 * * *'   # 11:00 UTC ≈ 7:00 am in Chicopee (EDT)
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-health:
+    name: Production site + DB health
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run live health checks
+        env:
+          SITE_RETRIES: '8'   # Pages deploys lag a push by a minute or two
+        run: node tests/ci/live-health.mjs

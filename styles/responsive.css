@@ -114,16 +114,58 @@ input, select, textarea, button {
     gap: 0.85rem;
   }
 
-  /* --- Gallery: less aggressive aspect ratios on phone --- */
-  .essay { gap: 1rem; }
-  .essay__plate--lead    { aspect-ratio: 4 / 5; border-radius: var(--r-sm); }
-  .essay__plate--sm,
-  .essay__plate--lg      { aspect-ratio: 4 / 5; }
-  .essay__row--triptych  .essay__plate { aspect-ratio: 4 / 5; }
-  .essay__cap            { padding: 0.35rem 0.55rem; font-size: 0.625rem; letter-spacing: 0.10em; }
-  .essay__quote          { padding: 1.5rem 0.5rem; margin: 0.5rem auto; }
-  .essay__quote .t-pullquote { font-size: 1.375rem; line-height: 1.3; }
+  /* --- Gallery: horizontal swipe filmstrip on phone ---
+     Nine stacked full-width plates ≈ 5000px of scrolling. Instead: one
+     plate-height strip you swipe through. The pair/triptych wrappers are
+     flattened with display:contents so every plate (and the pull-quote)
+     becomes a snap card in a single row. Desktop keeps the essay layout.
+  */
+  .essay {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* bleed to the screen edges, past the container's 1rem gutter */
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    padding-bottom: 0.5rem;
+  }
+  .essay::-webkit-scrollbar { display: none; }
+
+  .essay__row { display: contents; }
+
+  .essay .essay__plate {
+    flex: 0 0 76vw;
+    max-width: 340px;
+    aspect-ratio: 3 / 4;
+    scroll-snap-align: center;
+    border-radius: var(--r-sm);
+    margin-top: 0;               /* cancel the triptych desktop stagger */
+  }
+
+  .essay__cap { padding: 0.35rem 0.55rem; font-size: 0.625rem; letter-spacing: 0.10em; }
+
+  /* The pull-quote rides the strip as a text card between plates */
+  .essay__quote {
+    flex: 0 0 72vw;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    scroll-snap-align: center;
+    margin: 0;
+    padding: 1rem 1.25rem;
+    border-left: 1px solid var(--rule-strong);
+    border-right: 1px solid var(--rule-strong);
+  }
+  .essay__quote .t-pullquote { font-size: 1.25rem; line-height: 1.35; }
   .essay__quote cite     { margin-top: 0.85rem; font-size: 0.625rem; letter-spacing: 0.18em; }
+
+  .essay-swipe-hint { display: block; margin-top: 0.5rem; color: var(--gold); }
 
   /* --- Hassan feature: portrait above body --- */
   .feature { gap: 1.75rem; }
@@ -131,7 +173,6 @@ input, select, textarea, button {
   .feature__name     { font-size: 2rem; }
   .feature__quote    { margin: 1rem 0; padding: 1rem 0 1rem 1rem; }
   .feature__quote .t-pullquote { font-size: 1.25rem; }
-  .feature__tools    { grid-template-columns: 1fr; gap: 0.25rem; }
 
   /* --- Booking: full-bleed card edge, bigger taps --- */
   .booking {

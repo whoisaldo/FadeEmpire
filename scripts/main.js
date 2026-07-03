@@ -4,6 +4,7 @@ import { initCover }          from './cover.js';
 import { initReveals }        from './reveals.js';
 import { initBookingGrid }    from './booking-grid.js';
 import { initBookingSubmit }  from './booking-submit.js';
+import { initBookingCancel }  from './booking-cancel.js';
 import { initVisit }          from './visit.js';
 
 function ready(fn) {
@@ -40,6 +41,7 @@ ready(() => {
   initReveals();
   initVisit();
   initBookingSubmit();
+  initBookingCancel();
   initBookingGrid();           // async; loads availability in the background
   registerSW();
 });

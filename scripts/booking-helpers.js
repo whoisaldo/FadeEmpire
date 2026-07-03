@@ -1,6 +1,9 @@
 // booking-helpers.js — pure helpers shared across booking modules.
 
-import { SCHEDULE, SHOP_TZ, SLOT_MINUTES, SERVICE_PRICES_CENTS, ADDON_PRICES_CENTS } from './config.js';
+import {
+  STORE_HOURS, BARBERS, DEFAULT_BARBER_SLUG, SHOP_TZ, SLOT_MINUTES,
+  SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS,
+} from './config.js';
 
 /** Strict ISO yyyy-mm-dd in local (shop) time for a given Date. */
 export function isoDate(d) {
@@ -39,6 +42,23 @@ export function fmtShopTime(d, opts) {
   return new Intl.DateTimeFormat('en-US', { timeZone: SHOP_TZ, ...opts }).format(d);
 }
 
+/**
+ * Weekday (0=Sun … 6=Sat) for a calendar date given as 'YYYY-MM-DD'.
+ * Pure calendar math — immune to the viewer's local timezone. (Parsing
+ * `${iso}T12:00:00` as a local Date shifts the day for far-east visitors.)
+ */
+export function weekdayFromIso(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** Human label ("Friday, July 4") for a 'YYYY-MM-DD' calendar date, TZ-safe. */
+export function dateLabelFromIso(iso, opts = { weekday: 'long', month: 'long', day: 'numeric' }) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...opts })
+    .format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
+
 /** Current minutes-since-midnight in the shop timezone (handles DST). */
 export function nowMinutesInShopTz() {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -57,15 +77,42 @@ export function shopWeekday(d = new Date()) {
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wk);
 }
 
-/** Generate the slot list (in minutes) for a given weekday. Returns [] if closed. */
-export function slotsForWeekday(weekday) {
-  const sched = SCHEDULE[weekday];
-  if (!sched) return [];
+/**
+ * Effective bookable hours for a barber on a weekday: the intersection of
+ * STORE_HOURS and the barber's own schedule. Null = closed (store closed,
+ * barber's day off, or no overlap). Mirrors the DB-side double check.
+ */
+export function effectiveHours(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
+  const store  = STORE_HOURS[weekday];
+  const barber = BARBERS[barberSlug]?.schedule?.[weekday];
+  if (!store || !barber) return null;
+  const open  = Math.max(store.open, barber.open);
+  const close = Math.min(store.close, barber.close);
+  return open < close ? { open, close } : null;
+}
+
+/**
+ * Generate the slot list (in minutes) for a given weekday and barber.
+ * Returns [] if the store is closed or the barber is off that day.
+ */
+export function slotsForWeekday(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
+  const hours = effectiveHours(weekday, barberSlug);
+  if (!hours) return [];
   const out = [];
-  for (let m = sched.open; m + SLOT_MINUTES <= sched.close; m += SLOT_MINUTES) {
+  for (let m = hours.open; m + SLOT_MINUTES <= hours.close; m += SLOT_MINUTES) {
     out.push(m);
   }
   return out;
+}
+
+/** Chair time in minutes for a service slug (unknown slugs default to one slot). */
+export function serviceDurationMin(serviceSlug) {
+  return SERVICE_DURATIONS_MIN[serviceSlug] || SLOT_MINUTES;
+}
+
+/** How many consecutive 30-min slots a service occupies. */
+export function serviceSlotCount(serviceSlug) {
+  return Math.max(1, Math.ceil(serviceDurationMin(serviceSlug) / SLOT_MINUTES));
 }
 
 /** Compute total cents from service + addon slugs. */
@@ -89,30 +136,14 @@ export function formatPhoneDisplay(digits) {
   return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
 }
 
-/** Build the WhatsApp/SMS booking message. `useMarkdown` adds * and _ wrappers. */
-export function buildMessage({ bookingId, name, phone, serviceLabel, dateLabel, timeLabel, addons, notes, customRequest, totalLabel, useMarkdown = true }) {
-  const bold = (s) => useMarkdown ? `*${s}*` : s;
-  const italic = (s) => useMarkdown ? `_${s}_` : s;
-  const lines = [
-    `${bold('FADE EMPIRE — BOOKING REQUEST')}`,
-    ``,
-    `Ref:    ${bookingId || '—'}`,
-    `Name:   ${name}`,
-    `Phone:  ${phone}`,
-    `Service:${serviceLabel}`,
-    `Date:   ${dateLabel}`,
-    `Time:   ${timeLabel}`,
-  ];
-  if (addons && addons.length) lines.push(`Add-ons:${addons.join(', ')}`);
-  if (customRequest) lines.push(`Custom: ${customRequest}`);
-  if (notes) lines.push(`Notes:  ${notes}`);
-  lines.push(`Total:  ${totalLabel}`);
-  lines.push('');
-  lines.push(italic('Sent from chicopeefadeempire.com'));
-  return lines.join('\n');
+/** Normalize user phone input to bare digits; drops a leading US country code. */
+export function cleanPhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+  return digits;
 }
 
-/** Map a Postgres error from book_slot() to a user-friendly code. */
+/** Map a Postgres error from the booking RPCs to a user-friendly code. */
 export function mapBookingErrorCode(err) {
   if (!err) return 'unknown';
   const msg  = err.message || '';
@@ -123,6 +154,7 @@ export function mapBookingErrorCode(err) {
   if (err.name === 'TypeError' && msg.toLowerCase().includes('fetch'))    return 'network';
   if (msg.includes('slot_taken'))              return 'slot_taken';
   if (msg.includes('outside_working_hours'))   return 'outside_hours';
+  if (msg.includes('store_closed'))            return 'store_closed';
   if (msg.includes('barber_closed'))           return 'closed';
   if (msg.includes('too_many_active_bookings'))return 'too_many';
   if (msg.includes('too_many_people'))         return 'too_many_people';
@@ -133,20 +165,23 @@ export function mapBookingErrorCode(err) {
   if (msg.includes('invalid_slot_alignment'))  return 'bad_slot';
   if (msg.includes('barber_not_found'))        return 'barber_not_found';
   if (msg.includes('service_not_found'))       return 'service_not_found';
+  if (msg.includes('cannot_cancel'))           return 'cannot_cancel';
+  if (msg.includes('cancel_via_primary'))      return 'cannot_cancel';
   return 'unknown';
 }
 
 /** Which error codes should NOT fall back to the messaging path.
  *  `slot_taken` must hard-fail to prevent real double-booking. Everything else
- *  is recoverable — we still want to ping Hassan via WhatsApp/SMS.
+ *  is recoverable — we still want to ping the shop via WhatsApp/SMS.
  */
 export const HARD_FAIL_CODES = new Set(['slot_taken']);
 
 export const ERROR_MESSAGES = {
   slot_taken:      'That time was just booked. Pick another slot above.',
-  outside_hours:   "We're closed at that time. Try a different slot.",
+  outside_hours:   'Your barber is off at that time. Try a different slot.',
+  store_closed:    'The shop is closed at that time. Try a different slot.',
   closed:          'The shop is closed that day. Try another date.',
-  too_many:        'You already have several active holds. Cancel one first or call us.',
+  too_many:        'You already have several active bookings. Cancel one first or call us.',
   bad_phone:       'Please enter a valid 10-digit phone number.',
   bad_name:        'Please enter a name (at least 2 characters).',
   bad_date:        'Date is too far out — we book up to 60 days ahead.',
@@ -155,6 +190,7 @@ export const ERROR_MESSAGES = {
   too_many_people: 'Max 6 people per group. Split into two bookings.',
   barber_not_found:'Shop is not accepting online bookings right now. Call 413·885·4440.',
   service_not_found:'That service isn\'t available. Pick another from the menu.',
+  cannot_cancel:   "We couldn't find an active booking matching that phone. It may already be cancelled.",
   not_setup:       'Online booking is being set up. Please call or text 413·885·4440 to reserve.',
   network:         "Can't reach our booking system right now. Call or text 413·885·4440 to reserve.",
   unknown:         'Something went wrong. Please try again, or call 413·885·4440.',
