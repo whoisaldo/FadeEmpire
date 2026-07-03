@@ -64,7 +64,7 @@ select throws_ok(
 
 -- Public marketing data is readable.
 select is((select count(*)::int from barbers where is_active), 2, 'anon reads active barbers');
-select is((select count(*)::int from store_hours), 6, 'anon reads store hours');
+select is((select count(*)::int from store_hours), 7, 'anon reads store hours (open all 7 days)');
 
 -- The availability view works for anon and shows the seeded slot — sans PII.
 select is(
