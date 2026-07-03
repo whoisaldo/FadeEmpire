@@ -49,8 +49,17 @@ select throws_ok(
 );
 select throws_ok(
   $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(0), '11:00', 'Sun Try', '5551110007') $$,
+  '22023', 'outside_working_hours',
+  'javier cannot be booked on Sundays (his day off)'
+);
+select lives_ok(
+  $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(0), '11:00', 'Sun Cut', '5551110027') $$,
+  'hassan works Sundays'
+);
+select throws_ok(
+  $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(0), '09:30', 'Sun Early', '5551110028') $$,
   '22023', 'store_closed',
-  'nobody books on Sundays — the store is closed'
+  'sunday opens at 10 — the 9:30 slot does not exist'
 );
 select throws_ok(
   $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(3), '18:00', 'Late Try', '5551110008') $$,

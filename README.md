@@ -4,7 +4,7 @@ A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, 
 
 Live: <https://chicopeefadeempire.com>
 
-**Hours** — store: Mon–Sat 9 AM–6 PM (closed Sundays). Hassan: 10–6, off Tuesdays. Javier: 9–6, Mon–Sat. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client.
+**Hours** — store: Mon–Sat 9 AM–6 PM, Sun 10 AM–6 PM. Hassan: 10–6, off Tuesdays. Javier: 9–6, Mon–Sat. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client.
 
 ---
 

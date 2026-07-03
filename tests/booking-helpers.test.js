@@ -55,8 +55,8 @@ describe('time + date helpers', () => {
 });
 
 describe('store hours + barber schedules', () => {
-  it('the store is closed on Sundays and open Mon–Sat 9–6', () => {
-    expect(STORE_HOURS[0]).toBeUndefined();
+  it('the store is open Mon–Sat 9–6 and Sunday 10–6', () => {
+    expect(STORE_HOURS[0]).toEqual({ open: 10 * 60, close: 18 * 60 });
     for (const wk of [1, 2, 3, 4, 5, 6]) {
       expect(STORE_HOURS[wk]).toEqual({ open: 9 * 60, close: 18 * 60 });
     }
@@ -69,10 +69,10 @@ describe('store hours + barber schedules', () => {
     expect(effectiveHours(1, 'javier')).toEqual({ open: 540, close: 1080 });
   });
 
-  it('Hassan is off Tuesdays; both barbers are off Sundays (store closed)', () => {
+  it('Hassan is off Tuesdays but works Sundays; Javier is off Sundays', () => {
     expect(effectiveHours(2, 'hassan')).toBeNull();
     expect(effectiveHours(2, 'javier')).not.toBeNull();
-    expect(effectiveHours(0, 'hassan')).toBeNull();
+    expect(effectiveHours(0, 'hassan')).toEqual({ open: 600, close: 1080 });
     expect(effectiveHours(0, 'javier')).toBeNull();
   });
 
@@ -87,10 +87,12 @@ describe('store hours + barber schedules', () => {
     expect(javierMon).toHaveLength(18);
   });
 
-  it('slotsForWeekday returns [] on closed days', () => {
+  it('slotsForWeekday returns [] on days off, slots on working days', () => {
     expect(slotsForWeekday(2, 'hassan')).toEqual([]);  // Hassan's Tuesday off
-    expect(slotsForWeekday(0, 'javier')).toEqual([]);  // Sunday, store closed
-    expect(slotsForWeekday(0, 'hassan')).toEqual([]);
+    expect(slotsForWeekday(0, 'javier')).toEqual([]);  // Javier's Sunday off
+    const hassanSun = slotsForWeekday(0, 'hassan');    // Hassan works Sundays 10–6
+    expect(hassanSun[0]).toBe(600);
+    expect(hassanSun).toHaveLength(16);
   });
 
   it('every configured barber slot is inside store hours (config self-consistency)', () => {
