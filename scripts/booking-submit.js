@@ -1,7 +1,7 @@
 // booking-submit.js — form submission + group-booking UI + redirect + fallback.
 //
 // Flow:
-//   1. Pre-validate (HTML5 + slot selection + guest overrun).
+//   1. Pre-validate (HTML5 + barber/slot selection + guest overrun).
 //   2. Open placeholder tab synchronously on desktop (gesture-preserving).
 //   3. Call book_slot or book_slot_group RPC.
 //   4. On success: show success card + redirect to WhatsApp/SMS.
@@ -15,21 +15,11 @@ import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './bookin
 import { getSelection, refreshAvailability as gridRefresh, clearSelection } from './booking-grid.js';
 import {
   totalCents, formatPrice, formatPhoneDisplay, minutesToLabel,
-  fmtShopTime, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes,
-  slotsForWeekday, shopWeekday,
+  dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
 } from './booking-helpers.js';
-import { SHOP_PHONE, SERVICE_PRICES_CENTS } from './config.js';
-
-const SERVICE_LABELS = {
-  'hair-cut':     'Hair Cut',
-  'line-up':      'Line Up',
-  'beard-trim':   'Beard Trim',
-  'kids-cut':     'Kids Cut',
-  'military-cut': 'Military Cut',
-  'senior-cut':   'Senior Cut',
-  'vip-haircut':  'VIP Haircut',
-  'custom':       'Custom Request',
-};
+import { buildBookingMessage, messagingUrl } from './booking-messages.js';
+import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
+import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
 
 const MAX_GUESTS = 4;          // primary + up to 4 guests = 5 people total
 
@@ -56,6 +46,11 @@ function readGuestsRaw(form) {
     }));
 }
 
+/** Map the form's service value to the slug we book in the DB. */
+function bookableService(service) {
+  return service === 'custom' ? 'hair-cut' : service;
+}
+
 /* ---------- Total + timeline updates + overrun check ---------- */
 
 function updateTotal(form) {
@@ -70,7 +65,9 @@ function updateTotal(form) {
   form.querySelector('[data-total-display]').textContent = formatPrice(cents);
 }
 
-/** Update the live timeline + return true if every guest slot fits working hours. */
+/** Update the live timeline + return true if every person's chair time fits
+ *  working hours. Duration-aware: a VIP occupies two slots, so the next guest
+ *  starts an hour later, not 30 minutes. */
 function updateTimelineAndCheckOverrun(form) {
   const timelineEl = form.querySelector('[data-group-timeline]');
   if (!timelineEl) return true;
@@ -89,27 +86,25 @@ function updateTimelineAndCheckOverrun(form) {
     return true;
   }
 
-  const startMin   = hmsToMinutes(sel.time);
-  const wk         = shopWeekday(new Date(`${sel.date}T12:00:00`));
-  const validSlots = new Set(slotsForWeekday(wk));
+  const startMin    = hmsToMinutes(sel.time);
   const primaryName = (form.querySelector('input[name=name]').value || 'You').trim() || 'You';
+  const primarySvc  = bookableService(form.querySelector('[data-service-select]').value || 'hair-cut');
+  const services    = [primarySvc, ...guests.map(g => g.serviceSlug || 'hair-cut')];
+  const names       = [primaryName, ...guests.map((g, i) => g.name || `Guest ${i + 1}`)];
 
-  let overrun = false;
-  const lines = [`${primaryName} — ${minutesToLabel(startMin)}`];
-  guests.forEach((g, i) => {
-    const m = startMin + (i + 1) * 30;
-    const label = `${g.name || 'Guest ' + (i + 1)} — ${minutesToLabel(m)}`;
-    if (!validSlots.has(m)) {
-      overrun = true;
-      lines.push(`${label}   ⚠ past closing`);
-    } else {
-      lines.push(label);
-    }
+  const plan = planParty(startMin, services);
+  const { offenders } = partyFits({
+    date: sel.date, barberSlug: sel.barberSlug, startMin, services,
   });
+  const offenderSet = new Set(offenders);
+
+  const lines = plan.map((p, i) =>
+    `${names[i]} — ${minutesToLabel(p.startMin)}${offenderSet.has(i) ? '   ⚠ past closing' : ''}`
+  );
   timelineEl.textContent = lines.join('   ·   ');
   timelineEl.hidden = false;
-  timelineEl.toggleAttribute('data-overrun', overrun);
-  return !overrun;
+  timelineEl.toggleAttribute('data-overrun', offenderSet.size > 0);
+  return offenderSet.size === 0;
 }
 
 /** Side-effect-y wrapper that also enables/disables submit buttons. */
@@ -183,27 +178,31 @@ function showError(form, code, override) {
   el.hidden = false;
 }
 
-function showSuccess(form, { text, link }) {
+function linkLabel(mode) {
+  return mode === 'sms' ? 'Open Messages →' : 'Open WhatsApp →';
+}
+
+function showSuccess(form, { text, link, mode }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
   card.querySelector('[data-success-text]').textContent = text;
   const a = card.querySelector('[data-success-link]');
-  if (link) { a.href = link; a.hidden = false; } else { a.hidden = true; }
+  if (link) { a.href = link; a.textContent = linkLabel(mode); a.hidden = false; } else { a.hidden = true; }
   card.hidden = false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function showFallback(form, { text, link }) {
+function showFallback(form, { text, link, mode }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-fallback]');
   if (!card) {
     // Fallback card markup missing — degrade to the regular success card.
-    showSuccess(form, { text, link });
+    showSuccess(form, { text, link, mode });
     return;
   }
   card.querySelector('[data-fallback-text]').textContent = text;
   const a = card.querySelector('[data-fallback-link]');
-  if (link) { a.href = link; a.hidden = false; } else { a.hidden = true; }
+  if (link) { a.href = link; a.textContent = linkLabel(mode); a.hidden = false; } else { a.hidden = true; }
   card.hidden = false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -224,15 +223,8 @@ async function submit(form, mode) {
   const submitBtns = form.querySelectorAll('[data-submit-whatsapp], [data-submit-sms]');
   submitBtns.forEach(b => (b.disabled = true));
 
-  // 3. Slot selection must exist.
+  // 3. Read form data + selection, then validate as one unit.
   const sel = getSelection();
-  if (!sel.date || !sel.time) {
-    showError(form, 'unknown', 'Pick a day and a time slot above first.');
-    submitBtns.forEach(b => (b.disabled = false));
-    return;
-  }
-
-  // 4. Read form data
   const fd = new FormData(form);
   const name    = (fd.get('name') || '').toString().trim();
   const phone   = (fd.get('phone') || '').toString().trim();
@@ -243,22 +235,25 @@ async function submit(form, mode) {
   const guests  = readGuests(form);
   const guestsRaw = readGuestsRaw(form);
 
-  if (!name || !phone || !service) {
-    showError(form, 'unknown', 'Please fill out name, phone, and service.');
-    submitBtns.forEach(b => (b.disabled = false));
-    return;
-  }
-  if (guestsRaw.length && guestsRaw.some(g => !g.name || !g.serviceSlug)) {
-    showError(form, 'unknown', 'Please complete or remove the guest rows below.');
+  const check = validateBookingInput({
+    name, phone, serviceSlug: service,
+    date: sel.date, time: sel.time, barberSlug: sel.barberSlug,
+    guests: guestsRaw,
+  });
+  if (!check.ok) {
+    showError(form, check.code, check.message);
     submitBtns.forEach(b => (b.disabled = false));
     return;
   }
   // Recheck guest overrun — UI should have prevented this already, but verify.
   if (!updateTimelineAndCheckOverrun(form)) {
-    showError(form, 'outside_hours', 'One of your guests is past closing time. Pick an earlier start.');
+    showError(form, 'outside_hours', 'One of your party runs past closing time. Pick an earlier start.');
     submitBtns.forEach(b => (b.disabled = false));
     return;
   }
+
+  const barber     = BARBERS[sel.barberSlug];
+  const barberName = barber ? barber.name : 'the shop';
 
   // 5. Pre-open placeholder tab on desktop (preserves user gesture)
   const isMobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
@@ -269,10 +264,11 @@ async function submit(form, mode) {
   // 6. Call the appropriate RPC
   let bookings;        // unified array of person bookings
   let rpcError = null;
-  let primaryServiceSlug = service === 'custom' ? 'hair-cut' : service;
+  const primaryServiceSlug = bookableService(service);
   try {
     if (guests.length === 0) {
       const rows = await bookSlot({
+        barberSlug: sel.barberSlug,
         serviceSlug: primaryServiceSlug,
         date: sel.date,
         time: sel.time,
@@ -284,7 +280,7 @@ async function submit(form, mode) {
         source: 'web',
         holdMinutes: 15,
       });
-      // book_slot now returns N rows; row 0 is primary, rows 1+ are linked continuation slots.
+      // book_slot returns N rows; row 0 is primary, rows 1+ are linked continuation slots.
       const primary = rows[0] || {};
       bookings = rows.map((r, i) => ({
         booking_id:        i === 0 ? primary.booking_id : null,
@@ -307,6 +303,7 @@ async function submit(form, mode) {
         ...guests.map(g => ({ name: g.name, serviceSlug: g.serviceSlug, addons: [] })),
       ];
       const rows = await bookSlotGroup({
+        barberSlug: sel.barberSlug,
         date:      sel.date,
         startTime: sel.time,
         phone,
@@ -328,8 +325,7 @@ async function submit(form, mode) {
   }
 
   // 7. Build context shared by both success + fallback paths
-  const slotDate    = new Date(`${sel.date}T12:00:00`);
-  const dateLabel   = fmtShopTime(slotDate, { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel   = dateLabelFromIso(sel.date);
   const useMarkdown = mode === 'whatsapp';
 
   /* ===== ERROR PATH ===== */
@@ -355,7 +351,8 @@ async function submit(form, mode) {
       message: cause && cause.message ? cause.message : (rpcError.message || ''),
       details: cause && cause.details ? cause.details : '',
       attempted: {
-        date: sel.date, time: sel.time, service, addons, guests, notes,
+        date: sel.date, time: sel.time, barber: sel.barberSlug,
+        service, addons, guests, notes,
         name, phone_last4: phone.replace(/\D/g, '').slice(-4),
         is_group: guests.length > 0,
       },
@@ -363,33 +360,27 @@ async function submit(form, mode) {
       source: 'web',
     });
 
-    // Build "pending-ref" so Hassan can correlate manual confirmations.
+    // Build "pending-ref" so the shop can correlate manual confirmations.
     const pendingRef = 'pending-' +
       (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).slice(0, 8);
 
-    // Reconstruct a bookings-shaped array from the form data for message building.
-    const fakeBookings = (guests.length === 0
-      ? [{ person_name: name, service_slug: service, booking_time: sel.time,
-           total_price_cents: SERVICE_PRICES_CENTS[primaryServiceSlug] || 0,
-           addons, booking_id: pendingRef }]
-      : [
-          { person_name: name, service_slug: service, booking_time: sel.time,
-            total_price_cents: SERVICE_PRICES_CENTS[primaryServiceSlug] || 0,
-            addons, booking_id: pendingRef },
-          ...guests.map((g, i) => {
-            const m = hmsToMinutes(sel.time) + (i + 1) * 30;
-            const t = `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}:00`;
-            return {
-              person_name: g.name, service_slug: g.serviceSlug, booking_time: t,
-              total_price_cents: SERVICE_PRICES_CENTS[g.serviceSlug] || 0,
-              addons: [], booking_id: `${pendingRef}-g${i+1}`,
-            };
-          }),
-        ]);
+    // Reconstruct a bookings-shaped array from the form data for message
+    // building — duration-aware so the times match what was attempted.
+    const services = [primaryServiceSlug, ...guests.map(g => g.serviceSlug)];
+    const plan     = planParty(hmsToMinutes(sel.time), services);
+    const fakeBookings = plan.map((p, i) => ({
+      person_name:       i === 0 ? name : guests[i - 1].name,
+      service_slug:      i === 0 ? service : guests[i - 1].serviceSlug,
+      booking_time:      minutesToHms(p.startMin),
+      total_price_cents: SERVICE_PRICES_CENTS[p.serviceSlug] || 0,
+      addons:            i === 0 ? addons : [],
+      booking_id:        i === 0 ? pendingRef : `${pendingRef}-g${i}`,
+    }));
 
     const fallbackMessage = buildBookingMessage({
       name,
       phone: formatPhoneDisplay(phone),
+      barberName,
       dateLabel,
       bookings: fakeBookings,
       notes,
@@ -398,13 +389,12 @@ async function submit(form, mode) {
       systemError: true,
       errorCode: code,
     });
-    const url = mode === 'whatsapp'
-      ? `https://wa.me/${SHOP_PHONE}?text=${encodeURIComponent(fallbackMessage)}`
-      : `sms:+${SHOP_PHONE}?&body=${encodeURIComponent(fallbackMessage)}`;
+    const url = messagingUrl(mode, fallbackMessage);
 
     showFallback(form, {
-      text: `Couldn't lock the slot in our system right now — but we're sending your request straight to Hassan. He'll confirm by ${mode === 'whatsapp' ? 'WhatsApp' : 'text'} as soon as possible.`,
+      text: `Couldn't lock the slot in our system right now — but we're sending your request straight to ${barberName}. You'll get a confirmation by ${mode === 'whatsapp' ? 'WhatsApp' : 'text'} as soon as possible.`,
       link: url,
+      mode,
     });
 
     // Redirect: same pattern as success path.
@@ -420,15 +410,13 @@ async function submit(form, mode) {
   /* ===== SUCCESS PATH ===== */
   const message = buildBookingMessage({
     name, phone: formatPhoneDisplay(phone),
+    barberName,
     dateLabel, bookings, notes,
     customRequest: service === 'custom' ? custom : null,
     useMarkdown,
     systemError: false,
   });
-  const encoded = encodeURIComponent(message);
-  const url = mode === 'whatsapp'
-    ? `https://wa.me/${SHOP_PHONE}?text=${encoded}`
-    : `sms:+${SHOP_PHONE}?&body=${encoded}`;
+  const url = messagingUrl(mode, message);
 
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const primaryBooking = bookings.find(b => b.booking_id) || bookings[0];
@@ -437,12 +425,11 @@ async function submit(form, mode) {
     : `${dateLabel} at ${minutesToLabel(hmsToMinutes(primaryBooking.booking_time))}`;
 
   showSuccess(form, {
-    text: `${slotLabel} — reserved. ${
-      guests.length > 0
-        ? `Hassan will be expecting ${guests.length + 1} of you.`
-        : `Hassan will be expecting you.`
-    } Total: ${formatPrice(total)}.`,
+    text: `${slotLabel} — reserved. ${barberName} will be expecting ${
+      guests.length > 0 ? `${guests.length + 1} of you` : 'you'
+    }. Total: ${formatPrice(total)}.`,
     link: url,
+    mode,
   });
 
   if (isMobile) {
@@ -461,56 +448,6 @@ async function submit(form, mode) {
   updateTotal(form);
   updateTimeline(form);
   submitBtns.forEach(b => (b.disabled = false));
-}
-
-/* ---------- Build the booking message (single + group + fallback) ---------- */
-
-function buildBookingMessage({
-  name, phone, dateLabel, bookings, notes, customRequest,
-  useMarkdown, systemError = false, errorCode = '',
-}) {
-  const bold   = (s) => useMarkdown ? `*${s}*` : s;
-  const italic = (s) => useMarkdown ? `_${s}_` : s;
-  const lines = [];
-
-  if (systemError) {
-    lines.push(bold('⚠ BOOKING SYSTEM ERROR — manual confirm needed'));
-    if (errorCode) lines.push(italic(`(code: ${errorCode})`));
-    lines.push('');
-  }
-
-  lines.push(bold('FADE EMPIRE — BOOKING REQUEST'));
-  lines.push('');
-  lines.push(`Contact: ${name}`);
-  lines.push(`Phone:   ${phone}`);
-  lines.push(`Date:    ${dateLabel}`);
-  if (bookings.length > 1) lines.push(`Party:   ${bookings.length} people`);
-  lines.push('');
-
-  bookings.forEach((b, i) => {
-    const t = minutesToLabel(hmsToMinutes(b.booking_time));
-    lines.push(`${bookings.length > 1 ? '— ' + b.person_name + ' —' : '—'}`);
-    lines.push(`  Service: ${SERVICE_LABELS[b.service_slug] || b.service_slug}`);
-    lines.push(`  Time:    ${t}`);
-    const ref = b.booking_id ? String(b.booking_id).slice(0, 8) : 'continuation';
-    lines.push(`  Ref:     ${ref}`);
-    if (b.addons && b.addons.length) {
-      lines.push(`  Add-ons: ${b.addons.map(a => a.replace(/-/g, ' ')).join(', ')}`);
-    }
-    if (i < bookings.length - 1) lines.push('');
-  });
-
-  if (customRequest) { lines.push(''); lines.push(`Custom: ${customRequest}`); }
-  if (notes)         { lines.push(''); lines.push(`Notes:  ${notes}`); }
-
-  const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
-  lines.push('');
-  lines.push(`Total:   ${formatPrice(total)}`);
-  lines.push('');
-  lines.push(italic(systemError
-    ? 'Sent from chicopeefadeempire.com — please reply to confirm the slot.'
-    : 'Sent from chicopeefadeempire.com'));
-  return lines.join('\n');
 }
 
 /* ---------- Phone formatting + custom toggle ---------- */

@@ -617,3 +617,172 @@
   letter-spacing: 0.08em;
   text-align: center;
 }
+
+/* --- Barber picker --- */
+.booking__barbers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.booking__barbers-head {
+  margin: 0;
+  color: var(--bone-mute);
+}
+
+.booking__barbers-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.booking__barber {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--bone-soft);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+}
+
+.booking__barber:hover {
+  border-color: var(--rule-strong);
+  color: var(--bone);
+}
+
+.booking__barber[aria-checked="true"],
+.booking__barber.is-selected {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+  color: var(--bone);
+}
+
+.booking__barber-photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--rule-strong);
+  filter: contrast(1.05) saturate(0.95);
+}
+
+.booking__barber[aria-checked="true"] .booking__barber-photo {
+  border-color: var(--gold);
+}
+
+.booking__barber-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.booking__barber-name { line-height: 1.1; }
+
+.booking__barber-hours {
+  color: var(--bone-mute);
+  letter-spacing: 0.08em;
+}
+
+/* --- "Cancel a booking" link in the fine print --- */
+.booking__fine-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--gold);
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.booking__fine-link:hover { color: var(--bone); }
+
+/* --- Cancellation panel --- */
+.cancel {
+  border-top: 1px dashed var(--rule-strong);
+  padding-top: clamp(1.5rem, 3vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cancel__dek {
+  margin: 0.35rem 0 0;
+  color: var(--bone-soft);
+  max-width: 52ch;
+}
+
+.cancel__lookup {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.cancel__phone-field { flex: 1 1 220px; }
+
+.cancel__find { flex: 0 0 auto; }
+
+.cancel__status[data-tone="error"] { color: #e08e79; }
+.cancel__status[data-tone="ok"]    { color: var(--gold); }
+
+.cancel__results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cancel__results:empty { display: none; }
+
+.cancel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+}
+
+.cancel__row.is-cancelled {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.cancel__row.is-cancelled .cancel__service {
+  text-decoration: line-through;
+  text-decoration-color: var(--bone-mute);
+}
+
+.cancel__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.cancel__meta { color: var(--bone-mute); }
+
+.cancel__btn.is-arming {
+  border-color: #e08e79;
+  color: #e08e79;
+}
+
+.cancel__done {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cancel__done-text { color: var(--gold); }

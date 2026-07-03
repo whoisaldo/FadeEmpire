@@ -8,3 +8,9 @@ supabase/.temp/
 tools/.env.local
 tools/*.local.*
 tools/appointments.local.*
+
+# Test tooling (vitest) — never deployed; GitHub Pages serves the repo as-is
+node_modules/
+
+# Supabase CLI local-stack artifacts
+supabase/.branches/

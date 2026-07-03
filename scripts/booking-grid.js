@@ -1,23 +1,65 @@
-// booking-grid.js — visual day picker + slot pills.
+// booking-grid.js — barber picker + visual day picker + slot pills.
 //
-// Renders a 7-day chip row + a slot column for the selected day.
-// State flow: user picks day → user picks slot → hidden fields date/time set →
-// `booking:selected` event fires → submit handler reads it.
+// Renders a barber chooser, a 14-day chip row, and a slot column for the
+// selected day. State flow: user picks barber → picks day → picks slot →
+// hidden fields date/time set → `booking:selected` event fires → submit
+// handler reads it. Every piece re-renders when the barber changes, because
+// each barber has different days off and opening hours.
 
 import { fetchAvailability } from './booking-rpc.js';
 import {
   isoDate, slotsForWeekday, minutesToHms, minutesToLabel, shopWeekday,
-  nowMinutesInShopTz, fmtShopTime,
+  nowMinutesInShopTz, fmtShopTime, weekdayFromIso, dateLabelFromIso,
 } from './booking-helpers.js';
+import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
 
 const DAYS_AHEAD = 14;          // how many days the picker shows
 const LUNCH_MIN  = null;         // optional: lunch break minutes (e.g. 13*60 for 1pm); null = none
 
 let state = {
+  barberSlug:   DEFAULT_BARBER_SLUG,
   selectedDate: null,      // 'YYYY-MM-DD'
   selectedTime: null,      // 'HH:MM:SS'
-  takenSet:     new Set(), // 'YYYY-MM-DD|HH:MM' keys for taken slots
+  takenSet:     new Set(), // 'YYYY-MM-DD|HH:MM' keys for the CURRENT barber's taken slots
 };
+
+/* ---------- Barber picker ---------- */
+
+function selectBarber(slug, { keepDate = false } = {}) {
+  if (!BARBERS[slug]) return;
+  const changed = state.barberSlug !== slug;
+  state.barberSlug = slug;
+
+  document.querySelectorAll('[data-barber-option]').forEach(b => {
+    const on = b.dataset.barberOption === slug;
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    b.classList.toggle('is-selected', on);
+  });
+
+  if (changed) {
+    // A different barber has different days off, hours, and taken slots.
+    state.selectedTime = null;
+    if (!keepDate) state.selectedDate = null;
+    state.takenSet = new Set();
+    renderDayRow();
+    syncForm();
+    loadAvailability();
+  }
+}
+
+function bindBarberPicker() {
+  document.querySelectorAll('[data-barber-option]').forEach(btn => {
+    btn.addEventListener('click', () => selectBarber(btn.dataset.barberOption));
+  });
+
+  // "Book with X" buttons in the barbers section jump here pre-selected.
+  document.querySelectorAll('[data-book-barber]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectBarber(btn.dataset.bookBarber);
+      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
 
 /* ---------- Day row ---------- */
 
@@ -27,13 +69,12 @@ function renderDayRow() {
   row.innerHTML = '';
 
   const today = new Date();
-  const todayIso = isoDate(today);
 
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const d = new Date(today.getTime() + i * 86400000);
     const iso = isoDate(d);
     const wk  = shopWeekday(d);
-    const slots = slotsForWeekday(wk);
+    const slots = slotsForWeekday(wk, state.barberSlug);
     const closed = slots.length === 0;
 
     const btn = document.createElement('button');
@@ -54,8 +95,11 @@ function renderDayRow() {
     row.appendChild(btn);
   }
 
-  // Pre-select the first non-closed day
-  const firstOpen = row.querySelector('.booking__day:not(.is-closed)');
+  // Keep the previously-selected day if this barber also works it;
+  // otherwise pre-select the first open day.
+  const keep = state.selectedDate &&
+    row.querySelector(`.booking__day[data-date="${state.selectedDate}"]:not(.is-closed)`);
+  const firstOpen = keep || row.querySelector('.booking__day:not(.is-closed)');
   if (firstOpen) selectDate(firstOpen.dataset.date);
 }
 
@@ -75,8 +119,9 @@ function selectDate(iso) {
   // Update slot label
   const dayLabel = document.querySelector('[data-slots-day-label]');
   if (dayLabel) {
-    const d = new Date(`${iso}T12:00:00`);
-    dayLabel.textContent = fmtShopTime(d, { weekday: 'long', month: 'long', day: 'numeric' });
+    const barber = BARBERS[state.barberSlug];
+    dayLabel.textContent =
+      `${dateLabelFromIso(iso)} · with ${barber ? barber.name : '—'}`;
   }
 
   renderSlots();
@@ -94,17 +139,20 @@ function renderSlots() {
     return;
   }
 
-  const d = new Date(`${iso}T12:00:00`);
-  const wk = shopWeekday(d);
-  const slots = slotsForWeekday(wk);
+  const wk = weekdayFromIso(iso);
+  const slots = slotsForWeekday(wk, state.barberSlug);
 
   if (slots.length === 0) {
-    wrap.innerHTML = '<p class="booking__slots-empty t-italic">Closed this day.</p>';
+    const barber = BARBERS[state.barberSlug];
+    wrap.innerHTML = `<p class="booking__slots-empty t-italic">${
+      barber ? `${barber.name} is off this day.` : 'Closed this day.'
+    }</p>`;
     return;
   }
 
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
+  let selectionStillOpen = false;
 
   for (const m of slots) {
     const hms  = minutesToHms(m);
@@ -136,9 +184,23 @@ function renderSlots() {
       btn.title = 'Lunch break';
     } else {
       btn.addEventListener('click', () => selectTime(hms));
+      // Re-apply the user's current selection across background re-renders
+      // (availability refresh every 5 min / on tab focus rebuilds the pills).
+      if (state.selectedTime === hms) {
+        btn.setAttribute('aria-checked', 'true');
+        btn.classList.add('is-selected');
+        selectionStillOpen = true;
+      }
     }
 
     wrap.appendChild(btn);
+  }
+
+  // The slot the user had picked was booked by someone else mid-session —
+  // drop it from the form so submit can't even attempt a double-book.
+  if (state.selectedTime && !selectionStillOpen) {
+    state.selectedTime = null;
+    syncForm();
   }
 }
 
@@ -161,28 +223,30 @@ function syncForm() {
   const pill = document.querySelector('[data-selected-pill]');
   const text = document.querySelector('[data-selected-text]');
   if (state.selectedDate && state.selectedTime) {
-    const d = new Date(`${state.selectedDate}T12:00:00`);
-    const dLabel = fmtShopTime(d, { weekday: 'short', month: 'short', day: 'numeric' });
+    const dLabel = dateLabelFromIso(state.selectedDate, { weekday: 'short', month: 'short', day: 'numeric' });
     const tLabel = minutesToLabel(parseInt(state.selectedTime.slice(0,2)) * 60 + parseInt(state.selectedTime.slice(3,5)));
-    text.textContent = `${dLabel} · ${tLabel}`;
+    const barber = BARBERS[state.barberSlug];
+    text.textContent = `${dLabel} · ${tLabel}${barber ? ` · ${barber.name}` : ''}`;
     pill.hidden = false;
   } else {
     pill.hidden = true;
   }
 
   document.dispatchEvent(new CustomEvent('booking:selected', {
-    detail: { date: state.selectedDate, time: state.selectedTime },
+    detail: { date: state.selectedDate, time: state.selectedTime, barberSlug: state.barberSlug },
   }));
 }
 
 /* ---------- Availability load ---------- */
 
 async function loadAvailability() {
+  const barberSlug = state.barberSlug;
   const today = new Date();
   const end   = new Date(today.getTime() + DAYS_AHEAD * 86400000);
   const rows  = await fetchAvailability({
-    fromDate: isoDate(today), toDate: isoDate(end),
+    fromDate: isoDate(today), toDate: isoDate(end), barberSlug,
   });
+  if (barberSlug !== state.barberSlug) return;   // user switched barber mid-flight
   state.takenSet = new Set(rows.map(r => `${r.booking_date}|${r.booking_time.slice(0,5)}`));
   renderSlots();
 }
@@ -191,8 +255,9 @@ async function loadAvailability() {
 
 function bindExternalPick() {
   document.addEventListener('booking:pick', (e) => {
-    const { date, time } = e.detail || {};
+    const { date, time, barberSlug } = e.detail || {};
     if (!date || !time) return;
+    if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
     // Wait a tick for slot DOM to render
     requestAnimationFrame(() => selectTime(time));
@@ -244,19 +309,21 @@ function initAutoRefresh() {
 
 export async function initBookingGrid() {
   if (!document.querySelector('[data-day-row]')) return;
+  bindBarberPicker();
+  selectBarber(state.barberSlug);   // paint initial aria-checked state
   renderDayRow();
   bindExternalPick();
   initAutoRefresh();
   await loadAvailability();
 }
 
-/** Exposed for booking-submit.js to refresh after a successful book */
+/** Exposed for booking-submit.js to refresh after a successful book/cancel */
 export async function refreshAvailability() {
   await loadAvailability();
 }
 
 export function getSelection() {
-  return { date: state.selectedDate, time: state.selectedTime };
+  return { date: state.selectedDate, time: state.selectedTime, barberSlug: state.barberSlug };
 }
 
 export function clearSelection() {

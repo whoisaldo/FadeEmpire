@@ -41,7 +41,7 @@ command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required (brew install jq)
 # Pull active (pending + confirmed) bookings from today onward, ordered for reading.
 TODAY="$(date +%F)"
 RESP="$(curl -fsS \
-  "$SUPABASE_URL/rest/v1/bookings?select=booking_date,booking_time,status,customer_name,customer_phone,service_id,total_price_cents,selected_addons,customer_notes,custom_request,id&status=in.(pending,confirmed)&booking_date=gte.$TODAY&order=booking_date.asc,booking_time.asc" \
+  "$SUPABASE_URL/rest/v1/bookings?select=booking_date,booking_time,status,customer_name,customer_phone,service_id,barber_id,total_price_cents,selected_addons,customer_notes,custom_request,id&status=in.(pending,confirmed)&booking_date=gte.$TODAY&order=booking_date.asc,booking_time.asc" \
   -H "apikey: $SUPABASE_SERVICE_KEY" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")" || {
     echo "ERROR: request to Supabase failed. Check your service_role key." >&2
@@ -54,10 +54,17 @@ SERVICES="$(curl -fsS \
   -H "apikey: $SUPABASE_SERVICE_KEY" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")" || SERVICES="[]"
 
+# Map barber_id -> display_name (two chairs now — every line says whose it is).
+BARBERS="$(curl -fsS \
+  "$SUPABASE_URL/rest/v1/barbers?select=id,display_name" \
+  -H "apikey: $SUPABASE_SERVICE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")" || BARBERS="[]"
+
 GENERATED_AT="$(date '+%Y-%m-%d %H:%M %Z')"
 
-printf '%s' "$RESP" | jq -r --argjson services "$SERVICES" --arg gen "$GENERATED_AT" '
+printf '%s' "$RESP" | jq -r --argjson services "$SERVICES" --argjson barbers "$BARBERS" --arg gen "$GENERATED_AT" '
   ($services | map({key: .id, value: .display_name}) | from_entries) as $svc
+  | ($barbers  | map({key: .id, value: .display_name}) | from_entries) as $brb
   | (
       "FADE EMPIRE — APPOINTMENTS (local dev view)",
       "Generated: \($gen)",
@@ -70,7 +77,7 @@ printf '%s' "$RESP" | jq -r --argjson services "$SERVICES" --arg gen "$GENERATED
       | "── \(.[0].booking_date) ─────────────────────────────",
         (
           sort_by(.booking_time)[]
-          | "  \(.booking_time[0:5])  \(.customer_name)  ·  \(.customer_phone)",
+          | "  \(.booking_time[0:5])  [\($brb[.barber_id] // "barber?")]  \(.customer_name)  ·  \(.customer_phone)",
             "          \($svc[.service_id] // "service?")  ·  $\(.total_price_cents / 100)  ·  \(.status)" +
               ( if (.selected_addons | length) > 0 then "  ·  add-ons: \(.selected_addons | join(", "))" else "" end ),
             ( if (.custom_request // "") != "" then "          custom: \(.custom_request)" else empty end ),

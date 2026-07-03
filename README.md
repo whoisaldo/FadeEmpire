@@ -1,21 +1,26 @@
 # Fade Empire Barbershop
 
-A static + PWA website for **Fade Empire**, a one-chair master barbershop in Chicopee, Massachusetts. Built freelance to host the shop's brand presence and a race-proof online booking flow.
+A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, Massachusetts (Hassan + Javier). Built freelance to host the shop's brand presence and a race-proof online booking flow.
 
 Live: <https://chicopeefadeempire.com>
+
+**Hours** — store: Mon–Sat 9 AM–6 PM (closed Sundays). Hassan: 10–6, off Tuesdays. Javier: 9–6, Mon–Sat. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client.
 
 ---
 
 ## What it does
 
-- **Editorial dark-luxury landing page** — hero, master barber feature spread, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
+- **Editorial dark-luxury landing page** — hero, barber feature spreads, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
+- **Per-barber booking** — pick Hassan or Javier; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
-- **Group bookings** — book yourself + friends/kids in consecutive 30-minute slots, all-or-nothing transactional
+- **Group bookings** — book yourself + friends/kids in consecutive 30-minute slots, all-or-nothing transactional, duration-aware (a VIP in the party takes two slots before the next guest starts)
 - **Multi-slot services** — VIP (60 min) automatically books two linked consecutive slots
+- **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
-- **Live shop status** — OPEN / CLOSING SOON / CLOSED stamp in the nav, "Next available" banner pulled from Supabase
+- **Live shop status** — OPEN / CLOSING SOON / CLOSED stamp in the nav, "Next available" banner (earliest slot across both barbers) pulled from Supabase
 - **Mobile-first** — sticky bottom Book-a-Chair CTA, thumb-sized tap targets, safe-area insets
+- **Unit + DOM tests** — vitest suite covering schedule math, validation, message building, and the real booking form markup wired to mocked RPCs
 
 ---
 
@@ -63,15 +68,19 @@ FadeEmpire/
 │   └── responsive.css            Mobile-first overrides + sticky CTA bar
 ├── scripts/
 │   ├── main.js                   Entry point — boots all modules, registers SW
-│   ├── config.js                 SUPABASE_URL / anon key / shop schedule / service prices
+│   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS / prices
 │   ├── supabase.js               Singleton Supabase client (loaded from esm.sh)
-│   ├── booking-rpc.js            bookSlot, bookSlotGroup, logBookingError, fetchAvailability
-│   ├── booking-grid.js           Day picker + slot pills + visibility/midnight auto-refresh
+│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone…
+│   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
 │   ├── booking-submit.js         Form submit, group flow, WhatsApp/SMS redirect, fallback path
-│   ├── booking-helpers.js        Timezone math, formatting, error-code mapping
+│   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
+│   ├── booking-validate.js       Pure form validation + duration-aware party planning
+│   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
+│   ├── booking-helpers.js        Timezone math, schedule intersection, formatting, error map
 │   ├── cover.js                  Nav, OPEN/CLOSED stamp, Next-Available banner, sticky CTA
 │   ├── reveals.js                IntersectionObserver scroll reveals
 │   └── visit.js                  Clock-dial "now" hand + open-arc rendering
+├── tests/                        vitest suite (pure logic + jsdom booking-form integration)
 ├── supabase/
 │   └── migrations/
 │       ├── 0001_init.sql               Initial schema + RLS + RPCs + pg_cron
@@ -79,10 +88,16 @@ FadeEmpire/
 │       ├── 0003_fix_availability_view.sql
 │       ├── 0004_book_slot_group.sql    Group/atomic multi-person booking
 │       ├── 0005_fix_addons_null_in_group.sql
-│       └── 0006_robustness.sql         VIP duration + error logging + custom_request in groups
+│       ├── 0006_robustness.sql         VIP duration + error logging + custom_request in groups
+│       ├── 0007_lock_web_bookings_and_hours.sql  Confirm-on-create (no holds)
+│       ├── 0008_add_beard_addon.sql
+│       ├── 0009_javier_store_hours_cancellation.sql  Javier + store_hours + cancel lookup
+│       ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
+│       └── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
-    ├── Barbers/Hassan/optimized/       Barber profile photos
+    ├── Barbers/Hassan/optimized/       Hassan profile photos
+    ├── Barbers/Javier/optimized/       Javier profile photos
     └── FadeEmpireStore/                Brand assets (logo, storefront)
 ```
 
@@ -104,9 +119,11 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 
 ### What anon CAN do
 
-- `SELECT` `barbers`, `services`, `addons`, `barber_schedules`, `barber_closures` (public marketing data only)
-- `SELECT` `v_slot_availability` view (exposes only date/time/status — **no PII**)
-- `EXECUTE` `book_slot`, `book_slot_group`, `cancel_booking`, `log_booking_error`
+- `SELECT` `barbers`, `services`, `addons`, `barber_schedules`, `barber_closures`, `store_hours` (public marketing data only)
+- `SELECT` `v_slot_availability` view (exposes only barber/date/time/status — **no PII**)
+- `EXECUTE` `book_slot`, `book_slot_group`, `cancel_booking`, `find_bookings_by_phone`, `log_booking_error`
+
+`find_bookings_by_phone` uses the phone number as cheap auth (the same trust model as `cancel_booking`): it returns only that phone's own upcoming bookings, first-name only, primaries only.
 
 ### What anon CANNOT do
 
@@ -136,6 +153,44 @@ open http://localhost:8000
 ```
 
 That's it. Open the site, edit any file, refresh.
+
+### Tests
+
+The booking logic (schedule intersection, validation, party planning, message
+building) and the booking form itself (real `#book` markup + real modules, RPC
+layer mocked) are covered by a vitest suite:
+
+```bash
+npm install        # one-time; installs vitest + jsdom only (never deployed)
+npm test           # run the whole suite
+npm run test:watch # watch mode while developing
+```
+
+### Database tests (pgTAP)
+
+`supabase/tests/*.sql` is a pgTAP suite that runs against a REAL local Postgres
+(the same `supabase/postgres` image the hosted project uses) with all
+migrations applied from scratch: schema + seeds + hours, the booking RPC
+(store/barber hours enforcement, double-booking races, VIP multi-slot,
+server-side pricing, rate limits), group bookings, the cancellation flow, and
+the anon security model (RLS + function grants). Needs Docker:
+
+```bash
+npm run test:db    # supabase db start && supabase test db
+```
+
+### CI (GitHub Actions)
+
+- **`.github/workflows/ci.yml`** — on every push/PR: the vitest suite and the
+  full DB suite above (fresh Postgres, all migrations, `db lint`, pgTAP).
+  Make both jobs required checks on `main` so nothing broken can deploy.
+- **`.github/workflows/live-health.yml`** — daily at 7 am ET, after every push
+  to `main`, and on demand: read-only end-to-end checks against the LIVE site
+  and database using only the public anon key. Verifies the deploy is current,
+  prices/hours/barbers in Supabase still match the `config.js` mirrors, the
+  booking + cancellation RPCs are live and validating, and the security
+  posture holds (no PII readable by anon, owner RPCs not executable). Run it
+  locally anytime with `npm run health`.
 
 The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears.
 

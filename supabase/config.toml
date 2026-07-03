@@ -1,0 +1,11 @@
+# Supabase CLI config — used by `supabase db start` / `supabase test db`
+# (local Postgres for the pgTAP suite, in CI and on any machine with Docker).
+# The hosted project (mjehfaonibgobimfiijk) runs Postgres 17; matching it here
+# keeps local/CI behavior identical to production.
+
+project_id = "FadeEmpire"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17

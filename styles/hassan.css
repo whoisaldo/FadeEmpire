@@ -82,41 +82,25 @@
   color: var(--bone);
 }
 
-.feature__bench {
+/* Two barbers: stack the spreads with breathing room, mirror the second one */
+.feature + .feature {
+  margin-top: clamp(3.5rem, 8vw, 6rem);
+}
+
+@media (min-width: 900px) {
+  .feature--flip {
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.95fr);
+  }
+  .feature--flip .feature__portrait { order: 2; }
+  .feature--flip .feature__body     { order: 1; }
+}
+
+.feature__actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 1.5rem 0 0;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--rule);
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.75rem;
 }
 
-.feature__bench dt {
-  color: var(--gold);
-  letter-spacing: 0.18em;
-}
-
-.feature__bench dd {
-  margin: 0;
-}
-
-.feature__tools {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.5rem 1.5rem;
-}
-
-.feature__tools li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.feature__tools li .t-display-sm { font-size: 1rem; }
-.feature__tools li .t-meta { color: var(--bone-mute); }
+.feature__hours { color: var(--bone-mute); }

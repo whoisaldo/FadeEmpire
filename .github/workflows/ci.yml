@@ -1,0 +1,68 @@
+# CI — runs on every push and pull request.
+#
+# Two independent jobs:
+#   client-tests  vitest: pure booking logic + the real booking-form markup
+#                 driven under jsdom with the RPC layer mocked (72+ tests).
+#   db-tests      boots a REAL Postgres (the same supabase/postgres image the
+#                 hosted project runs), applies ALL migrations 0001→0009 from
+#                 scratch, then runs the pgTAP suites in supabase/tests/:
+#                 schema + seeds, booking RPC (hours/races/pricing), group +
+#                 cancellation flow, and the anon security model.
+#
+# Suggested repo setting: make both jobs required checks on main
+# (Settings → Branches → protection rule), so nothing broken can deploy —
+# GitHub Pages publishes whatever lands on main.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  client-tests:
+    name: Client unit + DOM tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install test tooling
+        run: npm ci
+
+      - name: Run vitest suite
+        run: npm test
+
+  db-tests:
+    name: DB migrations + pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Postgres + apply all migrations from scratch
+        run: supabase db start
+
+      - name: Lint database functions (plpgsql_check)
+        run: supabase db lint --fail-on error
+
+      - name: Run pgTAP suites (schema, booking, cancellation, security)
+        run: supabase test db

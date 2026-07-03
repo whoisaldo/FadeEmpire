@@ -40,3 +40,11 @@ fi
 
 echo "Image optimization complete!"
 
+
+# Optimize Javier's barber image (HEIC source → web JPGs)
+if [ -f "assets/Barbers/Javier/IMG_1732.heic" ]; then
+  echo "Optimizing Javier's image..."
+  sips -s format jpeg -s formatOptions 92 "assets/Barbers/Javier/IMG_1732.heic" --out "assets/Barbers/Javier/JavierBarber.jpg" 2>/dev/null
+  sips -Z 600 -s format jpeg -s formatOptions 85 "assets/Barbers/Javier/IMG_1732.heic" --out "assets/Barbers/Javier/optimized/JavierBarber_mobile.jpg" 2>/dev/null
+  sips -Z 800 -s format jpeg -s formatOptions 90 "assets/Barbers/Javier/IMG_1732.heic" --out "assets/Barbers/Javier/optimized/JavierBarber_tablet.jpg" 2>/dev/null
+fi

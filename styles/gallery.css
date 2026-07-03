@@ -120,3 +120,6 @@
 @media (max-width: 719px) {
   .essay__row--triptych .essay__plate { aspect-ratio: 4 / 5; }
 }
+
+/* Mobile-only swipe hint (shown by the filmstrip block in responsive.css) */
+.essay-swipe-hint { display: none; }

@@ -1,8 +1,8 @@
 // visit.js — clock-dial:
-//   * draws the open-arc for today's schedule (10am–6pm daily)
+//   * draws the open-arc for today's STORE hours (Mon–Sat 9am–6pm)
 //   * positions the "now" hand at the current shop-local time
 
-import { SCHEDULE } from './config.js';
+import { STORE_HOURS } from './config.js';
 import { shopWeekday, nowMinutesInShopTz } from './booking-helpers.js';
 
 const CX = 100, CY = 100, R = 78;
@@ -55,14 +55,14 @@ function updateStatusText(wk, sched, nowM) {
 export function initVisit() {
   if (!document.querySelector('[data-dial-arc]')) return;
   const wk    = shopWeekday();
-  const sched = SCHEDULE[wk];
+  const sched = STORE_HOURS[wk];
   const nowM  = nowMinutesInShopTz();
   if (sched) {
     drawArc(sched.open, sched.close);
   } else {
     // Find the next open day's hours; draw faintly
     for (let i = 1; i <= 7; i++) {
-      const s = SCHEDULE[(wk + i) % 7];
+      const s = STORE_HOURS[(wk + i) % 7];
       if (s) { drawArc(s.open, s.close); break; }
     }
   }
@@ -71,6 +71,6 @@ export function initVisit() {
   setInterval(() => {
     const m = nowMinutesInShopTz();
     positionHand(m);
-    updateStatusText(shopWeekday(), SCHEDULE[shopWeekday()], m);
+    updateStatusText(shopWeekday(), STORE_HOURS[shopWeekday()], m);
   }, 60_000);
 }
