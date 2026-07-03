@@ -45,24 +45,24 @@ select results_eq(
   'active barbers are hassan then javier'
 );
 
--- ---------- Store hours: Mon–Sat 9–6, closed Sunday ----------
-select is((select count(*)::int from store_hours), 6, 'store has six open days');
-select is((select count(*)::int from store_hours where weekday = 0), 0, 'store is closed on Sunday');
+-- ---------- Store hours: Mon–Sat 9–6, Sunday 10–6 ----------
+select is((select count(*)::int from store_hours), 7, 'store is open all seven days');
 select results_eq(
   $$ select weekday::int, open_time::text, close_time::text from store_hours order by weekday $$,
-  $$ values (1,'09:00:00','18:00:00'), (2,'09:00:00','18:00:00'), (3,'09:00:00','18:00:00'),
+  $$ values (0,'10:00:00','18:00:00'),
+            (1,'09:00:00','18:00:00'), (2,'09:00:00','18:00:00'), (3,'09:00:00','18:00:00'),
             (4,'09:00:00','18:00:00'), (5,'09:00:00','18:00:00'), (6,'09:00:00','18:00:00') $$,
-  'store hours are 9:00–18:00 Monday through Saturday'
+  'store hours are 9–6 Mon–Sat and 10–6 Sundays'
 );
 
--- ---------- Hassan: 10–6, off Tuesdays (and Sundays via store closure) ----------
+-- ---------- Hassan: 10–6 every day except Tuesdays ----------
 select results_eq(
   $$ select s.weekday::int, s.open_time::text, s.close_time::text
        from barber_schedules s join barbers b on b.id = s.barber_id
       where b.slug = 'hassan' order by s.weekday $$,
-  $$ values (1,'10:00:00','18:00:00'), (3,'10:00:00','18:00:00'), (4,'10:00:00','18:00:00'),
-            (5,'10:00:00','18:00:00'), (6,'10:00:00','18:00:00') $$,
-  'hassan works Mon, Wed–Sat 10:00–18:00 (off Tuesdays)'
+  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'), (3,'10:00:00','18:00:00'),
+            (4,'10:00:00','18:00:00'), (5,'10:00:00','18:00:00'), (6,'10:00:00','18:00:00') $$,
+  'hassan works Sun–Mon and Wed–Sat 10:00–18:00 (off Tuesdays)'
 );
 
 -- ---------- Javier: 9–6 Mon–Sat ----------
@@ -100,7 +100,8 @@ select is(is_within_store_hours('2026-07-06'::date, '09:00'::time), true,  'Mon 
 select is(is_within_store_hours('2026-07-06'::date, '17:30'::time), true,  'Mon 17:30 is inside store hours');
 select is(is_within_store_hours('2026-07-06'::date, '18:00'::time), false, 'Mon 18:00 is past closing');
 select is(is_within_store_hours('2026-07-06'::date, '08:30'::time), false, 'Mon 8:30 is before opening');
-select is(is_within_store_hours('2026-07-05'::date, '12:00'::time), false, 'Sunday is closed all day');
+select is(is_within_store_hours('2026-07-05'::date, '12:00'::time), true,  'Sunday midday is open');
+select is(is_within_store_hours('2026-07-05'::date, '09:30'::time), false, 'Sunday 9:30 is before the 10:00 Sunday open');
 
 select * from finish();
 rollback;

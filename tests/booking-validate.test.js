@@ -84,8 +84,9 @@ describe('partyFits', () => {
     expect(partyFits({ date: TUE, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
   });
 
-  it('rejects everyone on Sundays (store closed)', () => {
-    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
+  it('Sundays: Hassan works (from 10), Javier is off', () => {
+    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 570, services: ['hair-cut'] }).ok).toBe(false); // 9:30, store opens 10 on Sun
     expect(partyFits({ date: SUN, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
   });
 
