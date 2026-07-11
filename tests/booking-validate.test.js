@@ -90,7 +90,7 @@ describe('partyFits', () => {
     expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 570, services: ['hair-cut'] }).ok).toBe(false); // 9:30, store opens 10 on Sun
   });
 
-  it('rejects 9 AM starts: the store opens at 9 but both barbers start at 10', () => {
+  it('rejects 9 AM starts — the shop day runs 10–6 now', () => {
     expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
     expect(partyFits({ date: WED, barberSlug: 'larry', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
   });

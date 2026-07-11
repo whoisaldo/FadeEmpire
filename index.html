@@ -56,12 +56,7 @@
     },
     "openingHoursSpecification": [{
       "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
-      "opens": "09:00",
-      "closes": "18:00"
-    }, {
-      "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Sunday"],
+      "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
       "opens": "10:00",
       "closes": "18:00"
     }],
@@ -885,7 +880,7 @@
       <div class="visit__panel">
         <div class="visit__hours reveal">
           <p class="t-eyebrow">Hours</p>
-          <svg class="visit__dial" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Store hours: 9 AM to 6 PM Monday through Saturday, 10 AM to 6 PM Sundays">
+          <svg class="visit__dial" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Store hours: 10 AM to 6 PM, every day">
             <!-- Background ring -->
             <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(237,230,214,0.10)" stroke-width="1"/>
             <!-- Tick marks at each hour (12-hour face, 30° per hour) -->
@@ -910,7 +905,7 @@
               <text x="100" y="170">6</text>
               <text x="40" y="104">9</text>
             </g>
-            <!-- Open arc drawn by visit.js from STORE_HOURS (9 AM → 6 PM) -->
+            <!-- Open arc drawn by visit.js from STORE_HOURS (10 AM → 6 PM) -->
             <path data-dial-arc d="M 100 100" fill="none" stroke="#C8A24A" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
             <!-- Current-time hand -->
             <line data-dial-hand x1="100" y1="100" x2="100" y2="40" stroke="#EDE6D6" stroke-width="1.5" stroke-linecap="round"/>
@@ -918,8 +913,7 @@
           </svg>
           <p class="visit__hours-text">
             <span class="t-display-sm" data-hours-status>Open Daily</span>
-            <span class="t-mono visit__hours-times">Mon–Sat &nbsp;·&nbsp; 9 AM — 6 PM</span>
-            <span class="t-mono visit__hours-times">Sun &nbsp;·&nbsp; 10 AM — 6 PM</span>
+            <span class="t-mono visit__hours-times">Every day &nbsp;·&nbsp; 10 AM — 6 PM</span>
             <span class="t-meta">Hassan off Tuesdays &middot; Walk-ins welcome</span>
           </p>
         </div>

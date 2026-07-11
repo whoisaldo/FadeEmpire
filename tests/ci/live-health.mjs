@@ -123,7 +123,7 @@ check('store hours match config.js STORE_HOURS', async () => {
       throw new Error(`weekday ${wk}: DB ${JSON.stringify(b)} vs config ${JSON.stringify(a)}`);
     }
   }
-  return 'all 7 weekdays agree (Mon–Sat 9–6, Sun 10–6)';
+  return 'all 7 weekdays agree (10–6 every day)';
 });
 
 check('barber schedules match config.js BARBERS[].schedule', async () => {

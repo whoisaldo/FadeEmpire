@@ -126,7 +126,7 @@ describe('booking grid', () => {
     expect(sun.disabled).toBe(false);
   });
 
-  it("renders Hassan's Sunday slots from 10:00 (store opens late on Sundays)", () => {
+  it("renders Hassan's Sunday slots from 10:00 (every day opens at 10)", () => {
     clickDay('2026-07-12');
     const pills = $$('[data-slot-grid] .booking__slot');
     expect(pills[0].dataset.time).toBe('10:00:00');

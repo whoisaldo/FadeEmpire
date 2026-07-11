@@ -55,15 +55,14 @@ describe('time + date helpers', () => {
 });
 
 describe('store hours + barber schedules', () => {
-  it('the store is open Mon–Sat 9–6 and Sunday 10–6', () => {
-    expect(STORE_HOURS[0]).toEqual({ open: 10 * 60, close: 18 * 60 });
-    for (const wk of [1, 2, 3, 4, 5, 6]) {
-      expect(STORE_HOURS[wk]).toEqual({ open: 9 * 60, close: 18 * 60 });
+  it('the store is open every day 10–6 (it opens with the earliest barber)', () => {
+    for (const wk of [0, 1, 2, 3, 4, 5, 6]) {
+      expect(STORE_HOURS[wk]).toEqual({ open: 10 * 60, close: 18 * 60 });
     }
   });
 
   it('effectiveHours intersects store and barber hours', () => {
-    // Both barbers open at 10 even though the store opens at 9 Mon–Sat.
+    // Store and both barbers all run 10–6, so the intersection is 10–6.
     expect(effectiveHours(1, 'hassan')).toEqual({ open: 600, close: 1080 });
     expect(effectiveHours(1, 'larry')).toEqual({ open: 600, close: 1080 });
   });

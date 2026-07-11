@@ -25,7 +25,7 @@ select is(
 
 select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '10:00', 'Early Bird', '5551110002') $$,
-  'larry takes the 10:00 opener (store open from 9, chairs from 10)'
+  'larry takes the 10:00 opener (store + barber both open at 10)'
 );
 select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '17:30', 'Last Slot', '5551110003') $$,
@@ -39,8 +39,8 @@ select lives_ok(
 -- ---------- Hours enforcement ----------
 select throws_ok(
   $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(3), '09:00', 'Too Early', '5551110005') $$,
-  '22023', 'outside_working_hours',
-  'hassan cannot be booked at 9:00 (he starts at 10)'
+  '22023', 'store_closed',
+  'hassan cannot be booked at 9:00 (the store itself opens at 10 now)'
 );
 select throws_ok(
   $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(2), '11:00', 'Tue Try', '5551110006') $$,
@@ -68,7 +68,7 @@ select throws_ok(
 select throws_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '08:30', 'Dawn Try', '5551110009') $$,
   '22023', 'store_closed',
-  'the 8:30 slot does not exist (store opens at 9)'
+  'the 8:30 slot does not exist (store opens at 10)'
 );
 
 -- ---------- Input validation ----------

@@ -4,7 +4,7 @@ A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, 
 
 Live: <https://chicopeefadeempire.com>
 
-**Hours** — store: Mon–Sat 9 AM–6 PM, Sun 10 AM–6 PM. Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
+**Hours** — store: 10 AM–6 PM, every day (the store opens with its earliest barber). Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
 
 ---
 
@@ -95,7 +95,8 @@ FadeEmpire/
 │       ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
 │       ├── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
 │       ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
-│       └── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
+│       ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
+│       └── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos
