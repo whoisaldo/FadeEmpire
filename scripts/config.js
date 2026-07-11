@@ -44,25 +44,30 @@ export const BARBERS = {
       6: { open: 10 * 60, close: 18 * 60 }, // Sat
     },
   },
-  javier: {
-    slug: 'javier',
-    name: 'Javier',
+  larry: {
+    slug: 'larry',
+    name: 'Larry',
     title: 'Barber',
     photo: {
-      mobile: './assets/Barbers/Javier/optimized/JavierBarber_mobile.jpg',
-      tablet: './assets/Barbers/Javier/optimized/JavierBarber_tablet.jpg',
+      mobile: './assets/Barbers/Larry/optimized/LarryBarber_mobile.jpg',
+      tablet: './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg',
     },
-    hoursLabel: '9 AM – 6 PM · Mon–Sat',
+    hoursLabel: '10 AM – 6 PM · Every day',
     schedule: {
-      1: { open: 9 * 60, close: 18 * 60 }, // Mon
-      2: { open: 9 * 60, close: 18 * 60 }, // Tue
-      3: { open: 9 * 60, close: 18 * 60 }, // Wed
-      4: { open: 9 * 60, close: 18 * 60 }, // Thu
-      5: { open: 9 * 60, close: 18 * 60 }, // Fri
-      6: { open: 9 * 60, close: 18 * 60 }, // Sat
+      0: { open: 10 * 60, close: 18 * 60 }, // Sun
+      1: { open: 10 * 60, close: 18 * 60 }, // Mon
+      2: { open: 10 * 60, close: 18 * 60 }, // Tue
+      3: { open: 10 * 60, close: 18 * 60 }, // Wed
+      4: { open: 10 * 60, close: 18 * 60 }, // Thu
+      5: { open: 10 * 60, close: 18 * 60 }, // Fri
+      6: { open: 10 * 60, close: 18 * 60 }, // Sat
     },
   },
 };
+
+// Former barbers — not bookable, not rendered. Kept for the record only.
+//   javier: second chair until July 2026, 9–6 Mon–Sat. Retired by migration
+//   0013 (is_active = false in `barbers`); photos remain in assets/Barbers/Javier/.
 
 export const DEFAULT_BARBER_SLUG = 'hassan';
 

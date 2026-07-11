@@ -4,11 +4,11 @@
 import { describe, it, expect } from 'vitest';
 import { planParty, partyFits, validateBookingInput } from '../scripts/booking-validate.js';
 
-// 2026-07-08 is a Wednesday: Hassan 10–6, Javier 9–6.
+// 2026-07-08 is a Wednesday: Hassan and Larry both work 10–6.
 const WED = '2026-07-08';
-// 2026-07-07 is a Tuesday: Hassan off, Javier 9–6.
+// 2026-07-07 is a Tuesday: Hassan off, Larry 10–6.
 const TUE = '2026-07-07';
-// 2026-07-05 is a Sunday: store closed.
+// 2026-07-05 is a Sunday: store opens at 10, both barbers work 10–6.
 const SUN = '2026-07-05';
 
 describe('planParty', () => {
@@ -45,13 +45,13 @@ describe('partyFits', () => {
 
   it('accepts a VIP whose second slot ends exactly at close', () => {
     expect(partyFits({
-      date: WED, barberSlug: 'javier', startMin: 1020, services: ['vip-haircut'],
+      date: WED, barberSlug: 'larry', startMin: 1020, services: ['vip-haircut'],
     }).ok).toBe(true);
   });
 
   it('rejects a VIP starting on the last slot (second half past close)', () => {
     const res = partyFits({
-      date: WED, barberSlug: 'javier', startMin: 1050, services: ['vip-haircut'],
+      date: WED, barberSlug: 'larry', startMin: 1050, services: ['vip-haircut'],
     });
     expect(res.ok).toBe(false);
     expect(res.offenders).toEqual([0]);
@@ -70,29 +70,34 @@ describe('partyFits', () => {
   it('a VIP primary pushes the guest past closing (duration-aware)', () => {
     // 5:00 PM VIP takes 5:00+5:30; the guest would start at 6:00 → past close.
     const res = partyFits({
-      date: WED, barberSlug: 'javier', startMin: 1020,
+      date: WED, barberSlug: 'larry', startMin: 1020,
       services: ['vip-haircut', 'hair-cut'],
     });
     expect(res.ok).toBe(false);
     expect(res.offenders).toEqual([1]);
   });
 
-  it('rejects Hassan on Tuesdays but accepts Javier', () => {
+  it('rejects Hassan on Tuesdays but accepts Larry', () => {
     const hassan = partyFits({ date: TUE, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] });
     expect(hassan.ok).toBe(false);
     expect(hassan.offenders).toEqual([0]);
-    expect(partyFits({ date: TUE, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: TUE, barberSlug: 'larry', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
   });
 
-  it('Sundays: Hassan works (from 10), Javier is off', () => {
+  it('Sundays: the store opens at 10 and both barbers work', () => {
     expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: SUN, barberSlug: 'larry', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
     expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 570, services: ['hair-cut'] }).ok).toBe(false); // 9:30, store opens 10 on Sun
-    expect(partyFits({ date: SUN, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
   });
 
-  it('rejects Hassan before his 10 AM start even though the store opens at 9', () => {
+  it('rejects 9 AM starts: the store opens at 9 but both barbers start at 10', () => {
     expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
-    expect(partyFits({ date: WED, barberSlug: 'javier', startMin: 540, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: WED, barberSlug: 'larry', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
+  });
+
+  it('javier is retired — no bookable slots on any day', () => {
+    expect(partyFits({ date: WED, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
+    expect(partyFits({ date: TUE, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
   });
 });
 
@@ -125,6 +130,7 @@ describe('validateBookingInput', () => {
   it('requires a known barber', () => {
     expect(validateBookingInput({ ...good, barberSlug: null }).code).toBe('no_barber');
     expect(validateBookingInput({ ...good, barberSlug: 'ghost' }).code).toBe('no_barber');
+    expect(validateBookingInput({ ...good, barberSlug: 'javier' }).code).toBe('no_barber'); // retired
   });
 
   it('requires a real name', () => {

@@ -13,7 +13,7 @@ $$;
 -- A VIP (60 min) up front pushes the next guest a full hour, not 30 minutes.
 select results_eq(
   $$ select booking_time::text
-       from book_slot_group('javier', tap_next_dow(3), '10:00', '5552220001',
+       from book_slot_group('larry', tap_next_dow(3), '10:00', '5552220001',
          '[{"name":"Vip Dad","service_slug":"vip-haircut"},
            {"name":"Kid Guest","service_slug":"kids-cut"}]'::jsonb)
       order by person_index $$,
@@ -32,11 +32,11 @@ select is(
 
 -- ---------- Group is all-or-nothing on conflict ----------
 select lives_ok(
-  $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(3), '13:30', 'Solo Blocker', '5552220002') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '13:30', 'Solo Blocker', '5552220002') $$,
   'a solo cut holds 13:30'
 );
 select throws_ok(
-  $$ select * from book_slot_group('javier', tap_next_dow(3), '13:00', '5552220003',
+  $$ select * from book_slot_group('larry', tap_next_dow(3), '13:00', '5552220003',
        '[{"name":"Group A","service_slug":"hair-cut"},
          {"name":"Group B","service_slug":"hair-cut"}]'::jsonb) $$,
   '23505', 'slot_taken',
@@ -49,13 +49,13 @@ select is(
 
 -- ---------- Group input validation ----------
 select throws_ok(
-  $$ select * from book_slot_group('javier', tap_next_dow(3), '15:00', '5552220004',
+  $$ select * from book_slot_group('larry', tap_next_dow(3), '15:00', '5552220004',
        '"not-an-array"'::jsonb) $$,
   '22023', 'invalid_people',
   'people payload must be a JSON array'
 );
 select throws_ok(
-  $$ select * from book_slot_group('javier', tap_next_dow(3), '15:00', '5552220005',
+  $$ select * from book_slot_group('larry', tap_next_dow(3), '15:00', '5552220005',
        '[{"name":"A1","service_slug":"hair-cut"},{"name":"A2","service_slug":"hair-cut"},
          {"name":"A3","service_slug":"hair-cut"},{"name":"A4","service_slug":"hair-cut"},
          {"name":"A5","service_slug":"hair-cut"},{"name":"A6","service_slug":"hair-cut"},
@@ -70,11 +70,11 @@ select lives_ok(
   'findme books a thursday cut with hassan'
 );
 select lives_ok(
-  $$ select * from book_slot('javier', 'vip-haircut', tap_next_dow(4), '15:00', 'Findme Tester', '5552220010') $$,
-  'findme also books a thursday VIP with javier'
+  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(4), '15:00', 'Findme Tester', '5552220010') $$,
+  'findme also books a thursday VIP with larry'
 );
 select lives_ok(
-  $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(4), '11:00', 'Someone Else', '5552220011') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '11:00', 'Someone Else', '5552220011') $$,
   'an unrelated customer books too'
 );
 
@@ -83,7 +83,7 @@ select results_eq(
        from find_bookings_by_phone('5552220010')
       order by booking_date, booking_time $$,
   $$ values ('hassan', 'hair-cut', '10:00:00', 'Findme'),
-            ('javier', 'vip-haircut', '15:00:00', 'Findme') $$,
+            ('larry', 'vip-haircut', '15:00:00', 'Findme') $$,
   'lookup returns exactly the callers two primaries, first name only'
 );
 select is(
@@ -153,7 +153,7 @@ select is(
 
 -- A continuation row cannot be cancelled directly.
 select lives_ok(
-  $$ select * from book_slot('javier', 'vip-haircut', tap_next_dow(5), '10:00', 'Linked Probe', '5552220013') $$,
+  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(5), '10:00', 'Linked Probe', '5552220013') $$,
   'a fresh VIP for the linked-row test'
 );
 select throws_ok(

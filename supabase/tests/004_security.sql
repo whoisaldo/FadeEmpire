@@ -28,7 +28,7 @@ $$;
 
 -- Seed one real booking as the superuser so there is PII worth protecting.
 select lives_ok(
-  $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(6), '10:00', 'Private Person', '5553330001') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(6), '10:00', 'Private Person', '5553330001') $$,
   'seed booking exists'
 );
 
@@ -57,19 +57,23 @@ select throws_ok(
      select b.id, s.id, tap_next_dow(6), '12:00', 'Sneaky', '5553330099', 0,
             'confirmed', null
        from barbers b, services s
-      where b.slug = 'javier' and s.slug = 'hair-cut' $$,
+      where b.slug = 'larry' and s.slug = 'hair-cut' $$,
   '42501', null,
   'anon cannot INSERT into bookings directly — only via the RPCs'
 );
 
 -- Public marketing data is readable.
 select is((select count(*)::int from barbers where is_active), 2, 'anon reads active barbers');
+select is(
+  (select count(*)::int from barbers where slug = 'javier'),
+  0, 'retired javier is invisible to anon (RLS filters on is_active)'
+);
 select is((select count(*)::int from store_hours), 7, 'anon reads store hours (open all 7 days)');
 
 -- The availability view works for anon and shows the seeded slot — sans PII.
 select is(
   (select count(*)::int from v_slot_availability
-    where barber_slug = 'javier'
+    where barber_slug = 'larry'
       and booking_date = tap_next_dow(6)
       and booking_time = '10:00'),
   1, 'anon sees the taken slot in the availability view'
@@ -77,7 +81,7 @@ select is(
 
 -- Customer-facing RPCs are executable by anon (SECURITY DEFINER does the work).
 select lives_ok(
-  $$ select * from book_slot('javier', 'hair-cut', tap_next_dow(6), '11:00', 'Anon Booker', '5553330002') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(6), '11:00', 'Anon Booker', '5553330002') $$,
   'anon can book through book_slot'
 );
 select is(

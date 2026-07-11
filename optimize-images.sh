@@ -41,7 +41,16 @@ fi
 echo "Image optimization complete!"
 
 
+# Optimize Larry's barber image (HEIC source → web JPGs)
+if [ -f "assets/Barbers/Larry/Larry.heic" ]; then
+  echo "Optimizing Larry's image..."
+  sips -s format jpeg -s formatOptions 92 "assets/Barbers/Larry/Larry.heic" --out "assets/Barbers/Larry/LarryBarber.jpg" 2>/dev/null
+  sips -Z 600 -s format jpeg -s formatOptions 85 "assets/Barbers/Larry/Larry.heic" --out "assets/Barbers/Larry/optimized/LarryBarber_mobile.jpg" 2>/dev/null
+  sips -Z 800 -s format jpeg -s formatOptions 90 "assets/Barbers/Larry/Larry.heic" --out "assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg" 2>/dev/null
+fi
+
 # Optimize Javier's barber image (HEIC source → web JPGs)
+# (Javier retired July 2026 — kept for the record; the guard makes it a no-op.)
 if [ -f "assets/Barbers/Javier/IMG_1732.heic" ]; then
   echo "Optimizing Javier's image..."
   sips -s format jpeg -s formatOptions 92 "assets/Barbers/Javier/IMG_1732.heic" --out "assets/Barbers/Javier/JavierBarber.jpg" 2>/dev/null

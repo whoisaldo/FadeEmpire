@@ -59,7 +59,8 @@ check('site is up and serving the current client', async () => {
       const res = await fetch(SITE, { headers: { 'cache-control': 'no-cache' } });
       const html = await res.text();
       if (res.status !== 200) { last = `HTTP ${res.status}`; }
-      else if (!html.includes('data-barber-option="javier"')) { last = 'barber picker markup missing (stale deploy?)'; }
+      else if (!html.includes('data-barber-option="larry"')) { last = 'barber picker markup missing (stale deploy?)'; }
+      else if (html.includes('data-barber-option="javier"')) { last = 'retired barber still in the markup (stale deploy?)'; }
       else if (!html.includes('data-cancel-root')) { last = 'cancellation panel markup missing (stale deploy?)'; }
       else return `200 OK, current markup present (attempt ${i})`;
     } catch (err) { last = String(err); }
@@ -142,7 +143,7 @@ check('barber schedules match config.js BARBERS[].schedule', async () => {
       }
     }
   }
-  return 'hassan + javier schedules aligned';
+  return 'hassan + larry schedules aligned';
 });
 
 check('availability view is readable (slot grid data source)', async () => {
@@ -165,7 +166,7 @@ check('book_slot RPC is live and validating (no row created)', async () => {
   // A 5-digit phone fails validation BEFORE any insert — proves the function
   // is deployed and its guard rails run, without touching real data.
   const { status, body } = await rpc('book_slot', {
-    p_barber_slug: 'javier', p_service_slug: 'hair-cut',
+    p_barber_slug: 'hassan', p_service_slug: 'hair-cut',
     p_date: '2030-01-01', p_time: '11:00:00',
     p_customer_name: 'Healthcheck', p_customer_phone: '55501',
   });

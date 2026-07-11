@@ -143,23 +143,23 @@ describe('booking grid', () => {
     expect(pills[1].disabled).toBe(false);
   });
 
-  it('switching to Javier opens Tuesday, closes Sunday, and adds the 9 AM start', () => {
-    $('[data-barber-option="javier"]').click();
+  it('switching to Larry unlocks Tuesday and keeps Sunday open', () => {
+    $('[data-barber-option="larry"]').click();
 
-    expect($('[data-barber-option="javier"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
     expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('false');
 
     const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
     expect(tue.disabled).toBe(false);
     const sun = $('[data-day-row] .booking__day[data-date="2026-07-12"]');
-    expect(sun.disabled).toBe(true);
+    expect(sun.disabled).toBe(false);
 
     clickDay('2026-07-07');
     const pills = $$('[data-slot-grid] .booking__slot');
-    expect(pills[0].dataset.time).toBe('09:00:00');
-    // Availability was re-fetched for Javier.
+    expect(pills[0].dataset.time).toBe('10:00:00');
+    // Availability was re-fetched for Larry.
     expect(rpc.fetchAvailability).toHaveBeenCalledWith(
-      expect.objectContaining({ barberSlug: 'javier' })
+      expect.objectContaining({ barberSlug: 'larry' })
     );
   });
 
@@ -204,7 +204,7 @@ describe('booking submit — success', () => {
       booking_status: 'confirmed', hold_expires_at: null, total_price_cents: 4000,
     }]);
 
-    $('[data-barber-option="javier"]').click();
+    $('[data-barber-option="larry"]').click();
     clickDay('2026-07-08');
     clickSlot('11:00:00');
     fillPrimary();
@@ -215,7 +215,7 @@ describe('booking submit — success', () => {
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
 
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
-      barberSlug: 'javier',
+      barberSlug: 'larry',
       serviceSlug: 'hair-cut',
       date: '2026-07-08',
       time: '11:00:00',
@@ -223,12 +223,12 @@ describe('booking submit — success', () => {
       addons: ['beard'],
     }));
     const text = $('[data-success-text]').textContent;
-    expect(text).toContain('Javier will be expecting you');
+    expect(text).toContain('Larry will be expecting you');
     expect(text).toContain('$40');
     const link = $('[data-success-link]');
     expect(link.hidden).toBe(false);
     expect(link.href).toContain('wa.me');
-    expect(decodeURIComponent(link.href)).toContain('Barber:  Javier');
+    expect(decodeURIComponent(link.href)).toContain('Barber:  Larry');
   });
 
   it('books a group through book_slot_group and resets guest rows after', async () => {

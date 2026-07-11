@@ -31,7 +31,7 @@ describe('buildBookingMessage', () => {
   const single = {
     name: 'Test Customer',
     phone: '(413) 555-0123',
-    barberName: 'Javier',
+    barberName: 'Larry',
     dateLabel: 'Wednesday, July 8',
     bookings: [{
       booking_id: 'abc12345-6789',
@@ -51,7 +51,7 @@ describe('buildBookingMessage', () => {
     expect(msg).toContain('*FADE EMPIRE — BOOKING REQUEST*');
     expect(msg).toContain('Contact: Test Customer');
     expect(msg).toContain('Phone:   (413) 555-0123');
-    expect(msg).toContain('Barber:  Javier');
+    expect(msg).toContain('Barber:  Larry');
     expect(msg).toContain('Date:    Wednesday, July 8');
     expect(msg).toContain('Service: Hair Cut');
     expect(msg).toContain('Time:    11:00 AM');

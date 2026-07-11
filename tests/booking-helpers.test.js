@@ -63,17 +63,16 @@ describe('store hours + barber schedules', () => {
   });
 
   it('effectiveHours intersects store and barber hours', () => {
-    // Hassan opens at 10 even though the store opens at 9.
+    // Both barbers open at 10 even though the store opens at 9 Mon–Sat.
     expect(effectiveHours(1, 'hassan')).toEqual({ open: 600, close: 1080 });
-    // Javier works the full store day.
-    expect(effectiveHours(1, 'javier')).toEqual({ open: 540, close: 1080 });
+    expect(effectiveHours(1, 'larry')).toEqual({ open: 600, close: 1080 });
   });
 
-  it('Hassan is off Tuesdays but works Sundays; Javier is off Sundays', () => {
+  it('Hassan is off Tuesdays; Larry covers all seven days', () => {
     expect(effectiveHours(2, 'hassan')).toBeNull();
-    expect(effectiveHours(2, 'javier')).not.toBeNull();
+    expect(effectiveHours(2, 'larry')).not.toBeNull();
     expect(effectiveHours(0, 'hassan')).toEqual({ open: 600, close: 1080 });
-    expect(effectiveHours(0, 'javier')).toBeNull();
+    expect(effectiveHours(0, 'larry')).toEqual({ open: 600, close: 1080 });
   });
 
   it('slotsForWeekday generates 30-min slots that END by closing time', () => {
@@ -82,14 +81,14 @@ describe('store hours + barber schedules', () => {
     expect(hassanMon[hassanMon.length - 1]).toBe(1050); // last slot 5:30 (ends 6:00)
     expect(hassanMon).toHaveLength(16);
 
-    const javierMon = slotsForWeekday(1, 'javier');
-    expect(javierMon[0]).toBe(540);                    // first slot 9:00
-    expect(javierMon).toHaveLength(18);
+    const larryMon = slotsForWeekday(1, 'larry');
+    expect(larryMon[0]).toBe(600);                     // first slot 10:00
+    expect(larryMon).toHaveLength(16);
   });
 
   it('slotsForWeekday returns [] on days off, slots on working days', () => {
     expect(slotsForWeekday(2, 'hassan')).toEqual([]);  // Hassan's Tuesday off
-    expect(slotsForWeekday(0, 'javier')).toEqual([]);  // Javier's Sunday off
+    expect(slotsForWeekday(2, 'larry')).toHaveLength(16); // Larry covers Tuesdays
     const hassanSun = slotsForWeekday(0, 'hassan');    // Hassan works Sundays 10–6
     expect(hassanSun[0]).toBe(600);
     expect(hassanSun).toHaveLength(16);
@@ -108,8 +107,9 @@ describe('store hours + barber schedules', () => {
     }
   });
 
-  it('unknown barbers have no bookable slots', () => {
+  it('unknown or retired barbers have no bookable slots', () => {
     expect(slotsForWeekday(1, 'nobody')).toEqual([]);
+    expect(slotsForWeekday(1, 'javier')).toEqual([]); // retired July 2026
   });
 });
 

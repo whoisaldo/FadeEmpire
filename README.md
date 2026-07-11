@@ -1,17 +1,17 @@
 # Fade Empire Barbershop
 
-A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, Massachusetts (Hassan + Javier). Built freelance to host the shop's brand presence and a race-proof online booking flow.
+A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, Massachusetts (Hassan + Larry). Built freelance to host the shop's brand presence and a race-proof online booking flow.
 
 Live: <https://chicopeefadeempire.com>
 
-**Hours** — store: Mon–Sat 9 AM–6 PM, Sun 10 AM–6 PM. Hassan: 10–6, off Tuesdays. Javier: 9–6, Mon–Sat. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client.
+**Hours** — store: Mon–Sat 9 AM–6 PM, Sun 10 AM–6 PM. Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
 
 ---
 
 ## What it does
 
 - **Editorial dark-luxury landing page** — hero, barber feature spreads, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
-- **Per-barber booking** — pick Hassan or Javier; each barber has his own days off, opening hours, and availability grid
+- **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
 - **Group bookings** — book yourself + friends/kids in consecutive 30-minute slots, all-or-nothing transactional, duration-aware (a VIP in the party takes two slots before the next guest starts)
 - **Multi-slot services** — VIP (60 min) automatically books two linked consecutive slots
@@ -93,11 +93,14 @@ FadeEmpire/
 │       ├── 0008_add_beard_addon.sql
 │       ├── 0009_javier_store_hours_cancellation.sql  Javier + store_hours + cancel lookup
 │       ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
-│       └── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
+│       ├── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
+│       ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
+│       └── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos
-    ├── Barbers/Javier/optimized/       Javier profile photos
+    ├── Barbers/Larry/optimized/        Larry profile photos
+    ├── Barbers/Javier/optimized/       Javier profile photos (retired — kept for the record)
     └── FadeEmpireStore/                Brand assets (logo, storefront)
 ```
 

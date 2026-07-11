@@ -41,8 +41,8 @@ select is((select relrowsecurity from pg_class where relname = 'store_hours'),  
 select is((select count(*)::int from barbers where is_active), 2, 'exactly two active barbers');
 select results_eq(
   $$ select slug from barbers where is_active order by sort_order $$,
-  $$ values ('hassan'), ('javier') $$,
-  'active barbers are hassan then javier'
+  $$ values ('hassan'), ('larry') $$,
+  'active barbers are hassan then larry'
 );
 
 -- ---------- Store hours: Mon–Sat 9–6, Sunday 10–6 ----------
@@ -65,14 +65,24 @@ select results_eq(
   'hassan works Sun–Mon and Wed–Sat 10:00–18:00 (off Tuesdays)'
 );
 
--- ---------- Javier: 9–6 Mon–Sat ----------
+-- ---------- Larry: 10–6 every single day ----------
 select results_eq(
   $$ select s.weekday::int, s.open_time::text, s.close_time::text
        from barber_schedules s join barbers b on b.id = s.barber_id
-      where b.slug = 'javier' order by s.weekday $$,
-  $$ values (1,'09:00:00','18:00:00'), (2,'09:00:00','18:00:00'), (3,'09:00:00','18:00:00'),
-            (4,'09:00:00','18:00:00'), (5,'09:00:00','18:00:00'), (6,'09:00:00','18:00:00') $$,
-  'javier works Mon–Sat 09:00–18:00'
+      where b.slug = 'larry' order by s.weekday $$,
+  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'), (2,'10:00:00','18:00:00'),
+            (3,'10:00:00','18:00:00'), (4,'10:00:00','18:00:00'), (5,'10:00:00','18:00:00'),
+            (6,'10:00:00','18:00:00') $$,
+  'larry works all seven days 10:00–18:00'
+);
+
+-- ---------- Javier: retired (0013) ----------
+select is((select is_active from barbers where slug = 'javier'), false, 'javier is retired (inactive)');
+select is(
+  (select count(*)::int
+     from barber_schedules s join barbers b on b.id = s.barber_id
+    where b.slug = 'javier'),
+  0, 'javier has no schedule rows left'
 );
 
 -- ---------- No barber schedule leaks outside store hours ----------
