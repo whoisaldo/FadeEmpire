@@ -96,7 +96,8 @@ FadeEmpire/
 │       ├── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
 │       ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
 │       ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
-│       └── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
+│       ├── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
+│       └── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos

@@ -80,7 +80,7 @@ export const CLOSING_SOON_MIN = 60;
 export const SERVICE_PRICES_CENTS = {
   'hair-cut':     3000,
   'line-up':      1000,
-  'beard-trim':   1000,
+  'beard-trim':   1500,
   'kids-cut':     2500,
   'military-cut': 2500,
   'senior-cut':   2500,
