@@ -99,6 +99,12 @@ beforeEach(async () => {
     window.requestAnimationFrame = (cb) => setTimeout(cb, 0);
   }
 
+  // Mock implementations survive vi.resetModules() (clearAllMocks only clears
+  // call history), so re-prime availability or a prior test's taken slots leak
+  // into the next boot's grid and disable the pill that test is about to click.
+  rpc = await import('../scripts/booking-rpc.js');
+  rpc.fetchAvailability.mockResolvedValue([]);
+
   await boot();
 });
 
@@ -137,9 +143,9 @@ describe('booking grid', () => {
     const pills = $$('[data-slot-grid] .booking__slot');
     expect(pills[0].dataset.time).toBe('10:00:00');
     expect(pills[pills.length - 1].dataset.time).toBe('17:30:00');
-    // now = 10:00 → the 10:00 slot is already "past" (m <= now), 10:30 is bookable.
+    // now = 10:00 → the 10:00 slot is already "past" (m <= now), 10:45 is bookable.
     expect(pills[0].disabled).toBe(true);
-    expect(pills[1].dataset.time).toBe('10:30:00');
+    expect(pills[1].dataset.time).toBe('10:45:00');
     expect(pills[1].disabled).toBe(false);
   });
 
@@ -165,14 +171,14 @@ describe('booking grid', () => {
 
   it('marks slots taken from availability data and drops a stolen selection', async () => {
     rpc.fetchAvailability.mockResolvedValue([
-      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '11:00:00', status: 'confirmed' },
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '10:45:00', status: 'confirmed' },
     ]);
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     expect($('[data-form-time]').value).toBe('11:30:00');
 
     await grid.refreshAvailability();
-    const taken = $('[data-slot-grid] .booking__slot[data-time="11:00:00"]');
+    const taken = $('[data-slot-grid] .booking__slot[data-time="10:45:00"]');
     expect(taken.disabled).toBe(true);
     expect(taken.classList.contains('is-taken')).toBe(true);
     // Our own selection (11:30) survives the re-render.
@@ -189,9 +195,9 @@ describe('booking grid', () => {
 
   it('selection pill shows day, time, and barber', () => {
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     expect($('[data-selected-pill]').hidden).toBe(false);
-    expect($('[data-selected-text]').textContent).toBe('Wed, Jul 8 · 11:00 AM · Hassan');
+    expect($('[data-selected-text]').textContent).toBe('Wed, Jul 8 · 11:30 AM · Hassan');
   });
 });
 
@@ -200,13 +206,13 @@ describe('booking grid', () => {
 describe('booking submit — success', () => {
   it('books a single cut with the selected barber and shows the success card', async () => {
     rpc.bookSlot.mockResolvedValue([{
-      booking_id: 'b1', slot_index: 0, booking_time: '11:00:00',
+      booking_id: 'b1', slot_index: 0, booking_time: '11:30:00',
       booking_status: 'confirmed', hold_expires_at: null, total_price_cents: 4000,
     }]);
 
     $('[data-barber-option="larry"]').click();
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     fillPrimary();
     $('input[name="addons"][value="beard"]').click();
     expect($('[data-total-display]').textContent).toBe('$40');
@@ -218,7 +224,7 @@ describe('booking submit — success', () => {
       barberSlug: 'larry',
       serviceSlug: 'hair-cut',
       date: '2026-07-08',
-      time: '11:00:00',
+      time: '11:30:00',
       name: 'Test Customer',
       addons: ['beard'],
     }));
@@ -234,13 +240,13 @@ describe('booking submit — success', () => {
   it('books a group through book_slot_group and resets guest rows after', async () => {
     rpc.bookSlotGroup.mockResolvedValue([
       { booking_id: 'g1', person_index: 0, person_name: 'Test Customer',
-        service_slug: 'hair-cut', booking_time: '11:00:00', total_price_cents: 3000 },
+        service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
       { booking_id: 'g2', person_index: 1, person_name: 'Kiddo',
-        service_slug: 'kids-cut', booking_time: '11:30:00', total_price_cents: 2500 },
+        service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
     ]);
 
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     fillPrimary();
 
     $('[data-add-guest]').click();
@@ -252,7 +258,7 @@ describe('booking submit — success', () => {
 
     expect($('[data-total-display]').textContent).toBe('$55');
     expect($('[data-group-timeline]').hidden).toBe(false);
-    expect($('[data-group-timeline]').textContent).toContain('Kiddo — 11:30 AM');
+    expect($('[data-group-timeline]').textContent).toContain('Kiddo — 12:15 PM');
 
     $('[data-submit-sms]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
@@ -260,7 +266,7 @@ describe('booking submit — success', () => {
     expect(rpc.bookSlotGroup).toHaveBeenCalledWith(expect.objectContaining({
       barberSlug: 'hassan',
       date: '2026-07-08',
-      startTime: '11:00:00',
+      startTime: '11:30:00',
       people: [
         expect.objectContaining({ name: 'Test Customer', serviceSlug: 'hair-cut' }),
         expect.objectContaining({ name: 'Kiddo', serviceSlug: 'kids-cut' }),
@@ -284,7 +290,7 @@ describe('booking submit — validation and failures', () => {
 
   it('blocks submit with a short phone number', async () => {
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     fillPrimary({ phone: '55501' });
     $('[data-submit-whatsapp]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
@@ -294,8 +300,8 @@ describe('booking submit — validation and failures', () => {
 
   it('disables submit while a guest overruns closing time (duration-aware)', () => {
     clickDay('2026-07-08');
-    clickSlot('17:00:00');
-    fillPrimary({ service: 'vip-haircut' });   // VIP 5:00–6:00, guest would start 6:00
+    clickSlot('16:45:00');
+    fillPrimary({ service: 'vip-haircut' });   // VIP 4:45–6:15 fits, guest would start 6:15
 
     $('[data-add-guest]').click();
     const row = $('[data-guest-list] [data-guest]');
@@ -310,7 +316,7 @@ describe('booking submit — validation and failures', () => {
     expect($('[data-submit-sms]').disabled).toBe(true);
 
     // Moving to an earlier slot clears the overrun and re-enables submit.
-    clickSlot('15:00:00');
+    clickSlot('14:30:00');
     expect(timeline.textContent).not.toContain('⚠ past closing');
     expect($('[data-submit-whatsapp]').disabled).toBe(false);
   });
@@ -319,7 +325,7 @@ describe('booking submit — validation and failures', () => {
     rpc.bookSlot.mockRejectedValue(new rpc.BookingError('slot_taken'));
 
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     fillPrimary();
     const callsBefore = rpc.fetchAvailability.mock.calls.length;
 
@@ -339,7 +345,7 @@ describe('booking submit — validation and failures', () => {
     rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
 
     clickDay('2026-07-08');
-    clickSlot('11:00:00');
+    clickSlot('11:30:00');
     fillPrimary();
     $('[data-submit-whatsapp]').click();
     await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));

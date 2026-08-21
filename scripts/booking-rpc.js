@@ -19,7 +19,7 @@ async function toBookingError(error, rpcName) {
 
 /**
  * Atomically book a slot. Throws BookingError on conflict / validation error.
- * Returns N rows (one per 30-min slot the service occupies); row 0 is the
+ * Returns N rows (one per 45-min slot the service occupies); row 0 is the
  * primary booking and carries booking_id + price + addons.
  */
 export async function bookSlot({
@@ -150,7 +150,7 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
 }
 
 /**
- * Find the next available 30-minute slot across ALL barbers, looking up to
+ * Find the next available 45-minute slot across ALL barbers, looking up to
  * 14 days ahead. Returns { date, time, label, barberSlug, barberName } or null.
  */
 export async function fetchNextAvailable() {

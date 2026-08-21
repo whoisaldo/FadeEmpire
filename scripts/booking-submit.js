@@ -67,7 +67,7 @@ function updateTotal(form) {
 
 /** Update the live timeline + return true if every person's chair time fits
  *  working hours. Duration-aware: a VIP occupies two slots, so the next guest
- *  starts an hour later, not 30 minutes. */
+ *  starts 90 minutes later, not 45. */
 function updateTimelineAndCheckOverrun(form) {
   const timelineEl = form.querySelector('[data-group-timeline]');
   if (!timelineEl) return true;

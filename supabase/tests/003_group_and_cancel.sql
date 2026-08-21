@@ -10,30 +10,30 @@ create function tap_next_dow(p_dow int) returns date language sql as $$
 $$;
 
 -- ---------- Group bookings stack duration-aware ----------
--- A VIP (60 min) up front pushes the next guest a full hour, not 30 minutes.
+-- A VIP (60 min = two 45-min slots) up front pushes the next guest 90 minutes.
 select results_eq(
   $$ select booking_time::text
        from book_slot_group('larry', tap_next_dow(3), '10:00', '5552220001',
          '[{"name":"Vip Dad","service_slug":"vip-haircut"},
            {"name":"Kid Guest","service_slug":"kids-cut"}]'::jsonb)
       order by person_index $$,
-  $$ values ('10:00:00'), ('11:00:00') $$,
-  'guest after a VIP starts at 11:00, not 10:30'
+  $$ values ('10:00:00'), ('11:30:00') $$,
+  'guest after a VIP starts at 11:30, not 10:45'
 );
 select is(
   (select count(*)::int from bookings where customer_phone = '5552220001'),
-  3, 'VIP + guest occupy three physical slots (10:00, 10:30 linked, 11:00)'
+  3, 'VIP + guest occupy three physical slots (10:00, 10:45 linked, 11:30)'
 );
 select is(
   (select count(*)::int from bookings
-    where customer_phone = '5552220001' and booking_time = '10:30' and linked_to is not null),
-  1, 'the 10:30 slot is the VIP continuation row'
+    where customer_phone = '5552220001' and booking_time = '10:45' and linked_to is not null),
+  1, 'the 10:45 slot is the VIP continuation row'
 );
 
 -- ---------- Group is all-or-nothing on conflict ----------
 select lives_ok(
-  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '13:30', 'Solo Blocker', '5552220002') $$,
-  'a solo cut holds 13:30'
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '13:45', 'Solo Blocker', '5552220002') $$,
+  'a solo cut holds 13:45'
 );
 select throws_ok(
   $$ select * from book_slot_group('larry', tap_next_dow(3), '13:00', '5552220003',
@@ -70,11 +70,11 @@ select lives_ok(
   'findme books a thursday cut with hassan'
 );
 select lives_ok(
-  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(4), '15:00', 'Findme Tester', '5552220010') $$,
+  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(4), '15:15', 'Findme Tester', '5552220010') $$,
   'findme also books a thursday VIP with larry'
 );
 select lives_ok(
-  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '11:00', 'Someone Else', '5552220011') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '11:30', 'Someone Else', '5552220011') $$,
   'an unrelated customer books too'
 );
 
@@ -83,7 +83,7 @@ select results_eq(
        from find_bookings_by_phone('5552220010')
       order by booking_date, booking_time $$,
   $$ values ('hassan', 'hair-cut', '10:00:00', 'Findme'),
-            ('larry', 'vip-haircut', '15:00:00', 'Findme') $$,
+            ('larry', 'vip-haircut', '15:15:00', 'Findme') $$,
   'lookup returns exactly the callers two primaries, first name only'
 );
 select is(

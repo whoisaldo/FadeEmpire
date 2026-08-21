@@ -94,12 +94,14 @@ export function effectiveHours(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
 /**
  * Generate the slot list (in minutes) for a given weekday and barber.
  * Returns [] if the store is closed or the barber is off that day.
+ * A slot is valid if it STARTS before close (mirrors the DB rule) — the last
+ * one (5:30 PM) runs past the 6:00 close and the barber stays to finish it.
  */
 export function slotsForWeekday(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
   const hours = effectiveHours(weekday, barberSlug);
   if (!hours) return [];
   const out = [];
-  for (let m = hours.open; m + SLOT_MINUTES <= hours.close; m += SLOT_MINUTES) {
+  for (let m = hours.open; m < hours.close; m += SLOT_MINUTES) {
     out.push(m);
   }
   return out;
@@ -110,7 +112,7 @@ export function serviceDurationMin(serviceSlug) {
   return SERVICE_DURATIONS_MIN[serviceSlug] || SLOT_MINUTES;
 }
 
-/** How many consecutive 30-min slots a service occupies. */
+/** How many consecutive 45-min slots a service occupies. */
 export function serviceSlotCount(serviceSlug) {
   return Math.max(1, Math.ceil(serviceDurationMin(serviceSlug) / SLOT_MINUTES));
 }

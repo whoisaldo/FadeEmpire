@@ -12,21 +12,21 @@ const TUE = '2026-07-07';
 const SUN = '2026-07-05';
 
 describe('planParty', () => {
-  it('stacks people back-to-back in 30-min slots', () => {
+  it('stacks people back-to-back in 45-min slots', () => {
     const plan = planParty(600, ['hair-cut', 'kids-cut', 'line-up']);
-    expect(plan.map(p => p.startMin)).toEqual([600, 630, 660]);
+    expect(plan.map(p => p.startMin)).toEqual([600, 645, 690]);
     expect(plan.every(p => p.slotCount === 1)).toBe(true);
   });
 
-  it('gives a VIP two slots and pushes the next person a full hour', () => {
+  it('gives a VIP two slots and pushes the next person 90 minutes', () => {
     const plan = planParty(600, ['vip-haircut', 'hair-cut']);
-    expect(plan[0]).toMatchObject({ startMin: 600, slotCount: 2, slotMins: [600, 630] });
-    expect(plan[1]).toMatchObject({ startMin: 660, slotCount: 1 });
+    expect(plan[0]).toMatchObject({ startMin: 600, slotCount: 2, slotMins: [600, 645] });
+    expect(plan[1]).toMatchObject({ startMin: 690, slotCount: 1 });
   });
 
   it('handles a VIP in the middle of the party', () => {
     const plan = planParty(600, ['hair-cut', 'vip-haircut', 'kids-cut']);
-    expect(plan.map(p => p.startMin)).toEqual([600, 630, 690]);
+    expect(plan.map(p => p.startMin)).toEqual([600, 645, 735]);
   });
 });
 
@@ -37,15 +37,15 @@ describe('partyFits', () => {
     })).toEqual({ ok: true, offenders: [] });
   });
 
-  it('accepts the last slot of the day (ends exactly at close)', () => {
+  it('accepts the last slot of the day (5:30 — runs to 6:15, barber stays)', () => {
     expect(partyFits({
       date: WED, barberSlug: 'hassan', startMin: 1050, services: ['hair-cut'],
     }).ok).toBe(true);
   });
 
-  it('accepts a VIP whose second slot ends exactly at close', () => {
+  it('accepts a VIP at 4:45 — its second slot is the 5:30 closer', () => {
     expect(partyFits({
-      date: WED, barberSlug: 'larry', startMin: 1020, services: ['vip-haircut'],
+      date: WED, barberSlug: 'larry', startMin: 1005, services: ['vip-haircut'],
     }).ok).toBe(true);
   });
 
@@ -58,9 +58,9 @@ describe('partyFits', () => {
   });
 
   it('flags only the guests who run past closing', () => {
-    // 5:00 PM start: primary 5:00 ok, guest#1 5:30 ok, guest#2 6:00 past close.
+    // 4:45 PM start: primary 4:45 ok, guest#1 5:30 ok, guest#2 6:15 past close.
     const res = partyFits({
-      date: WED, barberSlug: 'hassan', startMin: 1020,
+      date: WED, barberSlug: 'hassan', startMin: 1005,
       services: ['hair-cut', 'kids-cut', 'line-up'],
     });
     expect(res.ok).toBe(false);
@@ -68,25 +68,29 @@ describe('partyFits', () => {
   });
 
   it('a VIP primary pushes the guest past closing (duration-aware)', () => {
-    // 5:00 PM VIP takes 5:00+5:30; the guest would start at 6:00 → past close.
+    // 4:45 PM VIP takes 4:45+5:30; the guest would start at 6:15 → past close.
     const res = partyFits({
-      date: WED, barberSlug: 'larry', startMin: 1020,
+      date: WED, barberSlug: 'larry', startMin: 1005,
       services: ['vip-haircut', 'hair-cut'],
     });
     expect(res.ok).toBe(false);
     expect(res.offenders).toEqual([1]);
   });
 
+  it('rejects starts that sat on the old 30-min grid (11:00 is off-grid now)', () => {
+    expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
+  });
+
   it('rejects Hassan on Tuesdays but accepts Larry', () => {
-    const hassan = partyFits({ date: TUE, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] });
+    const hassan = partyFits({ date: TUE, barberSlug: 'hassan', startMin: 690, services: ['hair-cut'] });
     expect(hassan.ok).toBe(false);
     expect(hassan.offenders).toEqual([0]);
-    expect(partyFits({ date: TUE, barberSlug: 'larry', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: TUE, barberSlug: 'larry', startMin: 690, services: ['hair-cut'] }).ok).toBe(true);
   });
 
   it('Sundays: the store opens at 10 and both barbers work', () => {
-    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
-    expect(partyFits({ date: SUN, barberSlug: 'larry', startMin: 660, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 690, services: ['hair-cut'] }).ok).toBe(true);
+    expect(partyFits({ date: SUN, barberSlug: 'larry', startMin: 690, services: ['hair-cut'] }).ok).toBe(true);
     expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 570, services: ['hair-cut'] }).ok).toBe(false); // 9:30, store opens 10 on Sun
   });
 
@@ -96,8 +100,8 @@ describe('partyFits', () => {
   });
 
   it('javier is retired — no bookable slots on any day', () => {
-    expect(partyFits({ date: WED, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
-    expect(partyFits({ date: TUE, barberSlug: 'javier', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
+    expect(partyFits({ date: WED, barberSlug: 'javier', startMin: 690, services: ['hair-cut'] }).ok).toBe(false);
+    expect(partyFits({ date: TUE, barberSlug: 'javier', startMin: 690, services: ['hair-cut'] }).ok).toBe(false);
   });
 });
 
@@ -107,7 +111,7 @@ describe('validateBookingInput', () => {
     phone: '(413) 555-0123',
     serviceSlug: 'hair-cut',
     date: WED,
-    time: '11:00:00',
+    time: '11:30:00',
     barberSlug: 'hassan',
     guests: [],
   };

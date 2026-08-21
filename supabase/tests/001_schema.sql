@@ -76,6 +76,12 @@ select results_eq(
   'larry works all seven days 10:00–18:00'
 );
 
+-- ---------- Appointments run on the 45-minute grid (0016) ----------
+select is(
+  (select count(*)::int from barber_schedules where slot_minutes <> 45),
+  0, 'every schedule row uses 45-minute slots'
+);
+
 -- ---------- Javier: retired (0013) ----------
 select is((select is_active from barbers where slug = 'javier'), false, 'javier is retired (inactive)');
 select is(

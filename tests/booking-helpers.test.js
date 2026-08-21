@@ -74,33 +74,36 @@ describe('store hours + barber schedules', () => {
     expect(effectiveHours(0, 'larry')).toEqual({ open: 600, close: 1080 });
   });
 
-  it('slotsForWeekday generates 30-min slots that END by closing time', () => {
+  it('slotsForWeekday generates 45-min slots; the last starts at 5:30 and runs past close', () => {
     const hassanMon = slotsForWeekday(1, 'hassan');
     expect(hassanMon[0]).toBe(600);                    // first slot 10:00
-    expect(hassanMon[hassanMon.length - 1]).toBe(1050); // last slot 5:30 (ends 6:00)
-    expect(hassanMon).toHaveLength(16);
+    expect(hassanMon[1]).toBe(645);                    // then 10:45 — the 45-min grid
+    expect(hassanMon[hassanMon.length - 1]).toBe(1050); // last slot 5:30 (ends 6:15)
+    expect(hassanMon).toHaveLength(11);
 
     const larryMon = slotsForWeekday(1, 'larry');
     expect(larryMon[0]).toBe(600);                     // first slot 10:00
-    expect(larryMon).toHaveLength(16);
+    expect(larryMon).toHaveLength(11);
   });
 
   it('slotsForWeekday returns [] on days off, slots on working days', () => {
     expect(slotsForWeekday(2, 'hassan')).toEqual([]);  // Hassan's Tuesday off
-    expect(slotsForWeekday(2, 'larry')).toHaveLength(16); // Larry covers Tuesdays
+    expect(slotsForWeekday(2, 'larry')).toHaveLength(11); // Larry covers Tuesdays
     const hassanSun = slotsForWeekday(0, 'hassan');    // Hassan works Sundays 10–6
     expect(hassanSun[0]).toBe(600);
-    expect(hassanSun).toHaveLength(16);
+    expect(hassanSun).toHaveLength(11);
   });
 
-  it('every configured barber slot is inside store hours (config self-consistency)', () => {
+  it('every configured barber slot STARTS inside store hours (config self-consistency)', () => {
+    // The last slot may END past close (the barber stays to finish), so the
+    // invariant is on the start time only — same rule the DB enforces.
     for (const barber of Object.values(BARBERS)) {
       for (let wk = 0; wk <= 6; wk++) {
         for (const m of slotsForWeekday(wk, barber.slug)) {
           const store = STORE_HOURS[wk];
           expect(store, `weekday ${wk} should be open if ${barber.slug} has slots`).toBeTruthy();
           expect(m).toBeGreaterThanOrEqual(store.open);
-          expect(m + 30).toBeLessThanOrEqual(store.close);
+          expect(m).toBeLessThan(store.close);
         }
       }
     }

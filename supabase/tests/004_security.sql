@@ -81,7 +81,7 @@ select is(
 
 -- Customer-facing RPCs are executable by anon (SECURITY DEFINER does the work).
 select lives_ok(
-  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(6), '11:00', 'Anon Booker', '5553330002') $$,
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(6), '11:30', 'Anon Booker', '5553330002') $$,
   'anon can book through book_slot'
 );
 select is(

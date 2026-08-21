@@ -4,7 +4,7 @@ A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, 
 
 Live: <https://chicopeefadeempire.com>
 
-**Hours** — store: 10 AM–6 PM, every day (the store opens with its earliest barber). Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
+**Hours** — store: 10 AM–6 PM, every day (the store opens with its earliest barber). Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Appointments run every 45 minutes from open; the last one starts at 5:30 PM and can run to 6:15 — the barber stays past close to finish. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
 
 ---
 
@@ -13,7 +13,7 @@ Live: <https://chicopeefadeempire.com>
 - **Editorial dark-luxury landing page** — hero, barber feature spreads, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
 - **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
-- **Group bookings** — book yourself + friends/kids in consecutive 30-minute slots, all-or-nothing transactional, duration-aware (a VIP in the party takes two slots before the next guest starts)
+- **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a VIP in the party takes two slots before the next guest starts)
 - **Multi-slot services** — VIP (60 min) automatically books two linked consecutive slots
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review

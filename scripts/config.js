@@ -71,7 +71,10 @@ export const BARBERS = {
 
 export const DEFAULT_BARBER_SLUG = 'hassan';
 
-export const SLOT_MINUTES = 30;
+// Appointments run every 45 minutes (Hassan: 30 isn't enough chair time).
+// The grid anchors at open, so the last slot starts at 5:30 PM and can run
+// to 6:15 — the barber stays past the 6:00 close to finish the cut.
+export const SLOT_MINUTES = 45;
 
 // Closing-soon threshold, in minutes before close
 export const CLOSING_SOON_MIN = 60;
@@ -88,7 +91,7 @@ export const SERVICE_PRICES_CENTS = {
 };
 
 // Chair time per service in minutes (mirror of services.duration_minutes).
-// Drives how many consecutive 30-min slots a booking occupies.
+// Drives how many consecutive 45-min slots a booking occupies.
 export const SERVICE_DURATIONS_MIN = {
   'hair-cut':     30,
   'line-up':      30,
