@@ -45,14 +45,15 @@ select results_eq(
   'active barbers are hassan then larry'
 );
 
--- ---------- Store hours: 10–6 every day (opens with the earliest barber) ----------
-select is((select count(*)::int from store_hours), 7, 'store is open all seven days');
+-- ---------- Store hours: 10–6 six days a week, closed Tuesdays (0017) ----------
+select is((select count(*)::int from store_hours), 6, 'store is open six days');
+select is((select count(*)::int from store_hours where weekday = 2), 0, 'no store_hours row for Tuesday — closed');
 select results_eq(
   $$ select weekday::int, open_time::text, close_time::text from store_hours order by weekday $$,
-  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'), (2,'10:00:00','18:00:00'),
+  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'),
             (3,'10:00:00','18:00:00'), (4,'10:00:00','18:00:00'), (5,'10:00:00','18:00:00'),
             (6,'10:00:00','18:00:00') $$,
-  'store hours are 10–6 every day'
+  'store hours are 10–6 Wed–Mon'
 );
 
 -- ---------- Hassan: 10–6 every day except Tuesdays ----------
@@ -65,15 +66,19 @@ select results_eq(
   'hassan works Sun–Mon and Wed–Sat 10:00–18:00 (off Tuesdays)'
 );
 
--- ---------- Larry: 10–6 every single day ----------
+-- ---------- Larry: 10–6 every open day (off Tuesdays with the shop, 0017) ----------
 select results_eq(
   $$ select s.weekday::int, s.open_time::text, s.close_time::text
        from barber_schedules s join barbers b on b.id = s.barber_id
       where b.slug = 'larry' order by s.weekday $$,
-  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'), (2,'10:00:00','18:00:00'),
+  $$ values (0,'10:00:00','18:00:00'), (1,'10:00:00','18:00:00'),
             (3,'10:00:00','18:00:00'), (4,'10:00:00','18:00:00'), (5,'10:00:00','18:00:00'),
             (6,'10:00:00','18:00:00') $$,
-  'larry works all seven days 10:00–18:00'
+  'larry works Sun–Mon and Wed–Sat 10:00–18:00 (shop closed Tuesdays)'
+);
+select is(
+  (select count(*)::int from barber_schedules where weekday = 2),
+  0, 'nobody has a Tuesday schedule row'
 );
 
 -- ---------- Appointments run on the 45-minute grid (0016) ----------
@@ -105,7 +110,7 @@ select is(
 
 -- ---------- Services + addons seeds ----------
 select is((select count(*)::int from services where is_active), 7, 'seven active services');
-select is((select duration_minutes from services where slug = 'vip-haircut'), 60, 'VIP takes 60 minutes');
+select is((select duration_minutes from services where slug = 'vip-haircut'), 45, 'VIP takes 45 minutes — one slot (0018)');
 select is((select base_price_cents from services where slug = 'hair-cut'), 3000, 'hair cut is $30');
 select is((select base_price_cents from services where slug = 'beard-trim'), 1500, 'standalone beard trim is $15 (the beard ADD-ON stays $10)');
 select is((select count(*)::int from addons where is_active), 5, 'five active add-ons');
@@ -119,6 +124,8 @@ select is(is_within_store_hours('2026-07-06'::date, '18:00'::time), false, 'Mon 
 select is(is_within_store_hours('2026-07-06'::date, '09:30'::time), false, 'Mon 9:30 is before the 10:00 open');
 select is(is_within_store_hours('2026-07-05'::date, '12:00'::time), true,  'Sunday midday is open');
 select is(is_within_store_hours('2026-07-05'::date, '09:30'::time), false, 'Sunday 9:30 is before the 10:00 open');
+select is(is_within_store_hours('2026-07-07'::date, '11:30'::time), false, 'Tuesday midday is closed — no store_hours row');
+select is(is_within_store_hours('2026-07-07'::date, '10:00'::time), false, 'Tuesday 10:00 is closed too (not just an hours mismatch)');
 
 select * from finish();
 rollback;

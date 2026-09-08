@@ -55,10 +55,11 @@ describe('time + date helpers', () => {
 });
 
 describe('store hours + barber schedules', () => {
-  it('the store is open every day 10–6 (it opens with the earliest barber)', () => {
-    for (const wk of [0, 1, 2, 3, 4, 5, 6]) {
+  it('the store is open 10–6 six days a week and closed Tuesdays', () => {
+    for (const wk of [0, 1, 3, 4, 5, 6]) {
       expect(STORE_HOURS[wk]).toEqual({ open: 10 * 60, close: 18 * 60 });
     }
+    expect(STORE_HOURS[2]).toBeUndefined();
   });
 
   it('effectiveHours intersects store and barber hours', () => {
@@ -67,9 +68,9 @@ describe('store hours + barber schedules', () => {
     expect(effectiveHours(1, 'larry')).toEqual({ open: 600, close: 1080 });
   });
 
-  it('Hassan is off Tuesdays; Larry covers all seven days', () => {
+  it('Tuesdays are closed for both barbers; Sundays are open for both', () => {
     expect(effectiveHours(2, 'hassan')).toBeNull();
-    expect(effectiveHours(2, 'larry')).not.toBeNull();
+    expect(effectiveHours(2, 'larry')).toBeNull();
     expect(effectiveHours(0, 'hassan')).toEqual({ open: 600, close: 1080 });
     expect(effectiveHours(0, 'larry')).toEqual({ open: 600, close: 1080 });
   });
@@ -86,9 +87,9 @@ describe('store hours + barber schedules', () => {
     expect(larryMon).toHaveLength(11);
   });
 
-  it('slotsForWeekday returns [] on days off, slots on working days', () => {
-    expect(slotsForWeekday(2, 'hassan')).toEqual([]);  // Hassan's Tuesday off
-    expect(slotsForWeekday(2, 'larry')).toHaveLength(11); // Larry covers Tuesdays
+  it('slotsForWeekday returns [] on closed days, slots on working days', () => {
+    expect(slotsForWeekday(2, 'hassan')).toEqual([]);  // shop closed Tuesdays
+    expect(slotsForWeekday(2, 'larry')).toEqual([]);   // nobody works Tuesdays
     const hassanSun = slotsForWeekday(0, 'hassan');    // Hassan works Sundays 10–6
     expect(hassanSun[0]).toBe(600);
     expect(hassanSun).toHaveLength(11);
@@ -116,9 +117,9 @@ describe('store hours + barber schedules', () => {
 });
 
 describe('service durations', () => {
-  it('VIP takes two slots, everything else one', () => {
-    expect(serviceDurationMin('vip-haircut')).toBe(60);
-    expect(serviceSlotCount('vip-haircut')).toBe(2);
+  it('every service fits one 45-min slot — the VIP is 45 minutes now', () => {
+    expect(serviceDurationMin('vip-haircut')).toBe(45);
+    expect(serviceSlotCount('vip-haircut')).toBe(1);
     expect(serviceSlotCount('hair-cut')).toBe(1);
     expect(serviceSlotCount('line-up')).toBe(1);
     expect(serviceSlotCount('unknown-service')).toBe(1); // safe default

@@ -11,7 +11,7 @@
 // claims existing clients, so a tab reload picks it up. Old caches get nuked
 // in the `activate` event.
 
-const VERSION = 'fe-10';
+const VERSION = 'fe-11';
 const STATIC_CACHE = `fe-static-${VERSION}`;
 const HTML_CACHE   = `fe-html-${VERSION}`;
 
@@ -29,6 +29,7 @@ const KNOWN_OLD = [
   'fe-static-fe-7', 'fe-html-fe-7',
   'fe-static-fe-8', 'fe-html-fe-8',
   'fe-static-fe-9', 'fe-html-fe-9',
+  'fe-static-fe-10', 'fe-html-fe-10',
 ];
 
 const PRECACHE = [

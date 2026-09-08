@@ -68,7 +68,7 @@ select is(
   (select count(*)::int from barbers where slug = 'javier'),
   0, 'retired javier is invisible to anon (RLS filters on is_active)'
 );
-select is((select count(*)::int from store_hours), 7, 'anon reads store hours (open all 7 days)');
+select is((select count(*)::int from store_hours), 6, 'anon reads store hours (open 6 days — closed Tuesdays)');
 
 -- The availability view works for anon and shows the seeded slot — sans PII.
 select is(

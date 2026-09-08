@@ -125,7 +125,7 @@ describe('booking grid', () => {
     expect(chips[0].getAttribute('aria-selected')).toBe('true');
   });
 
-  it('disables Tuesday for Hassan but keeps his Sunday open', () => {
+  it('disables Tuesday (shop closed) but keeps Sunday open', () => {
     const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
     const sun = $('[data-day-row] .booking__day[data-date="2026-07-12"]');
     expect(tue.disabled).toBe(true);
@@ -149,18 +149,19 @@ describe('booking grid', () => {
     expect(pills[1].disabled).toBe(false);
   });
 
-  it('switching to Larry unlocks Tuesday and keeps Sunday open', () => {
+  it('switching to Larry keeps Tuesday closed, keeps Sunday open, and re-fetches his grid', () => {
     $('[data-barber-option="larry"]').click();
 
     expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
     expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('false');
 
+    // The shop is closed Tuesdays — no barber unlocks it.
     const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
-    expect(tue.disabled).toBe(false);
+    expect(tue.disabled).toBe(true);
     const sun = $('[data-day-row] .booking__day[data-date="2026-07-12"]');
     expect(sun.disabled).toBe(false);
 
-    clickDay('2026-07-07');
+    clickDay('2026-07-08');
     const pills = $$('[data-slot-grid] .booking__slot');
     expect(pills[0].dataset.time).toBe('10:00:00');
     // Availability was re-fetched for Larry.
@@ -300,8 +301,8 @@ describe('booking submit — validation and failures', () => {
 
   it('disables submit while a guest overruns closing time (duration-aware)', () => {
     clickDay('2026-07-08');
-    clickSlot('16:45:00');
-    fillPrimary({ service: 'vip-haircut' });   // VIP 4:45–6:15 fits, guest would start 6:15
+    clickSlot('17:30:00');
+    fillPrimary({ service: 'vip-haircut' });   // VIP (45 min) takes the 5:30 closer, guest would start 6:15
 
     $('[data-add-guest]').click();
     const row = $('[data-guest-list] [data-guest]');

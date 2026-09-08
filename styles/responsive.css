@@ -78,6 +78,8 @@ input, select, textarea, button {
   .hero__ctas   { gap: 0.5rem; }
   .hero__ctas .btn { flex: 1 1 auto; min-height: 52px; padding: 0.95rem 1rem; justify-content: center; }
   .hero__ctas .btn--ghost span:nth-child(2) { display: none; }  /* hide the phone digits on tiny CTA */
+  .hero__walkins { gap: 0.4rem 0.85rem; margin-top: -0.25rem; }
+  .hero__walkins .t-meta { font-size: 0.6875rem; }
   .hero__next  { gap: 0.6rem; padding: 0.6rem 0.85rem; width: 100%; flex-wrap: wrap; }
   .hero__next .t-eyebrow { font-size: 0.625rem; }
   .hero__meta  { gap: 1.25rem; margin-top: 1.5rem; padding-top: 1rem; }

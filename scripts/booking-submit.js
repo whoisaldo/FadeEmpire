@@ -66,8 +66,9 @@ function updateTotal(form) {
 }
 
 /** Update the live timeline + return true if every person's chair time fits
- *  working hours. Duration-aware: a VIP occupies two slots, so the next guest
- *  starts 90 minutes later, not 45. */
+ *  working hours. Duration-aware: a service that spans more than one slot
+ *  pushes the next guest back by that many slots (none do today — the VIP is
+ *  45 minutes — but the plan mirrors book_slot_group either way). */
 function updateTimelineAndCheckOverrun(form) {
   const timelineEl = form.querySelector('[data-group-timeline]');
   if (!timelineEl) return true;
