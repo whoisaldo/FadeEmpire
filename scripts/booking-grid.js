@@ -14,7 +14,6 @@ import {
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
 
 const DAYS_AHEAD = 14;          // how many days the picker shows
-const LUNCH_MIN  = null;         // optional: lunch break minutes (e.g. 13*60 for 1pm); null = none
 
 let state = {
   barberSlug:   DEFAULT_BARBER_SLUG,
@@ -88,8 +87,12 @@ function renderDayRow() {
     btn.innerHTML = `
       <span class="booking__day-weekday">${fmtShopTime(d, { weekday: 'short' })}</span>
       <span class="booking__day-num">${fmtShopTime(d, { day: 'numeric' })}</span>
-      <span class="booking__day-month">${fmtShopTime(d, { month: 'short' })}</span>
+      <span class="booking__day-month">${closed ? 'Closed' : fmtShopTime(d, { month: 'short' })}</span>
     `;
+    if (closed) {
+      btn.querySelector('.booking__day-month').classList.add('booking__day-closed');
+      btn.title = 'Closed';
+    }
 
     btn.addEventListener('click', () => selectDate(iso));
     row.appendChild(btn);
@@ -121,7 +124,7 @@ function selectDate(iso) {
   if (dayLabel) {
     const barber = BARBERS[state.barberSlug];
     dayLabel.textContent =
-      `${dateLabelFromIso(iso)} · with ${barber ? barber.name : '—'}`;
+      `${dateLabelFromIso(iso, { weekday: 'long', month: 'short', day: 'numeric' })} · ${barber ? barber.name : '—'}`;
   }
 
   renderSlots();
@@ -160,7 +163,6 @@ function renderSlots() {
     const key  = `${iso}|${hhmm}`;
     const isTaken = state.takenSet.has(key);
     const isPast  = iso === todayIso && m <= nowMin;
-    const isLunch = LUNCH_MIN !== null && m === LUNCH_MIN;
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -177,11 +179,7 @@ function renderSlots() {
     } else if (isPast) {
       btn.classList.add('is-past');
       btn.disabled = true;
-      btn.title = 'In the past';
-    } else if (isLunch) {
-      btn.classList.add('is-lunch');
-      btn.disabled = true;
-      btn.title = 'Lunch break';
+      btn.title = 'Already passed';
     } else {
       btn.addEventListener('click', () => selectTime(hms));
       // Re-apply the user's current selection across background re-renders
@@ -289,6 +287,8 @@ function maybeRolloverDay() {
 }
 
 function initAutoRefresh() {
+  _cachedToday = isoDate(new Date());   // so the first wake-up after midnight is detected
+
   // Refresh availability when the tab becomes visible again. Customers commonly
   // tab away (e.g. to check calendar) — when they come back the slot grid
   // shouldn't show stale "available" slots that someone else booked meanwhile.

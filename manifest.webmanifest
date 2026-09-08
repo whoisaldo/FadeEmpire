@@ -1,29 +1,32 @@
 {
-  "name": "Fade Empire — Chicopee",
+  "name": "Fade Empire · Chicopee",
   "short_name": "Fade Empire",
-  "description": "Barbers Hassan & Larry on Memorial Drive, Chicopee MA. Open 10–6, closed Tuesdays. Walk-ins welcome.",
+  "description": "Barbers Hassan and Larry on Memorial Drive, Chicopee MA. Open 10 to 6, closed Tuesdays. Walk-ins welcome.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0A0908",
   "theme_color": "#0A0908",
-  "categories": ["lifestyle", "shopping"],
+  "categories": [
+    "lifestyle",
+    "shopping"
+  ],
   "icons": [
     {
-      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "src": "./assets/brand/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "src": "./assets/brand/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/FadeEmpireStore/fadeempirelogo.png",
+      "src": "./assets/brand/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

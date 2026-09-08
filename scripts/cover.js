@@ -1,98 +1,77 @@
-// cover.js — hero/nav helpers:
-//   * live OPEN / CLOSING SOON / CLOSED stamp in the nav
-//   * the "Next Available" hero banner (also mirrored into the booking section)
-//   * the issue-number badge in the hero eyebrow
-//   * sticky-nav solidification on scroll
-//   * year injection in footer
+// cover.js — nav and hero helpers:
+//   * the live OPEN / CLOSING SOON / CLOSED stamp in the nav
+//   * the status line in the hero ("Open now · Closes 6 PM")
+//   * the "next open slot" line (hero, booking callout, sticky bar)
+//   * sticky-nav solidification, the mobile menu, the sticky CTA bar
+//   * the year in the footer
 
-import { STORE_HOURS, CLOSING_SOON_MIN } from './config.js';
-import { nowMinutesInShopTz, shopWeekday } from './booking-helpers.js';
+import { CLOSING_SOON_MIN } from './config.js';
+import { shopStatus } from './booking-helpers.js';
 import { fetchNextAvailable } from './booking-rpc.js';
 
-/* ---------- OPEN / CLOSED stamp ---------- */
+/* ---------- Live status: nav stamp + hero line ---------- */
 
-function updateOpenStamp() {
-  const el = document.querySelector('[data-open-stamp]');
-  if (!el) return;
-  const wk    = shopWeekday();
-  const sched = STORE_HOURS[wk];
-  const nowM  = nowMinutesInShopTz();
+function updateStatus() {
+  const status = shopStatus({ closingSoonMin: CLOSING_SOON_MIN });
 
-  let state = 'closed';
-  let label = 'Closed';
-
-  if (sched && nowM >= sched.open && nowM < sched.close) {
-    if (sched.close - nowM <= CLOSING_SOON_MIN) {
-      state = 'soon';
-      label = 'Closing Soon';
-    } else {
-      state = 'open';
-      label = 'Open Now';
-    }
+  const stamp = document.querySelector('[data-open-stamp]');
+  if (stamp) {
+    stamp.classList.remove('stamp--open', 'stamp--soon', 'stamp--closed');
+    stamp.classList.add(`stamp--${status.state}`);
+    const text = stamp.querySelector('.stamp__text');
+    if (text) text.textContent = status.label;
   }
 
-  el.classList.remove('stamp--open', 'stamp--soon', 'stamp--closed');
-  el.classList.add(`stamp--${state}`);
-  const text = el.querySelector('.stamp__text');
-  if (text) text.textContent = label;
+  const hero = document.querySelector('[data-hero-status]');
+  if (hero) {
+    hero.dataset.state = status.state;
+    const label  = hero.querySelector('[data-hero-status-label]');
+    const detail = hero.querySelector('[data-hero-status-detail]');
+    if (label)  label.textContent  = status.label;
+    if (detail) detail.textContent = status.detail;
+  }
 }
 
-/* ---------- Issue number ---------- */
-
-function updateIssueNumber() {
-  const el = document.querySelector('[data-issue-no]');
-  if (!el) return;
-  // Issue 1 = week of launch (Jan 1 2026); incremented weekly thereafter.
-  const launch = new Date('2026-01-05T00:00:00-05:00');
-  const weeks  = Math.max(0, Math.floor((Date.now() - launch.getTime()) / (7 * 86400000)));
-  el.textContent = String(weeks + 1).padStart(3, '0');
-}
-
-/* ---------- Next available banner ---------- */
+/* ---------- Next open slot ---------- */
 
 async function updateNextAvailable() {
-  const heroBanner    = document.querySelector('[data-next-available]');
-  const bookingPill   = document.querySelector('[data-next-available-callout]');
-  const mobileNext    = document.querySelector('[data-mobile-cta-next]');
-  const mobileSlot    = document.querySelector('[data-mobile-cta-next-slot]');
-
+  let next;
   try {
-    const next = await fetchNextAvailable();
-    if (!next) return;
-
-    const slotEl = document.querySelector('[data-next-available-slot]');
-    if (slotEl) slotEl.textContent = next.label;
-    if (heroBanner) heroBanner.hidden = false;
-
-    const bookingSlotEl = document.querySelector('[data-next-available-slot-callout]');
-    if (bookingSlotEl) bookingSlotEl.textContent = next.label;
-    if (bookingPill) bookingPill.hidden = false;
-
-    if (mobileSlot) mobileSlot.textContent = next.label;
-    if (mobileNext) mobileNext.hidden = false;
-
-    // "Pick this" button in the booking section hands the slot to the grid.
-    const pickBtn = document.querySelector('[data-pick-next]');
-    if (pickBtn) {
-      pickBtn.onclick = () => {
-        document.dispatchEvent(new CustomEvent('booking:pick', { detail: next }));
-        document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      };
-    }
+    next = await fetchNextAvailable();
   } catch (err) {
-    // Network problem — just hide the banner, don't surface anything.
-    console.warn('[cover] next available lookup failed', err);
+    console.warn('[cover] next available lookup failed', err);   // network trouble: leave the lines hidden
+    return;
+  }
+  if (!next) return;
+
+  const fill = (textSel, showSel, label) => {
+    const text = document.querySelector(textSel);
+    const show = document.querySelector(showSel);
+    if (text) text.textContent = label;
+    if (show) show.hidden = false;
+  };
+  fill('[data-next-available-slot]',          '[data-next-available]',         next.label);
+  fill('[data-next-available-slot-callout]',  '[data-next-available-callout]', next.label);
+  fill('[data-mobile-cta-next-slot]',         '[data-mobile-cta-next]',        next.shortLabel || next.label);
+
+  // "Take it" in the booking section hands the slot to the grid.
+  const pickBtn = document.querySelector('[data-pick-next]');
+  if (pickBtn) {
+    pickBtn.onclick = () => {
+      document.dispatchEvent(new CustomEvent('booking:pick', { detail: next }));
+      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
   }
 }
 
-/* ---------- Sticky mobile CTA bar visibility ---------- */
+/* ---------- Sticky mobile CTA bar ---------- */
 
 function initMobileCta() {
   const cta  = document.querySelector('[data-mobile-cta]');
   const book = document.getElementById('book');
   if (!cta || !book) return;
 
-  // Show the CTA bar once the user scrolls past the hero (~one viewport height).
+  // Show the bar once the user scrolls past most of the hero.
   const showAfter = () => window.innerHeight * 0.6;
 
   let visible = false;
@@ -103,7 +82,7 @@ function initMobileCta() {
     cta.setAttribute('aria-hidden', v ? 'false' : 'true');
   };
 
-  // Hide when the booking section is on screen (it would be redundant).
+  // Hide while the booking section is on screen (it would be redundant).
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(([entry]) => {
       cta.classList.toggle('is-in-book', entry.isIntersecting);
@@ -117,7 +96,7 @@ function initMobileCta() {
   window.addEventListener('resize', onScroll, { passive: true });
 }
 
-/* ---------- Sticky nav solidification ---------- */
+/* ---------- Sticky nav ---------- */
 
 function initStickyNav() {
   const nav = document.querySelector('[data-nav]');
@@ -129,7 +108,7 @@ function initStickyNav() {
   window.addEventListener('scroll', onScroll, { passive: true });
 }
 
-/* ---------- Mobile menu toggle ---------- */
+/* ---------- Mobile menu ---------- */
 
 function initMobileNav() {
   const nav    = document.querySelector('[data-nav]');
@@ -139,11 +118,13 @@ function initMobileNav() {
   const close = () => {
     nav.removeAttribute('data-nav-open');
     toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open menu');
     document.body.style.overflow = '';
   };
   const open = () => {
     nav.setAttribute('data-nav-open', '');
     toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close menu');
     document.body.style.overflow = 'hidden';
   };
 
@@ -151,6 +132,23 @@ function initMobileNav() {
     nav.hasAttribute('data-nav-open') ? close() : open();
   });
   nav.querySelectorAll('.nav__link').forEach(a => a.addEventListener('click', close));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && nav.hasAttribute('data-nav-open')) close();
+  });
+}
+
+/* ---------- "Which one do I book?" ----------
+   A <details> that ships open (the desktop table is always visible, the
+   summary is inert there). On phones it starts collapsed so the four cards
+   don't add a screen of scrolling unless asked for. */
+
+function initCompare() {
+  const details = document.querySelector('[data-compare]');
+  if (!details || !window.matchMedia) return;
+  const phone = window.matchMedia('(max-width: 600px)');
+  const sync = () => { details.open = !phone.matches; };
+  sync();
+  phone.addEventListener?.('change', sync);
 }
 
 /* ---------- Footer year ---------- */
@@ -166,10 +164,10 @@ export function initCover() {
   initStickyNav();
   initMobileNav();
   initMobileCta();
+  initCompare();
   initYear();
-  updateIssueNumber();
-  updateOpenStamp();
-  setInterval(updateOpenStamp, 60_000); // re-check every minute
+  updateStatus();
+  setInterval(updateStatus, 60_000);
   updateNextAvailable();
-  setInterval(updateNextAvailable, 5 * 60_000); // re-check every 5 min
+  setInterval(updateNextAvailable, 5 * 60_000);
 }

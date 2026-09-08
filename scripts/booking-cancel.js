@@ -54,7 +54,7 @@ function renderBookings(root, bookings, phoneDigits) {
     setStatus(root, 'No upcoming bookings found for that number.', 'muted');
     return;
   }
-  setStatus(root, `${bookings.length} upcoming booking${bookings.length > 1 ? 's' : ''} — cancel any of them below.`, 'ok');
+  setStatus(root, `${bookings.length} upcoming booking${bookings.length > 1 ? 's' : ''}. Cancel any of them below.`, 'ok');
 
   bookings.forEach((b) => {
     const { service, barber, when } = bookingLine(b);
@@ -118,7 +118,7 @@ function renderBookings(root, bookings, phoneDigits) {
       row.classList.add('is-cancelled');
       row.removeChild(btn);
       const done = el('div', 'cancel__done');
-      done.appendChild(el('span', 'cancel__done-text t-meta', 'Cancelled — the slot is freed.'));
+      done.appendChild(el('span', 'cancel__done-text t-meta', 'Cancelled. The slot is free again.'));
       const smsLink = el('a', 'btn btn--mini', 'Text the shop');
       smsLink.href = smsUrl;
       const waLink = el('a', 'btn btn--mini', 'WhatsApp');

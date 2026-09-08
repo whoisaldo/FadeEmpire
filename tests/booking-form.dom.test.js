@@ -32,11 +32,13 @@ vi.mock('../scripts/booking-rpc.js', () => {
 const __dir = dirname(fileURLToPath(import.meta.url));
 const indexHtml = readFileSync(join(__dir, '..', 'index.html'), 'utf8');
 
-/** Extract the #book section markup from the real index.html. */
+/** Extract the #book section markup from the real index.html, whatever
+ *  classes the section carries this week. */
 function bookSectionHtml() {
-  const start = indexHtml.indexOf('<section class="section section--alt" id="book">');
+  const open = indexHtml.match(/<section[^>]*\sid="book"[^>]*>/);
+  expect(open, 'a <section id="book"> in index.html').toBeTruthy();
+  const start = open.index;
   const end   = indexHtml.indexOf('</section>', start);
-  expect(start).toBeGreaterThan(-1);
   return indexHtml.slice(start, end + '</section>'.length);
 }
 
@@ -85,7 +87,9 @@ function fillPrimary({ name = 'Test Customer', phone = '4135550123', service = '
 }
 
 beforeEach(async () => {
-  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date'] });
+  // Date + intervals are faked (the grid's midnight/refresh timers); timeouts
+  // stay real so vi.waitFor and the modules' rAF fallbacks keep working.
+  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setInterval', 'clearInterval'] });
   vi.resetModules();
 
   // jsdom gaps the modules rely on
@@ -461,5 +465,182 @@ describe('cancellation flow', () => {
     expect($('[data-cancel-status]').textContent).toContain("couldn't find an active booking");
     expect($('.cancel__row').classList.contains('is-cancelled')).toBe(false);
     expect(btn.disabled).toBe(false);
+  });
+});
+
+/* ================= Edge cases ================= */
+
+describe('booking edge cases', () => {
+  it('closed days carry a visible "Closed" tag, not just a faded chip', () => {
+    const tue = $('[data-day-row] .booking__day[data-date="2026-07-07"]');
+    expect(tue.disabled).toBe(true);
+    expect(tue.textContent).toContain('Closed');
+    expect(tue.querySelector('.booking__day-closed')).toBeTruthy();
+    const wed = $('[data-day-row] .booking__day[data-date="2026-07-08"]');
+    expect(wed.textContent).not.toContain('Closed');
+  });
+
+  it('the "next open slot" pick selects barber, day, and time in one go', async () => {
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-form-date]').value).toBe('2026-07-09');
+    expect($('[data-selected-text]').textContent).toBe('Thu, Jul 9 · 12:15 PM · Larry');
+  });
+
+  it('switching barber drops the chosen time (his grid is different) but not the day', () => {
+    clickDay('2026-07-10');
+    clickSlot('14:30:00');
+    expect($('[data-selected-pill]').hidden).toBe(false);
+
+    $('[data-barber-option="larry"]').click();
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-selected-pill]').hidden).toBe(true);
+    // The first open day is re-selected for the new barber (Fri stays open for Larry too).
+    expect($('[data-form-date]').value).toBe('2026-07-06');
+  });
+
+  it('the clear button empties the selection and un-checks every pill', () => {
+    clickDay('2026-07-08');
+    clickSlot('13:00:00');
+    $('[data-clear-selected]').click();
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-selected-pill]').hidden).toBe(true);
+    expect($$('[data-slot-grid] .booking__slot.is-selected')).toHaveLength(0);
+  });
+
+  it('the last slot of the day (5:30 PM) is bookable, including for a VIP', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'late', slot_index: 0, booking_time: '17:30:00', total_price_cents: 6000 }]);
+    clickDay('2026-07-08');
+    clickSlot('17:30:00');
+    fillPrimary({ service: 'vip-haircut' });
+    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ time: '17:30:00', serviceSlug: 'vip-haircut' }));
+    expect($('[data-success-text]').textContent).toContain('5:30 PM');
+  });
+
+  it('a slot that just passed is disabled the moment the grid re-renders', () => {
+    // 10:00 AM sharp: the 10:00 slot is gone, 10:45 is next.
+    const first = $$('[data-slot-grid] .booking__slot');
+    expect(first[0].classList.contains('is-past')).toBe(true);
+    expect(first[0].title).toBe('Already passed');
+    expect(first[1].disabled).toBe(false);
+  });
+
+  it('caps the party at four guests and re-enables the button when one leaves', () => {
+    const add = $('[data-add-guest]');
+    for (let i = 0; i < 4; i++) add.click();
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(4);
+    expect(add.disabled).toBe(true);
+    add.click();                                          // ignored
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(4);
+
+    $$('[data-guest-list] [data-remove-guest]')[1].click();
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(3);
+    expect(add.disabled).toBe(false);
+    // Labels re-number after a removal.
+    expect($$('[data-guest-list] .booking__guest-label').map(l => l.textContent))
+      .toEqual(['Friend / Kid', 'Friend / Kid #2', 'Friend / Kid #3']);
+  });
+
+  it('a half-filled guest row is stopped by the native required check, before any RPC', async () => {
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    $('[data-guest-list] [data-guest-name]').value = 'Kid';       // no service picked
+    const form = $('[data-booking-form]');
+    const report = vi.spyOn(form, 'reportValidity');
+    expect(form.checkValidity()).toBe(false);
+    $('[data-submit-whatsapp]').click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(report).toHaveBeenCalled();
+    expect(rpc.bookSlot).not.toHaveBeenCalled();
+    expect(rpc.bookSlotGroup).not.toHaveBeenCalled();
+    expect($('[data-submit-whatsapp]').disabled).toBe(false);     // nothing left disabled
+  });
+
+  it('a group total counts every guest, and a VIP guest pushes the next one 45 minutes', () => {
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'hair-cut' });
+    $('[data-add-guest]').click();
+    $('[data-add-guest]').click();
+    const rows = $$('[data-guest-list] [data-guest]');
+    const set = (row, name, svc) => {
+      row.querySelector('[data-guest-name]').value = name;
+      row.querySelector('[data-guest-name]').dispatchEvent(new Event('input', { bubbles: true }));
+      row.querySelector('[data-guest-service]').value = svc;
+      row.querySelector('[data-guest-service]').dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    set(rows[0], 'Sam', 'vip-haircut');
+    set(rows[1], 'Kid', 'kids-cut');
+    expect($('[data-total-display]').textContent).toBe('$115');   // 30 + 60 + 25
+    const timeline = $('[data-group-timeline]').textContent;
+    expect(timeline).toContain('Sam — 12:15 PM');
+    expect(timeline).toContain('Kid — 1:00 PM');
+  });
+
+  it('"custom" books a hair cut with the description attached', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'c1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'custom' });
+    expect($('[data-custom-field]').hidden).toBe(false);
+    fill('textarea[name="custom_request"]', 'Mid taper, keep the length on top');
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
+      serviceSlug: 'hair-cut',
+      customRequest: 'Mid taper, keep the length on top',
+    }));
+    expect(decodeURIComponent($('[data-success-link]').href)).toContain('Custom: Mid taper');
+    // The custom box hides again once the form resets.
+    expect($('[data-custom-field]').hidden).toBe(true);
+  });
+
+  it('formats a pasted phone with a country code down to ten digits', () => {
+    fill('input[name="phone"]', '+1 (413) 885-4440');
+    expect($('input[name="phone"]').value).toBe('(413) 885-4440');
+    fill('[data-cancel-phone]', '14138854440');
+    expect($('[data-cancel-phone]').value).toBe('(413) 885-4440');
+  });
+
+  it('double-tapping reserve sends one booking, not two', async () => {
+    let resolve;
+    rpc.bookSlot.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit-whatsapp]').click();
+    $('[data-submit-whatsapp]').click();
+    $('[data-submit-sms]').click();
+    await vi.waitFor(() => expect(rpc.bookSlot).toHaveBeenCalledTimes(1));
+    expect($('[data-submit-whatsapp]').disabled).toBe(true);
+    expect($('[data-submit-sms]').disabled).toBe(true);
+    resolve([{ booking_id: 'x', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenCalledTimes(1);
+    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+  });
+
+  it('rebuilds the day row when the tab wakes up on a new day', async () => {
+    expect($$('[data-day-row] .booking__day')[0].dataset.date).toBe('2026-07-06');
+    vi.setSystemTime(new Date('2026-07-07T14:00:00Z'));     // Tuesday, next morning
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect($$('[data-day-row] .booking__day')[0].dataset.date).toBe('2026-07-07'));
+    // Today is the closed Tuesday, so Wednesday is pre-selected.
+    expect($('[data-form-date]').value).toBe('2026-07-08');
+    expect(rpc.fetchAvailability).toHaveBeenCalledWith(expect.objectContaining({ fromDate: '2026-07-07' }));
+  });
+
+  it('refreshes availability every five minutes while the tab is visible', () => {
+    const before = rpc.fetchAvailability.mock.calls.length;
+    vi.advanceTimersByTime(5 * 60_000);
+    expect(rpc.fetchAvailability.mock.calls.length).toBe(before + 1);
   });
 });

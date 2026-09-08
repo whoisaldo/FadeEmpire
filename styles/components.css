@@ -1,4 +1,4 @@
-/* components.css — buttons, nav, stamp, footer, generic UI atoms */
+/* components.css — buttons, nav, the OPEN/CLOSED stamp, footer */
 
 /* =====================================================
    Buttons
@@ -12,6 +12,7 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.85rem 1.5rem;
+  min-height: 44px;
   background: var(--btn-bg);
   color: var(--btn-fg);
   border: 1px solid var(--btn-bd);
@@ -27,9 +28,8 @@
     background var(--t-fast) var(--ease-out),
     color var(--t-fast) var(--ease-out),
     border-color var(--t-fast) var(--ease-out),
-    transform var(--t-fast) var(--ease-out);
-  position: relative;
-  isolation: isolate;
+    transform var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
 }
 
 .btn:hover,
@@ -40,12 +40,22 @@
 
 .btn:active { transform: translateY(0); }
 
+.btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .btn--gold {
   --btn-bg: var(--gold);
   --btn-fg: var(--ink);
   --btn-bd: var(--gold);
+  box-shadow: 0 8px 24px -10px rgba(200, 162, 74, 0.45);
 }
-.btn--gold:hover { --btn-bg: var(--gold-pale); --btn-bd: var(--gold-pale); }
+.btn--gold:hover {
+  --btn-bg: var(--gold-pale);
+  --btn-bd: var(--gold-pale);
+  box-shadow: 0 12px 28px -10px rgba(200, 162, 74, 0.6);
+}
 
 .btn--ghost {
   --btn-bg: transparent;
@@ -57,8 +67,8 @@
   --btn-fg: var(--gold);
 }
 
-.btn--lg     { padding: 1.1rem 2rem; font-size: 0.9375rem; }
-.btn--mini   { padding: 0.5rem 0.9rem; font-size: 0.75rem; letter-spacing: 0.16em; }
+.btn--lg     { padding: 1.05rem 1.9rem; font-size: 0.9375rem; min-height: 52px; }
+.btn--mini   { padding: 0.5rem 0.9rem; font-size: 0.75rem; letter-spacing: 0.16em; min-height: 36px; }
 .btn--block  { width: 100%; }
 
 .btn[disabled],
@@ -75,16 +85,16 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(10, 9, 8, 0.62);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
-  backdrop-filter: saturate(140%) blur(14px);
+  background: rgba(10, 9, 8, 0.55);
+  -webkit-backdrop-filter: saturate(140%) blur(16px);
+  backdrop-filter: saturate(140%) blur(16px);
   border-bottom: 1px solid transparent;
   transition: background var(--t-base) var(--ease-out),
               border-color var(--t-base) var(--ease-out);
 }
 
 .nav.is-solid {
-  background: rgba(10, 9, 8, 0.92);
+  background: rgba(10, 9, 8, 0.9);
   border-bottom-color: var(--rule);
 }
 
@@ -98,9 +108,15 @@
 
 .nav__brand {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.7rem;
   color: var(--bone);
+}
+
+.nav__mark {
+  width: 30px;
+  height: auto;
+  opacity: 0.85;
 }
 
 .nav__wordmark {
@@ -111,13 +127,6 @@
   font-size: 1.5rem;
   letter-spacing: -0.02em;
   line-height: 1;
-}
-
-.nav__locale {
-  display: none;
-}
-@media (min-width: 768px) {
-  .nav__locale { display: inline-flex; gap: 0.5rem; color: var(--bone-mute); }
 }
 
 .nav__links {
@@ -138,6 +147,8 @@
   color: var(--bone-soft);
 }
 .nav__link:hover { color: var(--bone); }
+
+.nav__flyout-foot { display: none; }
 
 .nav__meta {
   display: flex;
@@ -182,22 +193,34 @@
 .nav[data-nav-open] .nav__toggle span:nth-child(2) { opacity: 0; }
 .nav[data-nav-open] .nav__toggle span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
-/* Mobile flyout */
+/* Mobile flyout: a sheet under the bar with big serif links.
+   The nav's backdrop-filter makes it the containing block for fixed
+   descendants, so the sheet is positioned absolutely from the bar's bottom
+   edge and sized to the rest of the viewport instead. */
 @media (max-width: 899px) {
+  .nav__inner { position: relative; z-index: 1; }
   .nav__links {
-    position: fixed;
-    inset: 64px 0 0 0;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: calc(100dvh - 64px);
+    padding: 2rem 1.5rem 3rem;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    gap: 2.5rem;
-    background: var(--ink);
+    gap: 1.5rem;
+    overflow-y: auto;
+    background:
+      radial-gradient(ellipse at 100% 0%, rgba(200, 162, 74, 0.07), transparent 55%),
+      var(--ink);
     border-top: 1px solid var(--rule);
-    transform: translateY(-100%);
+    transform: translateY(-2%);
     opacity: 0;
     pointer-events: none;
     transition: transform var(--t-base) var(--ease-curtain),
                 opacity var(--t-base) linear;
+    z-index: 0;
   }
   .nav[data-nav-open] .nav__links {
     display: flex;
@@ -205,11 +228,30 @@
     opacity: 1;
     pointer-events: auto;
   }
-  .nav[data-nav-open] .nav__link { font-size: 1.25rem; }
+  .nav[data-nav-open] .nav__link {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-variation-settings: 'opsz' 72;
+    font-size: clamp(2.25rem, 9vw, 3rem);
+    letter-spacing: -0.02em;
+    text-transform: none;
+    color: var(--bone);
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--rule);
+    width: 100%;
+  }
+  .nav[data-nav-open] .nav__link.link-underline::after { display: none; }
+  .nav[data-nav-open] .nav__flyout-foot {
+    display: block;
+    margin-top: 1.5rem;
+    line-height: 1.8;
+    color: var(--bone-mute);
+  }
 }
 
 /* =====================================================
-   OPEN/CLOSED stamp — sits in the nav meta area
+   OPEN / CLOSED stamp
 ===================================================== */
 .stamp {
   display: inline-flex;
@@ -232,10 +274,11 @@
 }
 
 .stamp__dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--bone-mute);
+  flex-shrink: 0;
 }
 
 .stamp--open {
@@ -243,21 +286,32 @@
   border-color: rgba(107, 191, 115, 0.45);
   background: rgba(107, 191, 115, 0.06);
 }
-.stamp--open .stamp__dot { background: var(--status-open); box-shadow: 0 0 0 3px rgba(107, 191, 115, 0.18); }
+.stamp--open .stamp__dot,
+[data-state="open"] .stamp__dot {
+  background: var(--status-open);
+  box-shadow: 0 0 0 3px rgba(107, 191, 115, 0.18);
+}
 
 .stamp--soon {
   color: var(--status-soon);
   border-color: rgba(230, 162, 60, 0.5);
   background: rgba(230, 162, 60, 0.06);
 }
-.stamp--soon .stamp__dot { background: var(--status-soon); }
+.stamp--soon .stamp__dot,
+[data-state="soon"] .stamp__dot {
+  background: var(--status-soon);
+  box-shadow: 0 0 0 3px rgba(230, 162, 60, 0.16);
+}
 
 .stamp--closed {
   color: var(--status-closed);
   border-color: rgba(192, 57, 43, 0.45);
   background: rgba(192, 57, 43, 0.05);
 }
-.stamp--closed .stamp__dot { background: var(--status-closed); }
+.stamp--closed .stamp__dot,
+[data-state="closed"] .stamp__dot {
+  background: var(--status-closed);
+}
 
 /* =====================================================
    Footer
@@ -273,25 +327,27 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 2.5rem;
-  padding-top: 2.5rem;
 }
 @media (min-width: 768px) {
   .footer__grid {
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 2rem;
   }
 }
 
 .footer__brand {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
-.footer__wordmark {
-  font-style: italic;
+.footer__logo {
+  width: 150px;
+  height: auto;
+  opacity: 0.9;
 }
 
-.footer__col p { color: var(--bone-soft); margin: 0.5rem 0 0; }
+.footer__col p { color: var(--bone-soft); margin: 0.75rem 0 0; line-height: 1.7; }
 .footer__col ul {
   list-style: none;
   padding: 0;
@@ -300,13 +356,16 @@
   flex-direction: column;
   gap: 0.5rem;
 }
+.footer__col .t-eyebrow { color: var(--gold); }
 
 .footer__copy {
-  margin-top: 4rem;
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
   text-align: center;
 }
 
 /* =====================================================
-   Misc utility
+   Misc
 ===================================================== */
 [hidden] { display: none !important; }

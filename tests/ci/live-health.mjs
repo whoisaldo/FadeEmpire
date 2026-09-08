@@ -62,6 +62,7 @@ check('site is up and serving the current client', async () => {
       else if (!html.includes('data-barber-option="larry"')) { last = 'barber picker markup missing (stale deploy?)'; }
       else if (html.includes('data-barber-option="javier"')) { last = 'retired barber still in the markup (stale deploy?)'; }
       else if (!html.includes('data-cancel-root')) { last = 'cancellation panel markup missing (stale deploy?)'; }
+      else if (!html.includes('data-hours-list')) { last = 'hours card markup missing (stale deploy?)'; }
       else return `200 OK, current markup present (attempt ${i})`;
     } catch (err) { last = String(err); }
     if (i < SITE_RETRIES) await sleep(30_000);

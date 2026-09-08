@@ -2,6 +2,10 @@
 
 import { sb } from './supabase.js';
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
+import {
+  mapBookingErrorCode, isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
+  shopWeekday, nowMinutesInShopTz, fmtShopTime,
+} from './booking-helpers.js';
 
 export class BookingError extends Error {
   constructor(code, cause) {
@@ -11,8 +15,7 @@ export class BookingError extends Error {
   }
 }
 
-async function toBookingError(error, rpcName) {
-  const { mapBookingErrorCode } = await import('./booking-helpers.js');
+function toBookingError(error, rpcName) {
   console.error(`[booking] ${rpcName} RPC failed:`, error);
   return new BookingError(mapBookingErrorCode(error), error);
 }
@@ -49,7 +52,7 @@ export async function bookSlot({
     p_hold_minutes:   holdMinutes,
   });
 
-  if (error) throw await toBookingError(error, 'book_slot');
+  if (error) throw toBookingError(error, 'book_slot');
   return data || [];
 }
 
@@ -84,7 +87,7 @@ export async function bookSlotGroup({
     p_hold_minutes:   holdMinutes,
     p_source:         source,
   });
-  if (error) throw await toBookingError(error, 'book_slot_group');
+  if (error) throw toBookingError(error, 'book_slot_group');
   return data || [];
 }
 
@@ -97,7 +100,7 @@ export async function bookSlotGroup({
  */
 export async function findBookingsByPhone(phone) {
   const { data, error } = await sb.rpc('find_bookings_by_phone', { p_phone: phone });
-  if (error) throw await toBookingError(error, 'find_bookings_by_phone');
+  if (error) throw toBookingError(error, 'find_bookings_by_phone');
   return data || [];
 }
 
@@ -111,7 +114,7 @@ export async function cancelBooking({ bookingId, phone }) {
     p_booking_id: bookingId,
     p_phone:      phone,
   });
-  if (error) throw await toBookingError(error, 'cancel_booking');
+  if (error) throw toBookingError(error, 'cancel_booking');
 }
 
 /**
@@ -156,8 +159,6 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
 export async function fetchNextAvailable() {
   const today = new Date();
   const inTwoWeeks = new Date(today.getTime() + 14 * 86400000);
-  const { isoDate, slotsForWeekday, minutesToHms, minutesToLabel, shopWeekday, nowMinutesInShopTz } =
-    await import('./booking-helpers.js');
 
   const fromDate = isoDate(today);
   const toDate   = isoDate(inTwoWeeks);
@@ -187,12 +188,14 @@ export async function fetchNextAvailable() {
       }
     }
     if (best) {
+      const time = minutesToLabel(best.minutes);
       return {
         date: iso,
         time: minutesToHms(best.minutes),
         barberSlug: best.barber.slug,
         barberName: best.barber.name,
-        label: `${dayLabel(d)} · ${minutesToLabel(best.minutes)} · ${best.barber.name.toUpperCase()}`,
+        label: `${dayLabel(d)} · ${time} · ${best.barber.name.toUpperCase()}`,
+        shortLabel: `${fmtShopTime(d, { weekday: 'short' })} ${time}`,   // fits the sticky bar
       };
     }
   }
@@ -200,8 +203,5 @@ export async function fetchNextAvailable() {
 }
 
 function dayLabel(d) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short', month: 'short', day: 'numeric',
-  }).format(d).toUpperCase();
+  return fmtShopTime(d, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 }

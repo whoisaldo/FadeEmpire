@@ -1,15 +1,33 @@
-/* booking-grid.css — visual time-grid + form (chapter VI)
-   The biggest interactive piece. Day chips + slot pills + form, all on dark.
-*/
+/* booking-grid.css — barber picker, day chips, slot pills, the form, and the
+   success / error / fallback cards. The biggest interactive piece. */
 
 .booking {
-  background: var(--ink);
+  background: var(--ink-2);
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
   padding: clamp(1.5rem, 4vw, 2.5rem);
   display: flex;
   flex-direction: column;
-  gap: clamp(1.5rem, 3vw, 2.5rem);
+  gap: clamp(1.75rem, 3.5vw, 2.75rem);
+  box-shadow: var(--shadow-plate);
+}
+
+/* --- Numbered step heads --- */
+.booking__step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  color: var(--bone-soft);
+}
+
+.booking__step-num {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--rule-gold);
 }
 
 /* --- Next-available callout pill --- */
@@ -47,7 +65,7 @@
   width: 88px;
   padding: 0.85rem 0.5rem 1rem;
   text-align: center;
-  background: var(--ink-2);
+  background: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
   color: var(--bone-soft);
@@ -75,9 +93,20 @@
 
 .booking__day[disabled],
 .booking__day.is-closed {
-  opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
+  border-style: dashed;
+  color: var(--bone-mute);
+}
+.booking__day.is-closed .booking__day-num { opacity: 0.35; }
+
+.booking__day-closed {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--status-closed);
+  opacity: 0.85;
 }
 
 .booking__day-weekday {
@@ -112,7 +141,7 @@
   width: 100%;
   background:
     linear-gradient(90deg, transparent, rgba(237,230,214,0.04), transparent),
-    var(--ink-2);
+    var(--ink);
   background-size: 300% 100%;
   animation: dayShimmer 1.6s linear infinite;
   border-radius: var(--r-sm);
@@ -123,15 +152,27 @@
 }
 
 /* --- Slot pills --- */
-.booking__slots-wrap {
-  border-top: 1px solid var(--rule);
-  padding-top: clamp(1rem, 2vw, 1.5rem);
+.booking__legend {
+  display: flex;
+  gap: 1.25rem;
+  margin: 0.9rem 0 0;
+  color: var(--bone-mute);
 }
-
-.booking__slots-head {
-  margin: 0 0 1rem;
-  color: var(--gold);
+.booking__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
+.booking__legend-item::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--rule-strong);
+  background: var(--ink);
+}
+.booking__legend-item--taken::before { background: var(--ink-3); border-color: transparent; }
+.booking__legend-item--past::before  { background: transparent; border-style: dotted; opacity: 0.6; }
 
 .booking__slots {
   display: grid;
@@ -141,7 +182,7 @@
 
 .booking__slot {
   appearance: none;
-  background: var(--ink-2);
+  background: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
   color: var(--bone);
@@ -191,12 +232,6 @@
   background: transparent;
   border-style: dotted;
   text-decoration: none;
-}
-
-.booking__slot.is-lunch {
-  border-style: dashed;
-  color: var(--bone-mute);
-  cursor: not-allowed;
 }
 
 .booking__slots-empty {
@@ -259,7 +294,7 @@
 .booking__field input,
 .booking__field select,
 .booking__field textarea {
-  background: var(--ink-2);
+  background: var(--ink);
   color: var(--bone);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
@@ -309,7 +344,7 @@
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
   padding: 1rem 1.1rem;
-  background: var(--ink-2);
+  background: var(--ink);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
@@ -492,7 +527,7 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem 1.1rem;
-  background: var(--ink-2);
+  background: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
 }
@@ -500,6 +535,11 @@
 .booking__group-head {
   margin: 0;
   color: var(--gold);
+}
+
+.booking__group-dek {
+  margin: -0.25rem 0 0;
+  color: var(--bone-mute);
 }
 
 .booking__group-list {
@@ -512,7 +552,7 @@
 .booking__guest {
   position: relative;
   padding: 0.95rem;
-  background: var(--ink-3);
+  background: var(--ink-2);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
   display: flex;
@@ -625,11 +665,6 @@
   gap: 0.75rem;
 }
 
-.booking__barbers-head {
-  margin: 0;
-  color: var(--bone-mute);
-}
-
 .booking__barbers-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -641,7 +676,7 @@
   align-items: center;
   gap: 0.9rem;
   padding: 0.75rem 0.9rem;
-  background: var(--ink-2);
+  background: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
   color: var(--bone-soft);
@@ -677,6 +712,7 @@
 
 .booking__barber[aria-checked="true"] .booking__barber-photo {
   border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(200, 162, 74, 0.25);
 }
 
 .booking__barber-info {
@@ -750,7 +786,7 @@
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.9rem 1rem;
-  background: var(--ink-2);
+  background: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
 }
@@ -786,3 +822,6 @@
 }
 
 .cancel__done-text { color: var(--gold); }
+
+/* Step head inside the form already sits in a flex gap */
+.booking__form > .booking__step-head { margin-bottom: 0; }

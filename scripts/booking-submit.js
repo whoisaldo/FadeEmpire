@@ -446,6 +446,7 @@ async function submit(form, mode) {
   // remove any dynamically-added guest rows
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
+  syncCustomField(form);       // reset() fires no change event
   updateTotal(form);
   updateTimeline(form);
   submitBtns.forEach(b => (b.disabled = false));
@@ -465,13 +466,17 @@ function bindPhoneFormatter(form) {
   });
 }
 
-function bindCustomToggle(form) {
+/** Show the "what are you after?" box only while the service is "custom". */
+function syncCustomField(form) {
   const select      = form.querySelector('[data-service-select]');
   const customField = form.querySelector('[data-custom-field]');
   if (!select || !customField) return;
-  const update = () => { customField.hidden = select.value !== 'custom'; };
-  select.addEventListener('change', update);
-  update();
+  customField.hidden = select.value !== 'custom';
+}
+
+function bindCustomToggle(form) {
+  form.querySelector('[data-service-select]')?.addEventListener('change', () => syncCustomField(form));
+  syncCustomField(form);
 }
 
 /* ---------- Boot ---------- */

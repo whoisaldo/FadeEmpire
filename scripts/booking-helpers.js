@@ -31,6 +31,11 @@ export function minutesToLabel(mins) {
   return `${h12}:${mm} ${period}`;
 }
 
+/** "10 AM" / "5:30 PM": the label for hours listings, no ":00" on the hour. */
+export function minutesToShortLabel(mins) {
+  return minutesToLabel(mins).replace(':00 ', ' ');
+}
+
 /** Parse "HH:MM:SS" to minutes-since-midnight. */
 export function hmsToMinutes(hms) {
   const [h, m] = hms.split(':').map(Number);
@@ -75,6 +80,35 @@ export function shopWeekday(d = new Date()) {
     timeZone: SHOP_TZ, weekday: 'short',
   }).format(d);
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wk);
+}
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Live shop status from STORE_HOURS, for the nav stamp, the hero line and the
+ * hours card. `state` is 'open' | 'soon' | 'closed'; `label` is the short
+ * word, `detail` says what happens next ("Closes 6 PM", "Opens Wed 10 AM").
+ * `closingSoonMin` is how many minutes before close counts as "soon".
+ */
+export function shopStatus({ weekday = shopWeekday(), nowMin = nowMinutesInShopTz(), closingSoonMin = 60 } = {}) {
+  const today = STORE_HOURS[weekday];
+  if (today && nowMin >= today.open && nowMin < today.close) {
+    const closes = `Closes ${minutesToShortLabel(today.close)}`;
+    return today.close - nowMin <= closingSoonMin
+      ? { state: 'soon', label: 'Closing soon', detail: closes }
+      : { state: 'open', label: 'Open now', detail: closes };
+  }
+  if (today && nowMin < today.open) {
+    return { state: 'closed', label: 'Closed', detail: `Opens today ${minutesToShortLabel(today.open)}` };
+  }
+  for (let i = 1; i <= 7; i++) {
+    const wk = (weekday + i) % 7;
+    const hours = STORE_HOURS[wk];
+    if (!hours) continue;
+    const when = i === 1 ? 'tomorrow' : WEEKDAY_SHORT[wk];
+    return { state: 'closed', label: 'Closed', detail: `Opens ${when} ${minutesToShortLabel(hours.open)}` };
+  }
+  return { state: 'closed', label: 'Closed', detail: '' };
 }
 
 /**
@@ -186,7 +220,7 @@ export const ERROR_MESSAGES = {
   too_many:        'You already have several active bookings. Cancel one first or call us.',
   bad_phone:       'Please enter a valid 10-digit phone number.',
   bad_name:        'Please enter a name (at least 2 characters).',
-  bad_date:        'Date is too far out — we book up to 60 days ahead.',
+  bad_date:        'That date is too far out. We book up to 60 days ahead.',
   bad_slot:        "That time doesn't line up with our slots. Pick a slot pill instead.",
   invalid_people:  'The guest list looks off. Remove and re-add guests, or refresh the page.',
   too_many_people: 'Max 6 people per group. Split into two bookings.',

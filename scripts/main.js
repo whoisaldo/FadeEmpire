@@ -2,6 +2,8 @@
 
 import { initCover }          from './cover.js';
 import { initReveals }        from './reveals.js';
+import { initShopVideo }      from './shop-video.js';
+import { initGallery }        from './gallery.js';
 import { initBookingGrid }    from './booking-grid.js';
 import { initBookingSubmit }  from './booking-submit.js';
 import { initBookingCancel }  from './booking-cancel.js';
@@ -23,14 +25,15 @@ function registerSW() {
       console.warn('[sw] register failed', err);
     });
   });
-  // When a new SW takes control of this page (because we bumped the cache
-  // version), reload once so the user is running against fresh code. Guard
-  // against the very-first install (no prior controller) which would otherwise
-  // reload on first visit.
+  // When a NEW worker takes over an already-controlled page (we bumped the
+  // cache version), reload once so the visitor runs the fresh code. On the
+  // very first visit there is no controller yet; the new worker claims the
+  // page and `controllerchange` fires, but reloading there would restart the
+  // page mid-load and abort the availability fetch, so that case is skipped.
+  const hadController = Boolean(navigator.serviceWorker.controller);
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded) return;
-    if (!navigator.serviceWorker.controller) return; // shouldn't fire, but guard
+    if (!hadController || reloaded) return;
     reloaded = true;
     window.location.reload();
   });
@@ -39,6 +42,8 @@ function registerSW() {
 ready(() => {
   initCover();
   initReveals();
+  initShopVideo();
+  initGallery();
   initVisit();
   initBookingSubmit();
   initBookingCancel();

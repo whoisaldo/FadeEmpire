@@ -10,7 +10,7 @@ Live: <https://chicopeefadeempire.com>
 
 ## What it does
 
-- **Editorial dark-luxury landing page** — hero, barber feature spreads, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
+- **Landing page** built around the shop's own photos and the professionally edited tour video: hero, "inside the shop" (video with a sound toggle, off by default), the price list and a "which one do I book?" comparison, a fifteen-plate gallery with a lightbox, the two barbers, booking, and the storefront with live hours.
 - **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
 - **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
@@ -18,9 +18,9 @@ Live: <https://chicopeefadeempire.com>
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
-- **Live shop status** — OPEN / CLOSING SOON / CLOSED stamp in the nav, "Next available" banner (earliest slot across both barbers) pulled from Supabase
-- **Mobile-first** — sticky bottom Book-a-Chair CTA, thumb-sized tap targets, safe-area insets
-- **Unit + DOM tests** — vitest suite covering schedule math, validation, message building, and the real booking form markup wired to mocked RPCs
+- **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across both barbers) pulled from Supabase
+- **Mobile-first** — sticky bottom Book-a-Chair CTA, swipe filmstrip gallery, thumb-sized tap targets, safe-area insets, lazy video that only downloads once it scrolls into view
+- **Tests** — 140+ vitest cases: schedule math, validation, message building, the live status line across DST, the real booking form driven under jsdom with mocked RPCs, the video/lightbox/hours modules, and drift guards that read `index.html` and fail if a price, hour, or asset path disagrees with `config.js` or the disk
 
 ---
 
@@ -36,8 +36,9 @@ Live: <https://chicopeefadeempire.com>
 | Hosting | GitHub Pages (custom domain `chicopeefadeempire.com`) |
 | PWA | Service Worker (`sw.js`) + Web App Manifest |
 | Fonts | Fraunces (display), General Sans via Fontshare (body), JetBrains Mono (numerals) |
+| Images / video | Pillow + ffmpeg scripts in `tools/` generate every size the page serves; the outputs are committed |
 
-No build step. No `package.json`. No `node_modules` checked in. The site as-deployed is exactly what lives in the repo.
+No build step at deploy time: `package.json` exists only for the test tooling, `node_modules` is never checked in, and the site as-deployed is exactly what lives in the repo.
 
 ---
 
@@ -45,69 +46,73 @@ No build step. No `package.json`. No `node_modules` checked in. The site as-depl
 
 ```
 FadeEmpire/
-├── index.html                    Main page (single-page editorial layout)
+├── index.html                    The page (single-page layout)
 ├── 404.html                      Custom 404
-├── manifest.webmanifest          PWA manifest
-├── sw.js                         Service worker (network-first JS/CSS, cache-first images)
-├── robots.txt                    SEO crawler rules
-├── sitemap.xml                   SEO sitemap
-├── CNAME                         GitHub Pages custom-domain pointer
-├── .nojekyll                     Disables Jekyll on Pages so folders prefixed _ work
+├── manifest.webmanifest          PWA manifest (icons in assets/brand/)
+├── sw.js                         Service worker (network-first JS/CSS, cache-first images, video bypassed)
+├── robots.txt · sitemap.xml      SEO
+├── CNAME · .nojekyll             GitHub Pages
 ├── styles/
-│   ├── tokens.css                CSS variables, font @imports, grain texture
+│   ├── tokens.css                CSS variables, grain texture, base reset
 │   ├── type.css                  Typography roles (display, body, mono, eyebrow)
-│   ├── layout.css                Containers, section frame, hairline rules
-│   ├── components.css            Buttons, nav, OPEN/CLOSED stamp, footer
-│   ├── hero.css                  Hero section
-│   ├── menu.css                  Typeset services menu + comparison cards
-│   ├── gallery.css               Asymmetric editorial photo essay
-│   ├── hassan.css                Barber feature spread
-│   ├── booking-grid.css          Day chips, slot pills, form, success/error/fallback cards
-│   ├── visit.css                 Illustrated map + clock-dial hours
-│   ├── motion.css                Scroll-reveal animations
-│   └── responsive.css            Mobile-first overrides + sticky CTA bar
+│   ├── layout.css                Containers, section frame, skip link
+│   ├── components.css            Buttons, nav + mobile menu, OPEN/CLOSED stamp, footer
+│   ├── hero.css                  Hero cover + page-load sequence
+│   ├── shop.css                  "Inside the shop": tour video, room photo, LED-grid motif
+│   ├── menu.css                  Price list, VIP card, add-ons, comparison (cards on phone, table on desktop)
+│   ├── gallery.css               12-column editorial grid + lightbox
+│   ├── barbers.css               The two chair spreads
+│   ├── booking-grid.css          Day chips, slot pills, form, success/error/fallback cards, cancel panel
+│   ├── visit.css                 Storefront, hours card, contact
+│   ├── motion.css                Scroll reveals + reduced-motion fallbacks
+│   └── responsive.css            The phone layer (≤600px), tablet tweaks, sticky CTA bar, print
 ├── scripts/
-│   ├── main.js                   Entry point — boots all modules, registers SW
+│   ├── main.js                   Entry point: boots every module, registers the SW
 │   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS / prices
 │   ├── supabase.js               Singleton Supabase client (loaded from esm.sh)
-│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone…
+│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable
 │   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
 │   ├── booking-submit.js         Form submit, group flow, WhatsApp/SMS redirect, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
 │   ├── booking-validate.js       Pure form validation + duration-aware party planning
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
-│   ├── booking-helpers.js        Timezone math, schedule intersection, formatting, error map
-│   ├── cover.js                  Nav, OPEN/CLOSED stamp, Next-Available banner, sticky CTA
-│   ├── reveals.js                IntersectionObserver scroll reveals
-│   └── visit.js                  Clock-dial "now" hand + open-arc rendering
-├── tests/                        vitest suite (pure logic + jsdom booking-form integration)
+│   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map
+│   ├── cover.js                  Nav stamp, hero status, next-open-slot lines, sticky CTA, mobile menu
+│   ├── shop-video.js             Lazy, muted, visibility-paused video + the sound toggle
+│   ├── gallery.js                Lightbox (keys, swipe, focus return) + filmstrip counter
+│   ├── visit.js                  Today's row + live status in the hours card
+│   └── reveals.js                IntersectionObserver scroll reveals
+├── tools/
+│   ├── build-assets.py           Source photos → assets/img/*-{480..2000}.{jpg,webp} + assets/brand/ (icons, social card)
+│   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
+│   └── export-appointments.sh    Owner tooling (see tools/README.md)
+├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
-│   └── migrations/
-│       ├── 0001_init.sql               Initial schema + RLS + RPCs + pg_cron
-│       ├── 0002_fix_book_slot_ambiguity.sql
-│       ├── 0003_fix_availability_view.sql
-│       ├── 0004_book_slot_group.sql    Group/atomic multi-person booking
-│       ├── 0005_fix_addons_null_in_group.sql
-│       ├── 0006_robustness.sql         VIP duration + error logging + custom_request in groups
-│       ├── 0007_lock_web_bookings_and_hours.sql  Confirm-on-create (no holds)
-│       ├── 0008_add_beard_addon.sql
-│       ├── 0009_javier_store_hours_cancellation.sql  Javier + store_hours + cancel lookup
-│       ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
-│       ├── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
-│       ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
-│       ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
-│       ├── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
-│       ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
-│       ├── 0016_45_minute_slots.sql        Appointments every 45 minutes (grid-aware RPCs)
-│       ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
-│       └── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
+│   ├── migrations/0001 … 0018    Schema, RLS, RPCs, hours, barbers, prices (see the history in git)
+│   └── tests/                    pgTAP suites
 └── assets/
-    ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
-    ├── Barbers/Hassan/optimized/       Hassan profile photos
-    ├── Barbers/Larry/optimized/        Larry profile photos
-    ├── Barbers/Javier/optimized/       Javier profile photos (retired — kept for the record)
-    └── FadeEmpireStore/                Brand assets (logo, storefront)
+    ├── img/                      Everything the page serves (generated, committed)
+    ├── video/                    shop-tour-540.mp4, shop-tour-720.mp4, mirror-check.mp4 (generated, committed)
+    ├── brand/                    Logo cut-outs, PWA icons, apple-touch-icon, og-cover.jpg (generated, committed)
+    ├── Haircuts/                 Source photos + the mirror-check source clip
+    ├── FadeEmpireStore/          Logo, storefront, interior sources
+    └── Barbers/                  Hassan, Larry (Javier retired; kept for the record)
 ```
+
+### Images and video
+
+Sources stay in `assets/Haircuts`, `assets/FadeEmpireStore`, `assets/Barbers`. Everything the page actually loads is generated:
+
+```bash
+pip3 install pillow                 # once
+python3 tools/build-assets.py       # every photo at 480/800/1200(/1600/2000) px, JPG + WebP, EXIF baked in
+python3 tools/build-assets.py hero-cut brand   # just one stem, or just the brand files
+
+brew install ffmpeg                 # once
+TOUR_SRC=~/Desktop/newFadeEmpireAssets/FadeEmpireOfficialVideo.MP4 tools/build-video.sh
+```
+
+The tour master (15 MB) is not in the repo; point `TOUR_SRC` at it when re-encoding. Add a photo by dropping the source in place, adding a line to `SOURCES` in `tools/build-assets.py`, running it, and writing the `<picture>` block. `tests/site-content.test.js` fails if the page references a file that was not generated.
 
 ---
 
@@ -164,15 +169,21 @@ That's it. Open the site, edit any file, refresh.
 
 ### Tests
 
-The booking logic (schedule intersection, validation, party planning, message
-building) and the booking form itself (real `#book` markup + real modules, RPC
-layer mocked) are covered by a vitest suite:
-
 ```bash
 npm install        # one-time; installs vitest + jsdom only (never deployed)
 npm test           # run the whole suite
 npm run test:watch # watch mode while developing
 ```
+
+| File | What it covers |
+|---|---|
+| `booking-helpers.test.js` | Time math, per-barber schedules, store-hours intersection, pricing, phone helpers, RPC error mapping |
+| `shop-status.test.js` | `shopStatus()` open / closing soon / closed with the next opening (skips the closed Tuesday), boundaries at open and close, the shop clock across both DST switches |
+| `booking-validate.test.js` | Duration-aware party planning and pure form validation |
+| `booking-messages.test.js` | The WhatsApp/SMS texts and deep links |
+| `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
+| `page-modules.dom.test.js` | cover.js (stamp, hero status, next-slot lines, phone-only compare collapse), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return, filmstrip counter) |
+| `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the barbers match `BARBERS`, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
 
 ### Database tests (pgTAP)
 
@@ -200,7 +211,7 @@ npm run test:db    # supabase db start && supabase test db
   posture holds (no PII readable by anon, owner RPCs not executable). Run it
   locally anytime with `npm run health`.
 
-The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears.
+The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears. Bump `VERSION` in `sw.js` and the `?v=` query on the stylesheet/script tags in `index.html` with every release so installed PWAs refresh.
 
 ### Editing the database
 
