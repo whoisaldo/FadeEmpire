@@ -6,7 +6,7 @@ import { planParty, partyFits, validateBookingInput } from '../scripts/booking-v
 
 // 2026-07-08 is a Wednesday: Hassan and Larry both work 10–6.
 const WED = '2026-07-08';
-// 2026-07-07 is a Tuesday: Hassan off, Larry 10–6.
+// 2026-07-07 is a Tuesday: the shop is closed — nobody works.
 const TUE = '2026-07-07';
 // 2026-07-05 is a Sunday: store opens at 10, both barbers work 10–6.
 const SUN = '2026-07-05';
@@ -18,15 +18,15 @@ describe('planParty', () => {
     expect(plan.every(p => p.slotCount === 1)).toBe(true);
   });
 
-  it('gives a VIP two slots and pushes the next person 90 minutes', () => {
+  it('a VIP is one slot now (45 min) — the next person starts 45 minutes later', () => {
     const plan = planParty(600, ['vip-haircut', 'hair-cut']);
-    expect(plan[0]).toMatchObject({ startMin: 600, slotCount: 2, slotMins: [600, 645] });
-    expect(plan[1]).toMatchObject({ startMin: 690, slotCount: 1 });
+    expect(plan[0]).toMatchObject({ startMin: 600, slotCount: 1, slotMins: [600] });
+    expect(plan[1]).toMatchObject({ startMin: 645, slotCount: 1 });
   });
 
-  it('handles a VIP in the middle of the party', () => {
+  it('a VIP in the middle of the party no longer stretches it', () => {
     const plan = planParty(600, ['hair-cut', 'vip-haircut', 'kids-cut']);
-    expect(plan.map(p => p.startMin)).toEqual([600, 645, 735]);
+    expect(plan.map(p => p.startMin)).toEqual([600, 645, 690]);
   });
 });
 
@@ -43,18 +43,10 @@ describe('partyFits', () => {
     }).ok).toBe(true);
   });
 
-  it('accepts a VIP at 4:45 — its second slot is the 5:30 closer', () => {
+  it('accepts a VIP on the 5:30 closer — it is a single slot now', () => {
     expect(partyFits({
-      date: WED, barberSlug: 'larry', startMin: 1005, services: ['vip-haircut'],
-    }).ok).toBe(true);
-  });
-
-  it('rejects a VIP starting on the last slot (second half past close)', () => {
-    const res = partyFits({
       date: WED, barberSlug: 'larry', startMin: 1050, services: ['vip-haircut'],
-    });
-    expect(res.ok).toBe(false);
-    expect(res.offenders).toEqual([0]);
+    }).ok).toBe(true);
   });
 
   it('flags only the guests who run past closing', () => {
@@ -67,10 +59,10 @@ describe('partyFits', () => {
     expect(res.offenders).toEqual([2]);
   });
 
-  it('a VIP primary pushes the guest past closing (duration-aware)', () => {
-    // 4:45 PM VIP takes 4:45+5:30; the guest would start at 6:15 → past close.
+  it('a VIP on the closer fits, but the guest after it lands past closing', () => {
+    // 5:30 PM VIP takes the last slot; the guest would start at 6:15 → past close.
     const res = partyFits({
-      date: WED, barberSlug: 'larry', startMin: 1005,
+      date: WED, barberSlug: 'larry', startMin: 1050,
       services: ['vip-haircut', 'hair-cut'],
     });
     expect(res.ok).toBe(false);
@@ -81,11 +73,13 @@ describe('partyFits', () => {
     expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 660, services: ['hair-cut'] }).ok).toBe(false);
   });
 
-  it('rejects Hassan on Tuesdays but accepts Larry', () => {
+  it('rejects both barbers on Tuesdays — the shop is closed', () => {
     const hassan = partyFits({ date: TUE, barberSlug: 'hassan', startMin: 690, services: ['hair-cut'] });
     expect(hassan.ok).toBe(false);
     expect(hassan.offenders).toEqual([0]);
-    expect(partyFits({ date: TUE, barberSlug: 'larry', startMin: 690, services: ['hair-cut'] }).ok).toBe(true);
+    const larry = partyFits({ date: TUE, barberSlug: 'larry', startMin: 690, services: ['hair-cut'] });
+    expect(larry.ok).toBe(false);
+    expect(larry.offenders).toEqual([0]);
   });
 
   it('Sundays: the store opens at 10 and both barbers work', () => {

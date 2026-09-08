@@ -1,0 +1,45 @@
+-- 0018_vip_45_minutes.sql
+--
+-- Duration change: the VIP now takes 45 minutes, not 60. On the 45-minute grid
+-- (0016) that means it fills ONE slot like every other service — a VIP no
+-- longer books a linked continuation slot, and a VIP in a group no longer
+-- pushes the next guest 90 minutes back.
+--
+-- Nothing else changes. Both booking RPCs already compute
+--   slots = ceil(duration_minutes / slot_minutes)
+-- from this row, so the multi-slot machinery (linked_to, cascade cancel,
+-- continuation rows hidden from lookups) stays in place for any future
+-- service longer than the grid. Price stays $60.
+--
+-- Apply with `supabase db push --linked` (or run once in the SQL editor) for
+-- project mjehfaonibgobimfiijk. Idempotent.
+--
+-- NOTE for the owner: existing future VIP bookings were made as TWO slots
+-- (primary + linked continuation) and are NOT touched — the continuation slot
+-- stays blocked until the booking is cancelled or the day passes. If you want
+-- those second slots back on the board, review them here and cancel the
+-- continuation rows by hand in Studio (the primary stays put):
+--
+--   select bk.booking_date, bk.booking_time, bk.customer_name, bk.customer_phone,
+--          b.display_name as barber
+--     from bookings bk
+--     join barbers b on b.id = bk.barber_id
+--     join services s on s.id = bk.service_id
+--    where s.slug = 'vip-haircut'
+--      and bk.linked_to is not null
+--      and bk.status in ('pending', 'confirmed')
+--      and bk.booking_date >= current_date
+--    order by bk.booking_date, bk.booking_time;
+
+update services set duration_minutes = 45 where slug = 'vip-haircut';
+
+-- =============================================================================
+-- Manual verification:
+--
+--   select slug, duration_minutes from services where slug = 'vip-haircut';
+--   -- 45
+--
+--   select count(*) from book_slot('larry', 'vip-haircut', current_date + 1, '17:30',
+--                                  'Vip Closer', '5551230201');
+--   -- 1 row — a VIP can now take the 5:30 closer (unless tomorrow is Tuesday)
+-- =============================================================================

@@ -1,6 +1,6 @@
 -- 002_book_slot.sql — pgTAP: the single-booking RPC end to end.
 -- Hours enforcement (store + per-barber), validation, double-booking,
--- multi-slot VIP, server-side pricing, rate limiting. Rolls back.
+-- VIP (one slot), multi-slot machinery, server-side pricing, rate limiting. Rolls back.
 
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -35,9 +35,10 @@ select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '17:30', 'Last Slot', '5551110003') $$,
   'the 17:30 closer books (runs to 6:15 — the barber stays past close to finish)'
 );
-select lives_ok(
+select throws_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(2), '11:30', 'Tue Customer', '5551110004') $$,
-  'larry works Tuesdays (hassan''s day off is covered)'
+  '22023', 'store_closed',
+  'the shop is closed Tuesdays — larry cannot be booked either (0017)'
 );
 
 -- ---------- Hours enforcement ----------
@@ -48,12 +49,22 @@ select throws_ok(
 );
 select throws_ok(
   $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(2), '11:30', 'Tue Try', '5551110006') $$,
+  '22023', 'store_closed',
+  'hassan cannot be booked on Tuesdays (the store check runs before the schedule check)'
+);
+-- A barber off while the store is open is a different error. No such gap
+-- exists in the real schedules (both chairs fill the store window), so carve
+-- one out inside this transaction: hassan leaves at 2 PM next Monday.
+update barber_schedules set close_time = '14:00'
+ where barber_id = (select id from barbers where slug = 'hassan') and weekday = 1;
+select throws_ok(
+  $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(1), '15:15', 'After Hours', '5551110032') $$,
   '22023', 'outside_working_hours',
-  'hassan cannot be booked on Tuesdays'
+  'a slot inside store hours but outside the barber''s own schedule raises outside_working_hours'
 );
 select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(0), '12:15', 'Sun Regular', '5551110007') $$,
-  'larry works Sundays too (all seven days)'
+  'larry works Sundays too (six days — every day but Tuesday)'
 );
 select lives_ok(
   $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(0), '11:30', 'Sun Cut', '5551110027') $$,
@@ -153,42 +164,63 @@ select is(
   'unknown add-on slugs are ignored, not priced'
 );
 
--- ---------- VIP: 60 minutes = two linked 45-min slots, all-or-nothing ----------
+-- ---------- VIP: 45 minutes = ONE slot, like every other service (0018) ----------
 select is(
   (select count(*)::int
-     from book_slot('larry', 'vip-haircut', tap_next_dow(3), '14:30', 'Vip Two', '5551110021')),
-  2, 'a VIP booking returns two slot rows'
-);
-select is(
-  (select count(*)::int from bookings
-    where customer_phone = '5551110021' and status = 'confirmed'),
-  2, 'both VIP slots are locked in the table'
+     from book_slot('larry', 'vip-haircut', tap_next_dow(3), '14:30', 'Vip One', '5551110021')),
+  1, 'a VIP booking returns a single slot row'
 );
 select is(
   (select count(*)::int from bookings
     where customer_phone = '5551110021' and linked_to is not null),
+  0, 'a VIP has no continuation row'
+);
+select lives_ok(
+  $$ select * from book_slot('hassan', 'vip-haircut', tap_next_dow(3), '17:30', 'Vip Closer', '5551110022') $$,
+  'a VIP can take the 17:30 closer now — it fits in one slot'
+);
+
+-- ---------- Multi-slot machinery: any service longer than the grid spans linked slots ----------
+-- No real service needs two slots anymore, so stand one up for this
+-- transaction only (rolled back with everything else): 90 minutes = 2 slots.
+insert into services (slug, display_name, base_price_cents, duration_minutes, sort_order)
+values ('tap-long', 'pgTAP Two-Slot Service', 9000, 90, 999);
+
+select is(
+  (select count(*)::int
+     from book_slot('hassan', 'tap-long', tap_next_dow(3), '14:30', 'Long Two', '5551110033')),
+  2, 'a two-slot service returns two slot rows'
+);
+select is(
+  (select count(*)::int from bookings
+    where customer_phone = '5551110033' and status = 'confirmed'),
+  2, 'both slots are locked in the table'
+);
+select is(
+  (select count(*)::int from bookings
+    where customer_phone = '5551110033' and linked_to is not null),
   1, 'the continuation slot links back to the primary'
 );
 select throws_ok(
-  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(3), '17:30', 'Vip Late', '5551110022') $$,
+  $$ select * from book_slot('larry', 'tap-long', tap_next_dow(4), '17:30', 'Long Late', '5551110034') $$,
   '22023', 'store_closed',
-  'a VIP cannot start on the 17:30 closer — its second slot falls past closing'
+  'a two-slot service cannot start on the 17:30 closer — its second slot falls past closing'
 );
 
--- VIP overlap: 16:45 is taken, so a 16:00 VIP (needs 16:00 + 16:45) must fail
--- AND leave nothing behind (transaction-level all-or-nothing).
+-- Overlap: 16:45 is taken, so a 16:00 two-slot booking (needs 16:00 + 16:45)
+-- must fail AND leave nothing behind (transaction-level all-or-nothing).
 select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(3), '16:45', 'Blocker', '5551110023') $$,
   'a regular cut holds 16:45'
 );
 select throws_ok(
-  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(3), '16:00', 'Vip Overlap', '5551110024') $$,
+  $$ select * from book_slot('larry', 'tap-long', tap_next_dow(3), '16:00', 'Long Overlap', '5551110024') $$,
   '23505', 'slot_taken',
-  'a VIP overlapping an existing booking is rejected'
+  'a two-slot booking overlapping an existing booking is rejected'
 );
 select is(
   (select count(*)::int from bookings where customer_phone = '5551110024'),
-  0, 'the failed VIP left no partial rows behind'
+  0, 'the failed two-slot booking left no partial rows behind'
 );
 
 -- ---------- One-off closures ----------

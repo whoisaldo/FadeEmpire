@@ -9,25 +9,46 @@ create function tap_next_dow(p_dow int) returns date language sql as $$
   select (current_date + ((p_dow - extract(dow from current_date)::int + 7) % 7 + 7))::date
 $$;
 
+-- No real service spans more than one 45-min slot anymore (the VIP is 45 min,
+-- 0018), so the multi-slot machinery is exercised with a transaction-local
+-- 90-minute service (two slots). Rolled back with everything else.
+insert into services (slug, display_name, base_price_cents, duration_minutes, sort_order)
+values ('tap-long', 'pgTAP Two-Slot Service', 9000, 90, 999);
+
 -- ---------- Group bookings stack duration-aware ----------
--- A VIP (60 min = two 45-min slots) up front pushes the next guest 90 minutes.
+-- A VIP is one slot now: the guest after it starts 45 minutes later.
 select results_eq(
   $$ select booking_time::text
        from book_slot_group('larry', tap_next_dow(3), '10:00', '5552220001',
          '[{"name":"Vip Dad","service_slug":"vip-haircut"},
            {"name":"Kid Guest","service_slug":"kids-cut"}]'::jsonb)
       order by person_index $$,
-  $$ values ('10:00:00'), ('11:30:00') $$,
-  'guest after a VIP starts at 11:30, not 10:45'
+  $$ values ('10:00:00'), ('10:45:00') $$,
+  'guest after a VIP starts at 10:45 — the VIP is a single slot'
 );
 select is(
   (select count(*)::int from bookings where customer_phone = '5552220001'),
-  3, 'VIP + guest occupy three physical slots (10:00, 10:45 linked, 11:30)'
+  2, 'VIP + guest occupy two physical slots, no continuation row'
+);
+
+-- A two-slot service up front pushes the next guest 90 minutes.
+select results_eq(
+  $$ select booking_time::text
+       from book_slot_group('hassan', tap_next_dow(3), '10:00', '5552220020',
+         '[{"name":"Long Dad","service_slug":"tap-long"},
+           {"name":"Kid Guest","service_slug":"kids-cut"}]'::jsonb)
+      order by person_index $$,
+  $$ values ('10:00:00'), ('11:30:00') $$,
+  'guest after a two-slot service starts at 11:30, not 10:45'
+);
+select is(
+  (select count(*)::int from bookings where customer_phone = '5552220020'),
+  3, 'two-slot service + guest occupy three physical slots (10:00, 10:45 linked, 11:30)'
 );
 select is(
   (select count(*)::int from bookings
-    where customer_phone = '5552220001' and booking_time = '10:45' and linked_to is not null),
-  1, 'the 10:45 slot is the VIP continuation row'
+    where customer_phone = '5552220020' and booking_time = '10:45' and linked_to is not null),
+  1, 'the 10:45 slot is the continuation row'
 );
 
 -- ---------- Group is all-or-nothing on conflict ----------
@@ -70,8 +91,8 @@ select lives_ok(
   'findme books a thursday cut with hassan'
 );
 select lives_ok(
-  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(4), '15:15', 'Findme Tester', '5552220010') $$,
-  'findme also books a thursday VIP with larry'
+  $$ select * from book_slot('larry', 'tap-long', tap_next_dow(4), '15:15', 'Findme Tester', '5552220010') $$,
+  'findme also books a thursday two-slot service with larry'
 );
 select lives_ok(
   $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '11:30', 'Someone Else', '5552220011') $$,
@@ -83,12 +104,12 @@ select results_eq(
        from find_bookings_by_phone('5552220010')
       order by booking_date, booking_time $$,
   $$ values ('hassan', 'hair-cut', '10:00:00', 'Findme'),
-            ('larry', 'vip-haircut', '15:15:00', 'Findme') $$,
+            ('larry', 'tap-long', '15:15:00', 'Findme') $$,
   'lookup returns exactly the callers two primaries, first name only'
 );
 select is(
   (select count(*)::int from find_bookings_by_phone('5552220010')),
-  2, 'VIP continuation rows are hidden from the lookup'
+  2, 'continuation rows are hidden from the lookup'
 );
 select is(
   (select count(*)::int from find_bookings_by_phone('5552220099')),
@@ -134,17 +155,17 @@ select lives_ok(
   'the cancelled 10:00 slot reopens immediately'
 );
 
--- Cancelling the VIP primary cascades to its continuation slot.
+-- Cancelling a two-slot primary cascades to its continuation slot.
 select lives_ok(
   $$ select cancel_booking(
        (select booking_id from find_bookings_by_phone('5552220010') limit 1),
        '5552220010') $$,
-  'cancelling the VIP primary succeeds'
+  'cancelling the two-slot primary succeeds'
 );
 select is(
   (select count(*)::int from bookings
     where customer_phone = '5552220010' and status = 'cancelled'),
-  3, 'VIP cancel cascades: primary + continuation + earlier haircut all cancelled'
+  3, 'cancel cascades: primary + continuation + earlier haircut all cancelled'
 );
 select is(
   (select count(*)::int from find_bookings_by_phone('5552220010')),
@@ -153,8 +174,8 @@ select is(
 
 -- A continuation row cannot be cancelled directly.
 select lives_ok(
-  $$ select * from book_slot('larry', 'vip-haircut', tap_next_dow(5), '10:00', 'Linked Probe', '5552220013') $$,
-  'a fresh VIP for the linked-row test'
+  $$ select * from book_slot('larry', 'tap-long', tap_next_dow(5), '10:00', 'Linked Probe', '5552220013') $$,
+  'a fresh two-slot booking for the linked-row test'
 );
 select throws_ok(
   $$ select cancel_booking(

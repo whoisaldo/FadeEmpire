@@ -4,7 +4,7 @@ A static + PWA website for **Fade Empire**, a two-chair barbershop in Chicopee, 
 
 Live: <https://chicopeefadeempire.com>
 
-**Hours** — store: 10 AM–6 PM, every day (the store opens with its earliest barber). Hassan: 10–6, off Tuesdays. Larry: 10–6, every day. Appointments run every 45 minutes from open; the last one starts at 5:30 PM and can run to 6:15 — the barber stays past close to finish. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
+**Hours** — store: 10 AM–6 PM, six days a week, **closed Tuesdays** (since September 2026, migration 0017). Hassan and Larry both work 10–6 every open day. Walk-ins are welcome. Appointments run every 45 minutes from open; the last one starts at 5:30 PM and can run to 6:15 — the barber stays past close to finish. Bookable slots are the intersection of store hours and the barber's schedule, enforced in the DB and mirrored in the client. (Javier retired July 2026 — deactivated by migration 0013, never deleted, so his booking history keeps its barber.)
 
 ---
 
@@ -13,8 +13,8 @@ Live: <https://chicopeefadeempire.com>
 - **Editorial dark-luxury landing page** — hero, barber feature spreads, asymmetric portfolio essay, typeset services menu, service comparison field guide, illustrated map + clock-dial hours
 - **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
-- **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a VIP in the party takes two slots before the next guest starts)
-- **Multi-slot services** — VIP (60 min) automatically books two linked consecutive slots
+- **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
+- **Multi-slot services** — any service longer than the 45-minute grid books linked consecutive slots automatically. No current service needs it: the VIP is 45 minutes (migration 0018), so every service fits one slot — the machinery stays for the day one doesn't
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
@@ -97,7 +97,10 @@ FadeEmpire/
 │       ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
 │       ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
 │       ├── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
-│       └── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
+│       ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
+│       ├── 0016_45_minute_slots.sql        Appointments every 45 minutes (grid-aware RPCs)
+│       ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
+│       └── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos
