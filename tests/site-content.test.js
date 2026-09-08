@@ -184,6 +184,21 @@ describe('every asset the page references exists', () => {
   // The lightbox <img> is filled by scripts/gallery.js and sized by CSS.
   const pageImgs = () => [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => !t.includes('data-lightbox-img'));
 
+  it('the brand images declare their real pixel size (the mark is a square-ish knight, not the old logo box)', () => {
+    // PNG: width/height are the 4 bytes at offsets 16 and 20 of the IHDR chunk.
+    const png = (file) => {
+      const buf = readFileSync(join(ROOT, 'assets/brand', file));
+      return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+    };
+    for (const file of ['logo-mark-240.png', 'logo-full.png']) {
+      const tag = html.match(new RegExp(`<img[^>]*${file}[^>]*>`))?.[0];
+      expect(tag, `an <img> for ${file}`).toBeTruthy();
+      const [w, h] = png(file);
+      expect(tag).toContain(`width="${w}"`);
+      expect(tag).toContain(`height="${h}"`);
+    }
+  });
+
   it('every <img> has an alt attribute and a width/height (no layout shift)', () => {
     const imgs = pageImgs();
     expect(imgs.length).toBeGreaterThan(15);

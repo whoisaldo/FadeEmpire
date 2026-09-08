@@ -138,9 +138,9 @@ function initMobileNav() {
 }
 
 /* ---------- "Which one do I book?" ----------
-   A <details> that ships open (the desktop table is always visible, the
-   summary is inert there). On phones it starts collapsed so the four cards
-   don't add a screen of scrolling unless asked for. */
+   A <details> that ships closed so phones never flash the four cards before
+   collapsing them. Desktop opens it here (the table should always show) and
+   the summary goes inert through CSS once open. */
 
 function initCompare() {
   const details = document.querySelector('[data-compare]');

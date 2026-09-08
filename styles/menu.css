@@ -198,8 +198,9 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* The head is a <summary>: on desktop it is inert (the table is always
-   shown); on phones it toggles the cards. */
+/* The head is a <summary>. Phones toggle the cards with it; on desktop
+   cover.js opens the block on load and the head goes inert so the table
+   cannot be folded away (without JS it stays clickable). */
 .compare__head {
   display: flex;
   align-items: center;
@@ -207,8 +208,9 @@
   gap: 1rem;
   margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
   list-style: none;
-  pointer-events: none;
+  cursor: pointer;
 }
+.compare[open] .compare__head { pointer-events: none; }
 .compare__head::-webkit-details-marker { display: none; }
 .compare__head:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 

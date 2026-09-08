@@ -19,7 +19,18 @@ function plateImages(root) {
 
 function initLightbox(root) {
   const dialog = document.querySelector('[data-lightbox]');
-  if (!dialog || typeof dialog.showModal !== 'function') return null;
+  if (!dialog) return null;
+
+  // Old browsers without <dialog>: a tap opens the big file in a new tab.
+  if (typeof dialog.showModal !== 'function') {
+    root.querySelectorAll('[data-lightbox-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const stem = btn.closest('[data-plate]')?.dataset.plate;
+        if (stem) window.open(`${IMG_DIR}/${stem}-1200.jpg`, '_blank', 'noopener');
+      });
+    });
+    return null;
+  }
 
   const img   = dialog.querySelector('[data-lightbox-img]');
   const cap   = dialog.querySelector('[data-lightbox-cap]');
