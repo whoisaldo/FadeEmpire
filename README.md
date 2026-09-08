@@ -85,6 +85,7 @@ FadeEmpire/
 ├── tools/
 │   ├── build-assets.py           Source photos → assets/img/*-{480..2000}.{jpg,webp} + assets/brand/ (icons, social card)
 │   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
+│   ├── screenshot.py             Playwright captures at phone/tablet/desktop sizes + overflow check
 │   └── export-appointments.sh    Owner tooling (see tools/README.md)
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
@@ -165,7 +166,13 @@ python3 -m http.server 8000
 open http://localhost:8000
 ```
 
-That's it. Open the site, edit any file, refresh.
+That's it. Open the site, edit any file, refresh. Phone first: check the ≤600px layout before desktop.
+
+```bash
+pip3 install playwright && python3 -m playwright install chromium   # once
+python3 tools/screenshot.py mobile /tmp/m.png            # full page at 390px, prints console errors + overflow
+python3 tools/screenshot.py desktop /tmp/d.png "#book"   # one section at 1440px
+```
 
 ### Tests
 

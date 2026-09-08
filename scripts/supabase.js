@@ -1,10 +1,20 @@
-// supabase.js — singleton Supabase client, loaded from the official ESM CDN.
-// No bundler. No package.json. Works directly on GitHub Pages.
+// supabase.js — the database client.
+//
+// The site only ever talks to PostgREST (table/view reads and RPC calls), so
+// it loads @supabase/postgrest-js alone instead of the full supabase-js
+// bundle: same `.from()` / `.rpc()` query builder, same { data, error }
+// results, about 150 KB less JavaScript on every phone. No bundler, no
+// package.json for the site itself; the module comes from esm.sh.
+//
+// The anon key is public by design; security is RLS + SECURITY DEFINER RPCs.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import { PostgrestClient } from 'https://esm.sh/@supabase/postgrest-js@1.16.3';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-  global: { headers: { 'x-client-info': 'fade-empire-web/1.0' } },
+export const sb = new PostgrestClient(`${SUPABASE_URL}/rest/v1`, {
+  headers: {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    'x-client-info': 'fade-empire-web/2.0',
+  },
 });
