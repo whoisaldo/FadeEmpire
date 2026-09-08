@@ -155,6 +155,9 @@ input, select, textarea, button {
     aspect-ratio: 4 / 5;
     scroll-snap-align: center;
   }
+  /* Plates sit off to the right until swiped; a fade-in mid-swipe would look
+     like a loading glitch, so the strip skips the scroll reveal. */
+  .plate.reveal { opacity: 1; transform: none; transition: none; }
   .plate__cap { left: 0.85rem; bottom: 0.85rem; padding: 0.35rem 0.55rem; font-size: 0.625rem; letter-spacing: 0.10em; }
 
   .plates__count {

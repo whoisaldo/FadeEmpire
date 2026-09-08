@@ -336,3 +336,41 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect($('[data-filmstrip-bar]').style.transform).toBe('translateX(300%)');
   });
 });
+
+/* ================= reveals.js ================= */
+
+describe('reveals.js: scroll reveals', () => {
+  it('reveals everything at once when IntersectionObserver is missing', async () => {
+    document.body.innerHTML = MENU;
+    const { initReveals } = await import('../scripts/reveals.js');
+    initReveals();
+    expect($$('.reveal:not(.is-visible)')).toHaveLength(0);
+  });
+
+  it('watches masked section headlines through their parent, since a fully clipped element never intersects', async () => {
+    document.body.innerHTML = MENU;
+    const observed = [];
+    let callback;
+    window.IntersectionObserver = class {
+      constructor(cb) { callback = cb; }
+      observe(el) { observed.push(el); }
+      unobserve() {}
+    };
+    const { initReveals } = await import('../scripts/reveals.js');
+    initReveals();
+
+    const h2 = $('#menu .section__head h2');
+    expect(observed).not.toContain(h2);
+    expect(observed).toContain(h2.parentElement);
+
+    callback([{ isIntersecting: true, target: h2.parentElement }]);
+    expect(h2.classList.contains('is-visible')).toBe(true);
+    // Siblings of the headline are watched on their own, not through the head.
+    const dek = $('#menu .section__dek');
+    expect(observed).toContain(dek);
+    expect(dek.classList.contains('is-visible')).toBe(false);
+    callback([{ isIntersecting: true, target: dek }]);
+    expect(dek.classList.contains('is-visible')).toBe(true);
+    delete window.IntersectionObserver;
+  });
+});
