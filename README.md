@@ -222,6 +222,6 @@ select * from booking_errors order by occurred_at desc limit 50;
 
 ## Developer
 
-Ali Younes — `whois.younes@gmail.com`
+Ali Younes — `aldo@sideband.studio`
 
 © 2026 Fade Empire. All rights reserved.
