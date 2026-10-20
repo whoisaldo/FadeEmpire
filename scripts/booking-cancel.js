@@ -215,16 +215,29 @@ export function initBookingCancel() {
 
   root.querySelector('[data-cancel-find]').addEventListener('click', () => lookup(root));
 
+  const openPanel = () => {
+    root.hidden = false;
+    document.querySelectorAll('[data-cancel-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
+    root.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.focus({ preventScroll: true });
+  };
+
   // "Cancel a booking" under a too-many-bookings error: open the panel with
   // the phone they just used and list its bookings.
   document.addEventListener('booking:cancel', (e) => {
-    root.hidden = false;
-    document.querySelectorAll('[data-cancel-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     input.value = formatPhoneDisplay(cleanPhone(e.detail?.phone));
-    root.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    input.focus({ preventScroll: true });
+    openPanel();
     lookup(root);
   });
+
+  // The reminder texts link to /#cancel: open the panel there, on load or
+  // when the hash changes to it. (Without JS, #cancel is the fine print.)
+  const fromHash = () => { if (location.hash === '#cancel') openPanel(); };
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+  // The browser's own jump to the fragment during load blurs the field, so
+  // focus it again once the page has loaded.
+  if (document.readyState !== 'complete') window.addEventListener('load', fromHash, { once: true });
 
   // The "Cancel a booking" disclosure in the booking fine print: opens the
   // panel and puts the cursor in Phone; a second tap closes it again.
@@ -235,10 +248,7 @@ export function initBookingCancel() {
         btn.setAttribute('aria-expanded', 'false');
         return;
       }
-      root.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
-      root.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      input.focus({ preventScroll: true });
+      openPanel();
     });
   });
 }

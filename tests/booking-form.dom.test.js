@@ -825,6 +825,42 @@ describe('cancellation flow', () => {
     expect(rpc.findBookingsByPhone).not.toHaveBeenCalled();
   });
 
+  it('#cancel opens the panel, focuses Phone and scrolls to it, on load and on a hash change (R7)', async () => {
+    expect($('#cancel')).toBeTruthy();                          // a plain anchor target without JS too
+    expect($('#cancel').contains($('[data-cancel-open]'))).toBe(true);
+
+    window.location.hash = '#cancel';                           // the page loads with it
+    await reboot();
+    const root = $('[data-cancel-root]');
+    expect(root.hidden).toBe(false);
+    expect($('[data-cancel-open]').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(root);
+
+    $('[data-cancel-open]').click();                            // closed again
+    expect(root.hidden).toBe(true);
+    window.location.hash = '';
+    await new Promise((r) => setTimeout(r, 10));
+    window.location.hash = '#cancel';                           // the hash changes to it
+    await vi.waitFor(() => expect(root.hidden).toBe(false));
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+    window.location.hash = '';
+  });
+
+  it('#cancel on a page still loading focuses Phone again after load, past the browser\'s fragment jump (R7)', async () => {
+    window.location.hash = '#cancel';
+    Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
+    try {
+      await reboot();
+    } finally {
+      delete document.readyState;
+    }
+    $('[data-cancel-phone]').blur();                            // what the browser's fragment jump does
+    window.dispatchEvent(new Event('load'));
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+    window.location.hash = '';
+  });
+
   it('requires a 10-digit phone before looking anything up', async () => {
     $('[data-cancel-open]').click();
     fill('[data-cancel-phone]', '413555');
