@@ -190,13 +190,23 @@ function initMobileNav() {
 /* ---------- "Which one do I book?" ----------
    A <details> that ships closed so phones never flash the four cards before
    collapsing them. Desktop opens it here (the table should always show) and
-   the summary goes inert through CSS once open. */
+   the summary stops toggling: clicks, Enter and Space are all a click on a
+   <summary>, so cancelling the click covers mouse and keyboard. The summary
+   also leaves the Tab order there, since it does nothing. */
 
 function initCompare() {
   const details = document.querySelector('[data-compare]');
-  if (!details || !window.matchMedia) return;
+  const summary = details?.querySelector('summary');
+  if (!details || !summary || !window.matchMedia) return;
   const phone = window.matchMedia('(max-width: 600px)');
-  const sync = () => { details.open = !phone.matches; };
+  const sync = () => {
+    details.open = !phone.matches;
+    if (phone.matches) summary.removeAttribute('tabindex');
+    else summary.setAttribute('tabindex', '-1');
+  };
+  summary.addEventListener('click', (e) => {
+    if (!phone.matches) e.preventDefault();
+  });
   sync();
   phone.addEventListener?.('change', sync);
 }

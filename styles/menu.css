@@ -187,7 +187,7 @@
 }
 
 /* The head is a <summary>. Phones toggle the cards with it; on desktop
-   cover.js opens the block on load and the head goes inert so the table
+   cover.js opens the block on load and cancels any toggle so the table
    cannot be folded away (without JS it stays clickable). */
 .compare__head {
   display: flex;
@@ -198,9 +198,10 @@
   list-style: none;
   cursor: pointer;
 }
-.compare[open] .compare__head { pointer-events: none; }
+@media (min-width: 601px) {
+  .compare[open] .compare__head { pointer-events: none; cursor: default; }
+}
 .compare__head::-webkit-details-marker { display: none; }
-.compare__head:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 
 .compare__head-text {
   display: flex;

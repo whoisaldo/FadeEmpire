@@ -119,7 +119,6 @@ input, select, textarea, button {
 
   /* Comparison: a collapsed <details> with cards instead of the table */
   .compare { overflow: visible; margin-top: 2.5rem; padding-top: 1.75rem; }
-  .compare[open] .compare__head { pointer-events: auto; }
   .compare__head .t-display-md { font-size: 1.75rem; }
   .compare__chevron { display: block; }
   .compare__table { display: none; }

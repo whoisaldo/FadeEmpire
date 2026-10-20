@@ -146,6 +146,26 @@ describe('cover.js: live status and next open slot', () => {
     expect($('[data-compare]').open).toBe(true);
   });
 
+  it('on desktop the table cannot be folded away: the summary click (also Enter and Space) is cancelled', async () => {
+    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    matchMediaMatches = () => false;
+    initCover();
+    const summary = $('[data-compare] summary');
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    expect(summary.dispatchEvent(click)).toBe(false);
+    expect($('[data-compare]').open).toBe(true);
+    expect(summary.getAttribute('tabindex')).toBe('-1');      // a summary that does nothing is not a Tab stop
+  });
+
+  it('on phones the summary still toggles the cards', async () => {
+    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    matchMediaMatches = (q) => q.includes('max-width: 600px');
+    initCover();
+    const summary = $('[data-compare] summary');
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    expect(summary.dispatchEvent(click)).toBe(true);
+    expect(summary.hasAttribute('tabindex')).toBe(false);
+  });
 });
 
 /* ================= cover.js: mobile menu ================= */
