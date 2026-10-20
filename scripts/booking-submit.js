@@ -360,6 +360,7 @@ function showSuccess(form, { text, people, total, next, send, calendar }) {
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
   fillCalendar(card, calendar);
+  card.querySelector('[data-book-another]').hidden = false;   // a Move may have hidden it
   revealCard(form, card, next);
 }
 
@@ -758,6 +759,9 @@ async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, fir
   const rebook = form.querySelector('input[name="rebook_sms"]');
   const consent = { remind: remind.checked, rebook: rebook.checked };
   if (form.dataset.booked === 'true') unlock(form);
+  // The card stays as the record, without "Book another": it would empty
+  // the form this Move has just filled in.
+  form.querySelector('[data-form-success] [data-book-another]').hidden = true;
   remind.checked = consent.remind;
   rebook.checked = consent.rebook;
   movedFor = someoneElse ? 'someone-else' : 'own';

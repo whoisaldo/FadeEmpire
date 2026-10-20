@@ -1798,6 +1798,27 @@ describe('move a booking (C4)', () => {
     await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry' })));
   });
 
+  it('after a Move the card has no "Book another"; the next confirmation has it again (CR6)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'card-6', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect($('[data-book-another]').hidden).toBe(false);
+    await findRow();
+    await confirmMove();
+    expect($('[data-form-success]').hidden).toBe(false);
+    expect($('[data-book-another]').hidden).toBe(true);
+    expect($('[data-service-select]').value).toBe('line-up');   // nothing on the card can empty the Move's form
+
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'card-7', slot_index: 0, booking_time: '11:30:00', total_price_cents: 1000 }]);
+    clickSlot('11:30:00');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-success-list] li').dataset.bookingId).toBe('card-7'));
+    expect($('[data-book-another]').hidden).toBe(false);
+  });
+
   /* --- Whose booking moves (CR5) --- */
 
   async function bookDanaAndSam() {
