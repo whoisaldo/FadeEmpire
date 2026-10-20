@@ -364,8 +364,8 @@ async function readAvailability() {
 function bindExternalPick() {
   // "Reserve it" / "Take it": the advertised slot comes from a separate read,
   // so it is taken only if this barber's grid, once read, shows it open. A
-  // failed read leaves "Couldn't load open times."; a slot booked since is
-  // said so; either way nothing is selected.
+  // failed read leaves "Couldn't load open times."; a slot booked or passed
+  // since is said so; either way nothing is selected.
   document.addEventListener('booking:pick', async (e) => {
     const { date, time, barberSlug } = e.detail || {};
     if (!date || !time) return;
@@ -388,6 +388,7 @@ function bindExternalPick() {
     if (state.availability === 'ok' && !selectTime(time)) {
       const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]`);
       if (pill?.classList.contains('is-taken')) setSlotsNote('That time was just booked.');
+      else if (pill?.classList.contains('is-past')) setSlotsNote('That time has passed.');
     }
     // Focus moves on unless the customer moved it themselves while waiting.
     if (waitingOn && ![waitingOn, document.body].includes(document.activeElement)) return;

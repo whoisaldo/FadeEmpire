@@ -1251,6 +1251,17 @@ describe('booking edge cases', () => {
     expect($('[data-form-time]').value).toBe('13:00:00');
   });
 
+  it('a shortcut to a time that has passed since it was advertised says so and selects nothing (R13a)', async () => {
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-06', time: '10:00:00', barberSlug: 'hassan' },   // now is 10:00
+    }));
+    await vi.waitFor(() => expect($('[data-slots-note]').textContent).toBe('That time has passed.'));
+    const pill = $('[data-slot-grid] .booking__slot[data-time="10:00:00"]');
+    expect(pill.getAttribute('aria-checked')).toBe('false');
+    expect($('[data-form-time]').value).toBe('');
+    await vi.waitFor(() => expect(document.activeElement).toBe($('[data-slot-grid] .booking__slot[data-time="10:45:00"]')));
+  });
+
   it('Reserve it while the times are still loading goes to the day at once and picks when the read lands (R8)', async () => {
     let land;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
