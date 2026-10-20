@@ -1,4 +1,4 @@
--- 005_reminders.sql — pgTAP: SMS reminder columns, the booking RPC flags,
+-- 006_reminders.sql — pgTAP: SMS reminder columns, the booking RPC flags,
 -- reminders_due(), rebook_due(), mark_reminder_sent(), and their grants.
 -- Rolls back.
 
@@ -69,22 +69,22 @@ select is(
   1, 'exactly one book_slot_group overload'
 );
 
--- ---------- Consent first: rows that predate 0019 are opted out ----------
--- Replays 0019's own remind_sms statements, read from the CLI's migration
+-- ---------- Consent first: rows that predate 0020 are opted out ----------
+-- Replays 0020's own remind_sms statements, read from the CLI's migration
 -- history (supabase_migrations.schema_migrations): the column is dropped
 -- (inside this transaction), a row is inserted with an old updated_at, then
 -- the two statements run against it.
 select is(
   (select count(*)::int from supabase_migrations.schema_migrations, unnest(statements) st
-    where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms'),
-  0, '0019 has no UPDATE of remind_sms'
+    where version = '0020' and st ~* 'update\s+bookings\s+set\s+remind_sms'),
+  0, '0020 has no UPDATE of remind_sms'
 );
 select is(
   (select count(*)::int from supabase_migrations.schema_migrations, unnest(statements) st
-    where version = '0019'
+    where version = '0020'
       and (st ~* 'add\s+column\s+if\s+not\s+exists\s+remind_sms\s+boolean\s+not\s+null\s+default\s+false'
         or st ~* 'alter\s+column\s+remind_sms\s+set\s+default\s+true')),
-  2, '0019 adds remind_sms with default false, then sets the default to true'
+  2, '0020 adds remind_sms with default false, then sets the default to true'
 );
 
 alter table bookings drop column remind_sms;
@@ -102,7 +102,7 @@ declare st text;
 begin
   for st in
     select x from supabase_migrations.schema_migrations, unnest(statements) with ordinality u(x, n)
-     where version = '0019'
+     where version = '0020'
        and (x ~* 'add\s+column\s+if\s+not\s+exists\s+remind_sms\s'
          or x ~* 'alter\s+column\s+remind_sms\s+set\s+default')
      order by n
@@ -179,6 +179,21 @@ select results_eq(
        from bookings where customer_phone = '5554449004' $$,
   $$ values (3, false, true) $$,
   'book_slot_group stores the passed flags on every row, continuation included'
+);
+
+-- 0019's party trigger still fills party_id / is_guest for the new signatures.
+select results_eq(
+  $$ select party_id = id, is_guest from bookings where customer_phone = '5554449002' $$,
+  $$ values (true, false) $$,
+  'book_slot with the flags is its own party (0019)'
+);
+select results_eq(
+  $$ select customer_name, is_guest,
+            party_id = (select id from bookings
+                         where customer_phone = '5554449004' and booking_time = '10:00')
+       from bookings where customer_phone = '5554449004' order by booking_time $$,
+  $$ values ('Group Long', false, true), ('Group Long', false, true), ('Group Kid', true, true) $$,
+  'book_slot_group with the flags is one party; the second person is a guest (0019)'
 );
 
 -- ---------- reminders_due: the 23-25 hour window ----------
