@@ -16,9 +16,10 @@
 #      checkout is already linked (read-only); otherwise it prints the command.
 #   3. supabase functions deploy send-reminders
 #   4. supabase secrets set --env-file <mode-600 temp file> with TWILIO_* (+ SITE_URL),
-#      so no secret is on a command line. The file is deleted afterwards. Skipped when
-#      no TWILIO_* variable is set; the function then runs dry (logs messages, sends
-#      and marks nothing).
+#      so no secret is on a command line. The file is deleted afterwards. When no
+#      TWILIO_* variable is given, existing secrets are left unchanged and
+#      `supabase secrets list` shows whether the Twilio secrets exist on the project
+#      (without them the function runs dry: logs messages, sends and marks nothing).
 #   5. Stores the service role key in Supabase Vault as 'send-reminders-service-key'
 #      (created, or updated if present), then cron.schedule('send-reminders', hourly)
 #      calling the function through pg_net. The job reads the key from
@@ -176,7 +177,27 @@ if [[ $TWILIO_SET -eq 1 ]]; then
   [[ -n "${TWILIO_FROM:-}" ]] && SECRET_LINES+=("TWILIO_FROM=$TWILIO_FROM")
   [[ -n "${TWILIO_MESSAGING_SERVICE_SID:-}" ]] && SECRET_LINES+=("TWILIO_MESSAGING_SERVICE_SID=$TWILIO_MESSAGING_SERVICE_SID")
 else
-  echo "# no TWILIO_* variables set: skipping Twilio secrets; the function runs dry"
+  echo "# No TWILIO_* given: existing secrets left unchanged"
+  echo "+ supabase secrets list --project-ref $PROJECT_REF"
+  if [[ $DRY_RUN -eq 0 || $LINKED -eq 1 ]]; then
+    if LISTED="$(supabase secrets list --project-ref "$PROJECT_REF" 2>&1)"; then
+      MISSING=""
+      for name in TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN; do
+        grep -qw "$name" <<<"$LISTED" || MISSING="$MISSING $name"
+      done
+      grep -qwE 'TWILIO_FROM|TWILIO_MESSAGING_SERVICE_SID' <<<"$LISTED" ||
+        MISSING="$MISSING TWILIO_FROM/TWILIO_MESSAGING_SERVICE_SID"
+      if [[ -z "$MISSING" ]]; then
+        echo "# Twilio secrets exist on $PROJECT_REF: the function sends texts"
+      else
+        echo "# Twilio secrets missing on $PROJECT_REF:$MISSING. The function runs dry"
+      fi
+    else
+      echo "# could not list secrets; check them in the dashboard (Edge Functions -> Secrets)"
+    fi
+  else
+    echo "# not linked yet: the real run lists the secrets and says whether the function sends or runs dry"
+  fi
 fi
 [[ -n "${SITE_URL:-}" ]] && SECRET_LINES+=("SITE_URL=$SITE_URL")
 if [[ ${#SECRET_LINES[@]} -gt 0 ]]; then

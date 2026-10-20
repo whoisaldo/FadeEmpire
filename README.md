@@ -184,7 +184,7 @@ The script reads `tools/.env.local` first; any variable already set in the envir
 
 The cron job does not contain the service role key. The script stores it in Supabase Vault as `send-reminders-service-key` (created on the first run, updated on later runs), and the job's command reads it from `vault.decrypted_secrets` each time it runs, so neither `cron.job` nor `cron.job_run_details` holds the key. To rotate the key, re-run the script with the new one.
 
-`TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base. Leave the `TWILIO_*` variables out to deploy in dry mode first and read the function logs in the dashboard. The script is safe to re-run.
+`TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base. On a first deploy, leaving the `TWILIO_*` variables out deploys in dry mode; read the function logs in the dashboard. On a re-run, leaving them out keeps whatever Twilio secrets were set before: the script runs `supabase secrets list` and says whether they exist (texts go out) or not (dry). The script is safe to re-run.
 
 Turn it off:
 
