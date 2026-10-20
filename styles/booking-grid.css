@@ -105,6 +105,7 @@
 .booking__day.is-closed .booking__day-num { opacity: 0.35; }
 
 .booking__day-closed {
+  line-height: 1.2;                    /* "No slots left" wraps in a narrow chip */
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.5625rem;
   letter-spacing: 0.16em;

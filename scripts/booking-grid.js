@@ -68,6 +68,12 @@ function bindBarberPicker() {
 
 /* ---------- Day row ---------- */
 
+/** Whether today still has a slot that hasn't started (after 5:30 PM it doesn't). */
+function todayHasSlotsLeft(todayIso) {
+  const nowMin = nowMinutesInShopTz();
+  return slotsForWeekday(weekdayFromIso(todayIso), state.barberSlug).some(m => m > nowMin);
+}
+
 function renderDayRow() {
   const row = document.querySelector('[data-day-row]');
   if (!row) return;
@@ -80,23 +86,26 @@ function renderDayRow() {
     const wk  = weekdayFromIso(iso);
     const slots = slotsForWeekday(wk, state.barberSlug);
     const closed = slots.length === 0;
+    // Today after its last slot: not offered, and it says why.
+    const over = !closed && i === 0 && !todayHasSlotsLeft(iso);
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'booking__day' + (closed ? ' is-closed' : '');
+    btn.className = 'booking__day' + (closed || over ? ' is-closed' : '');
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', 'false');
     btn.dataset.date = iso;
-    if (closed) btn.disabled = true;
+    if (closed || over) btn.disabled = true;
 
+    const note = closed ? 'Closed' : over ? 'No slots left' : null;
     btn.innerHTML = `
       <span class="booking__day-weekday">${dateLabelFromIso(iso, { weekday: 'short' })}</span>
       <span class="booking__day-num">${dateLabelFromIso(iso, { day: 'numeric' })}</span>
-      <span class="booking__day-month">${closed ? 'Closed' : dateLabelFromIso(iso, { month: 'short' })}</span>
+      <span class="booking__day-month">${note || dateLabelFromIso(iso, { month: 'short' })}</span>
     `;
-    if (closed) {
+    if (note) {
       btn.querySelector('.booking__day-month').classList.add('booking__day-closed');
-      btn.title = 'Closed';
+      btn.title = note;
     }
 
     btn.addEventListener('click', () => selectDate(iso));
@@ -104,11 +113,17 @@ function renderDayRow() {
   }
 
   // Keep the previously-selected day if this barber also works it;
-  // otherwise pre-select the first open day.
+  // otherwise pre-select the first day with a slot left (closed days and a
+  // finished today are skipped).
   const keep = state.selectedDate &&
     row.querySelector(`.booking__day[data-date="${state.selectedDate}"]:not(.is-closed)`);
   const firstOpen = keep || row.querySelector('.booking__day:not(.is-closed)');
+  const time = keep ? state.selectedTime : null;
   if (firstOpen) selectDate(firstOpen.dataset.date);
+  // A rebuild that keeps the day keeps the customer's time too, if still open.
+  if (time && document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]:not([disabled])`)) {
+    selectTime(time);
+  }
 }
 
 /* ---------- Slot column ---------- */
@@ -312,11 +327,14 @@ function bindExternalPick() {
 let _cachedToday = null;
 function maybeRolloverDay() {
   const today = isoDate(new Date());
+  const todayChip = document.querySelector(`[data-day-row] .booking__day[data-date="${today}"]`);
   if (_cachedToday && _cachedToday !== today) {
     // Day rolled over while the tab was open. Rebuild the picker so yesterday
     // drops off, and re-render the current slots to apply the past-slot filter.
     _cachedToday = today;
     renderDayRow();
+  } else if (todayChip && !todayChip.disabled && !todayHasSlotsLeft(today)) {
+    renderDayRow();                    // today's last slot just started
   } else if (!_cachedToday) {
     _cachedToday = today;
   }

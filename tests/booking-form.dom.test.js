@@ -922,6 +922,49 @@ describe('booking edge cases', () => {
     expect(rpc.fetchAvailability).toHaveBeenCalledWith(expect.objectContaining({ fromDate: '2026-07-07' }));
   });
 
+  async function bootAt(iso) {
+    vi.resetModules();
+    vi.setSystemTime(new Date(iso));
+    await boot();
+  }
+
+  it('after the last slot, today reads "No slots left" and the next open day is selected (D5)', async () => {
+    await bootAt('2026-07-06T21:45:00Z');                    // Mon 5:45 PM EDT, Tue closed
+    const mon = $('[data-day-row] .booking__day[data-date="2026-07-06"]');
+    expect(mon.disabled).toBe(true);
+    expect(mon.textContent).toContain('No slots left');
+    expect($('[data-day-row] .booking__day[data-date="2026-07-07"]').textContent).toContain('Closed');
+    expect($('[data-form-date]').value).toBe('2026-07-08');
+    expect($('[data-day-row] .booking__day[data-date="2026-07-08"]').getAttribute('aria-selected')).toBe('true');
+    expect($$('[data-slot-grid] .booking__slot:not([disabled])')).toHaveLength(11);
+  });
+
+  it('just before the 5:30 slot, today is still offered (D5)', async () => {
+    await bootAt('2026-07-06T21:29:00Z');                    // Mon 5:29 PM EDT
+    expect($('[data-form-date]').value).toBe('2026-07-06');
+    expect($('[data-slot-grid] .booking__slot[data-time="17:30:00"]').disabled).toBe(false);
+    expect($('[data-day-row] .booking__day[data-date="2026-07-06"]').textContent).not.toContain('No slots left');
+  });
+
+  it('on a closed Tuesday the next open day is selected (D5)', async () => {
+    await bootAt('2026-07-07T14:00:00Z');                    // Tue 10 AM EDT
+    expect($('[data-day-row] .booking__day[data-date="2026-07-07"]').textContent).toContain('Closed');
+    expect($('[data-form-date]').value).toBe('2026-07-08');
+  });
+
+  it('when today runs out with the tab open, the chip updates and a pick on another day stays (D5)', async () => {
+    clickDay('2026-07-09');
+    clickSlot('11:30:00');
+    // The five-minute tick (not visibilitychange: earlier tests' module
+    // instances still listen on this document) carries the clock past 5:30.
+    vi.setSystemTime(new Date('2026-07-06T21:26:00Z'));
+    vi.advanceTimersByTime(5 * 60_000);                      // 5:31 PM: the last slot has started
+    await vi.waitFor(() => expect($('[data-day-row] .booking__day[data-date="2026-07-06"]').disabled).toBe(true));
+    expect($('[data-day-row] .booking__day[data-date="2026-07-06"]').textContent).toContain('No slots left');
+    expect($('[data-form-date]').value).toBe('2026-07-09');
+    expect($('[data-form-time]').value).toBe('11:30:00');
+  });
+
   it('the day row lists each date once across the November DST change', async () => {
     vi.setSystemTime(new Date('2026-10-25T04:30:00Z'));     // Sun Oct 25, 00:30 EDT
     document.dispatchEvent(new Event('visibilitychange'));
