@@ -4,7 +4,8 @@
 -- pg_net; the schedule itself is created by tools/deploy-reminders.sh).
 --
 --   1. bookings: remind_sms (default true), rebook_sms (default false),
---      reminder_sent_at, rebook_sent_at.
+--      reminder_sent_at, rebook_sent_at. Rows that exist when this runs are
+--      set to remind_sms = false: those customers never saw the opt-in.
 --   2. book_slot / book_slot_group take p_remind_sms and p_rebook_sms as
 --      trailing parameters with defaults. The old signatures are dropped so
 --      PostgREST resolves the current client's named-argument calls to the
@@ -30,6 +31,9 @@ alter table bookings add column if not exists remind_sms       boolean not null 
 alter table bookings add column if not exists rebook_sms       boolean not null default false;
 alter table bookings add column if not exists reminder_sent_at timestamptz;
 alter table bookings add column if not exists rebook_sent_at   timestamptz;
+
+-- Bookings made before the opt-in existed are not texted.
+update bookings set remind_sms = false;
 
 -- =============================================================================
 -- 3. book_slot — 0016 plus p_remind_sms / p_rebook_sms

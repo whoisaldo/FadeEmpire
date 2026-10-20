@@ -63,6 +63,37 @@ select is(
   1, 'exactly one book_slot_group overload'
 );
 
+-- ---------- Consent first: rows that predate 0019 are opted out ----------
+-- Replays 0019's own update, read from the CLI's migration history
+-- (supabase_migrations.schema_migrations), against a row inserted before it.
+select tap_book('5554448001', 'Booked Before', now() + interval '23 hours 30 minutes');
+select is(
+  (select count(*)::int from supabase_migrations.schema_migrations, unnest(statements) st
+    where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms\s*=\s*false'),
+  1, '0019 has one statement that opts existing bookings out'
+);
+do $$
+begin
+  execute (select st from supabase_migrations.schema_migrations, unnest(statements) st
+            where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms\s*=\s*false');
+end $$;
+select is(
+  (select remind_sms from bookings where customer_phone = '5554448001'),
+  false, 'a booking that existed before the migration has remind_sms false'
+);
+select is(tap_reminder_ids('5554448001'), null, 'and is not due a reminder');
+
+insert into bookings (barber_id, service_id, booking_date, booking_time,
+                      customer_name, customer_phone, total_price_cents, status)
+select b.id, s.id, tap_next_dow(5), '11:00', 'Booked After', '5554448002', 3000, 'confirmed'
+  from barbers b, services s
+ where b.slug = 'hassan' and s.slug = 'hair-cut';
+select results_eq(
+  $$ select remind_sms, rebook_sms from bookings where customer_phone = '5554448002' $$,
+  $$ values (true, false) $$,
+  'a booking inserted after it takes the defaults: remind on, rebook off'
+);
+
 -- ---------- Booking RPCs store the flags ----------
 select lives_ok(
   $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(3), '10:00', 'Default Flags', '5554449001') $$,
