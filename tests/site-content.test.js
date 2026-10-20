@@ -247,7 +247,7 @@ describe('the page before (or without) its scripts', () => {
   });
 });
 
-describe('the gallery styles', () => {
+describe('the gallery and 404 styles', () => {
   /** Every top-level rule in a stylesheet, as [selectors[], body]. */
   const rules = (file) => [...readFileSync(join(ROOT, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     .matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].split(',').map((s) => s.trim()), m[2]]);
@@ -262,6 +262,13 @@ describe('the gallery styles', () => {
       if (sel.includes('.plate img')) expect(body).not.toMatch(/position:\s*absolute/);
     }
     expect(css.find(([sel]) => sel.join() === '.plate__pause')[1]).toMatch(/position:\s*absolute/);
+  });
+
+  it('the 404 page loads its styles and icons from the site root, so nested missing URLs keep them', () => {
+    const page = readFileSync(join(ROOT, '404.html'), 'utf8');
+    const local = [...page.matchAll(/<link\b[^>]*href="([^"]+)"/g)].map((m) => m[1]).filter((h) => !/^https?:/.test(h));
+    expect(local.length).toBeGreaterThanOrEqual(4);
+    for (const href of local) expect(href.startsWith('/')).toBe(true);
   });
 });
 
