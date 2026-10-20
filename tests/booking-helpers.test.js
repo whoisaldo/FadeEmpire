@@ -150,6 +150,12 @@ describe('pricing', () => {
     expect(totalCents('vip-haircut', ['beard', 'facial', 'hot-towel', 'eyebrows'])).toBe(6000);
   });
 
+  it('a Beard Trim includes the Beard add-on; the other add-ons still count (D14)', () => {
+    expect(includedAddons('beard-trim')).toEqual(['beard']);
+    expect(totalCents('beard-trim', ['beard'])).toBe(1500);
+    expect(totalCents('beard-trim', ['beard', 'hot-towel'])).toBe(2000);
+  });
+
   it('formatPrice renders whole dollars and cents', () => {
     expect(formatPrice(3000)).toBe('$30');
     expect(formatPrice(3050)).toBe('$30.50');

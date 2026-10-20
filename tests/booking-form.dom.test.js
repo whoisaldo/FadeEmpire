@@ -823,6 +823,18 @@ describe('booking edge cases', () => {
     expect($('input[name="addons"][value="beard"]').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$10');
   });
 
+  it('Beard Trim shows the Beard add-on as included and leaves the rest selectable (D14)', () => {
+    fillPrimary({ service: 'beard-trim' });
+    const addon = (v) => $(`input[name="addons"][value="${v}"]`);
+    expect(addon('beard').checked).toBe(true);
+    expect(addon('beard').disabled).toBe(true);
+    expect(addon('beard').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('included');
+    expect(addon('hot-towel').disabled).toBe(false);
+    expect($('[data-total-display]').textContent).toBe('$15');
+    addon('hot-towel').click();
+    expect($('[data-total-display]').textContent).toBe('$20');
+  });
+
   it('switching away from VIP restores the add-ons as they were (P3)', () => {
     fillPrimary({ service: 'hair-cut' });
     $('input[name="addons"][value="beard"]').click();
