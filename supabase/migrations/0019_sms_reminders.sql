@@ -15,9 +15,11 @@
 --      PostgREST resolves the current client's named-argument calls to the
 --      new functions unambiguously. Bodies are 0016 verbatim plus the two
 --      columns, stored on every row the call inserts.
---   3. reminders_due(), rebook_due(), mark_reminder_sent(): service_role only.
---      mark_reminder_sent also records a permanent Twilio rejection, so a
---      number Twilio will never accept is not retried every hour.
+--   3. reminders_due(), rebook_due(), claim_reminders(), mark_reminder_sent():
+--      service_role only. claim_reminders runs before each send so two
+--      overlapping runs cannot text the same booking. mark_reminder_sent also
+--      records a permanent Twilio rejection, so a number Twilio will never
+--      accept is not retried every hour.
 --
 -- Phone numbers are grouped by their 10-digit form, so '14135551234' and
 -- '4135551234' are the same customer (same rule as 0011).
@@ -49,6 +51,8 @@ alter table bookings add column if not exists rebook_sms       boolean not null 
 alter table bookings add column if not exists reminder_sent_at timestamptz;
 alter table bookings add column if not exists rebook_sent_at   timestamptz;
 alter table bookings add column if not exists sms_last_error   text;
+alter table bookings add column if not exists reminder_claimed_at timestamptz;
+alter table bookings add column if not exists rebook_claimed_at   timestamptz;
 
 -- =============================================================================
 -- 3. book_slot — 0016 plus p_remind_sms / p_rebook_sms
@@ -534,6 +538,7 @@ as $$
          e.booking_date,
          array_agg(e.id order by e.booking_time, e.id),
          jsonb_agg(jsonb_build_object(
+                     'id',     e.id,
                      'name',   e.first_name,
                      'time',   to_char(e.booking_time, 'HH24:MI'),
                      'barber', e.barber_name)
@@ -651,3 +656,56 @@ $$;
 
 revoke all on function mark_reminder_sent(uuid[], text, text) from public, anon, authenticated;
 grant execute on function mark_reminder_sent(uuid[], text, text) to service_role;
+
+-- =============================================================================
+-- 8. claim_reminders — p_kind is 'reminder' or 'rebook'
+--
+-- Called right before a send. Sets the matching claimed_at on rows that are
+-- not yet sent and are unclaimed or were claimed more than 10 minutes ago,
+-- and returns the ids it claimed. Concurrent calls for the same row
+-- serialize on the row lock; the second re-checks the claim after the first
+-- commits and gets nothing. A claim left by a run that died expires after
+-- 10 minutes.
+-- =============================================================================
+
+create or replace function claim_reminders(p_kind text, p_booking_ids uuid[])
+returns uuid[]
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids uuid[];
+begin
+  if p_kind = 'reminder' then
+    with claimed as (
+      update bookings
+         set reminder_claimed_at = now()
+       where id = any(p_booking_ids)
+         and reminder_sent_at is null
+         and (reminder_claimed_at is null
+              or reminder_claimed_at < now() - interval '10 minutes')
+      returning id
+    )
+    select coalesce(array_agg(id), '{}') into v_ids from claimed;
+  elsif p_kind = 'rebook' then
+    with claimed as (
+      update bookings
+         set rebook_claimed_at = now()
+       where id = any(p_booking_ids)
+         and rebook_sent_at is null
+         and (rebook_claimed_at is null
+              or rebook_claimed_at < now() - interval '10 minutes')
+      returning id
+    )
+    select coalesce(array_agg(id), '{}') into v_ids from claimed;
+  else
+    raise exception 'invalid_kind' using errcode = '22023';
+  end if;
+
+  return v_ids;
+end;
+$$;
+
+revoke all on function claim_reminders(text, uuid[]) from public, anon, authenticated;
+grant execute on function claim_reminders(text, uuid[]) to service_role;

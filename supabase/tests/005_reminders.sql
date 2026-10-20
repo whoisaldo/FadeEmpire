@@ -413,20 +413,89 @@ select is(
   1, 'exactly one mark_reminder_sent overload'
 );
 
+-- ---------- claim_reminders: the 10-minute claim window ----------
+select has_column('public', 'bookings', 'reminder_claimed_at', 'bookings.reminder_claimed_at exists');
+select has_column('public', 'bookings', 'rebook_claimed_at',   'bookings.rebook_claimed_at exists');
+
+select tap_book('5554442001', 'Claim One', now() + interval '24 hours 55 minutes');
+select tap_book('5554442001', 'Claim Two', now() + interval '24 hours 55 minutes', p_barber => 'larry');
+
+select is(
+  (select array_agg(p ->> 'id' order by p ->> 'id')
+     from reminders_due() r, jsonb_array_elements(r.people) p where r.phone = '5554442001'),
+  (select array_agg(id::text order by id::text) from bookings where customer_phone = '5554442001'),
+  'each person in a reminder row carries its booking id'
+);
+
+select is(
+  array_length(claim_reminders('reminder', tap_reminder_ids('5554442001')), 1),
+  2, 'a first claim gets both rows'
+);
+select is(
+  claim_reminders('reminder', tap_reminder_ids('5554442001')),
+  '{}'::uuid[], 'a second claim gets nothing'
+);
+select isnt(tap_reminder_ids('5554442001'), null, 'a claimed row is still due until it is marked');
+select is(
+  array_length(claim_reminders('rebook', tap_reminder_ids('5554442001')), 1),
+  2, 'a reminder claim does not block a rebook claim'
+);
+
+update bookings set reminder_claimed_at = now() - interval '10 minutes'
+ where customer_phone = '5554442001';
+select is(
+  claim_reminders('reminder', tap_reminder_ids('5554442001')),
+  '{}'::uuid[], 'a claim exactly 10 minutes old still holds'
+);
+
+update bookings set reminder_claimed_at = now() - interval '10 minutes 1 second'
+ where customer_phone = '5554442001';
+select is(
+  array_length(claim_reminders('reminder', tap_reminder_ids('5554442001')), 1),
+  2, 'a claim older than 10 minutes can be taken again'
+);
+
+update bookings set reminder_claimed_at = now() - interval '11 minutes'
+ where customer_phone = '5554442001' and customer_name = 'Claim Two';
+select is(
+  claim_reminders('reminder', tap_reminder_ids('5554442001')),
+  (select array_agg(id) from bookings where customer_phone = '5554442001' and customer_name = 'Claim Two'),
+  'only the expired row of a group is claimed'
+);
+
+select mark_reminder_sent(tap_reminder_ids('5554442001'), 'reminder');
+update bookings set reminder_claimed_at = null where customer_phone = '5554442001';
+select is(
+  claim_reminders('reminder', (select array_agg(id) from bookings where customer_phone = '5554442001')),
+  '{}'::uuid[], 'a sent row cannot be claimed'
+);
+select is(
+  claim_reminders('reminder', array[gen_random_uuid()]),
+  '{}'::uuid[], 'unknown ids claim nothing'
+);
+select throws_ok(
+  $$ select claim_reminders('other', array[gen_random_uuid()]) $$,
+  '22023', 'invalid_kind',
+  'claim_reminders rejects an unknown kind'
+);
+
 -- ---------- Ownership and grants ----------
 select is(
   (select bool_and(prosecdef) from pg_proc
     where pronamespace = 'public'::regnamespace
-      and proname in ('reminders_due', 'rebook_due', 'mark_reminder_sent')),
-  true, 'the three reminder functions are security definer'
+      and proname in ('reminders_due', 'rebook_due', 'mark_reminder_sent', 'claim_reminders')),
+  true, 'the four reminder functions are security definer'
 );
 select is(
   (select count(distinct proowner)::int from pg_proc
     where pronamespace = 'public'::regnamespace
-      and proname in ('reminders_due', 'rebook_due', 'mark_reminder_sent', 'confirm_booking')),
+      and proname in ('reminders_due', 'rebook_due', 'mark_reminder_sent', 'claim_reminders', 'confirm_booking')),
   1, 'the reminder functions have the same owner as confirm_booking'
 );
 
+select is(has_function_privilege('anon', 'claim_reminders(text, uuid[])', 'execute'), false, 'anon has no execute on claim_reminders');
+select is(has_function_privilege('authenticated', 'claim_reminders(text, uuid[])', 'execute'), false, 'authenticated has no execute on claim_reminders');
+select is(has_function_privilege('service_role', 'claim_reminders(text, uuid[])', 'execute'), true, 'service_role can execute claim_reminders');
 select is(has_function_privilege('anon', 'reminders_due()', 'execute'), false, 'anon has no execute on reminders_due');
 select is(has_function_privilege('anon', 'rebook_due()', 'execute'), false, 'anon has no execute on rebook_due');
 select is(has_function_privilege('anon', 'mark_reminder_sent(uuid[], text, text)', 'execute'), false, 'anon has no execute on mark_reminder_sent');
@@ -441,17 +510,20 @@ set local role anon;
 select throws_ok($$ select * from reminders_due() $$, '42501', null, 'anon cannot call reminders_due');
 select throws_ok($$ select * from rebook_due() $$, '42501', null, 'anon cannot call rebook_due');
 select throws_ok($$ select mark_reminder_sent(array[gen_random_uuid()], 'reminder') $$, '42501', null, 'anon cannot call mark_reminder_sent');
+select throws_ok($$ select claim_reminders('reminder', array[gen_random_uuid()]) $$, '42501', null, 'anon cannot call claim_reminders');
 reset role;
 
 set local role authenticated;
 select throws_ok($$ select * from reminders_due() $$, '42501', null, 'authenticated cannot call reminders_due');
 select throws_ok($$ select * from rebook_due() $$, '42501', null, 'authenticated cannot call rebook_due');
 select throws_ok($$ select mark_reminder_sent(array[gen_random_uuid()], 'reminder') $$, '42501', null, 'authenticated cannot call mark_reminder_sent');
+select throws_ok($$ select claim_reminders('reminder', array[gen_random_uuid()]) $$, '42501', null, 'authenticated cannot call claim_reminders');
 reset role;
 
 set local role service_role;
 select lives_ok($$ select * from reminders_due() $$, 'service_role can call reminders_due');
 select lives_ok($$ select * from rebook_due() $$, 'service_role can call rebook_due');
+select lives_ok($$ select claim_reminders('reminder', array[gen_random_uuid()]) $$, 'service_role can call claim_reminders');
 reset role;
 
 -- The booking RPCs stay open to anon with the new parameters.

@@ -1,4 +1,5 @@
-// send-reminders logic: reads the due rows from Postgres, texts each one
+// send-reminders logic: reads the due rows from Postgres, claims each one
+// (claim_reminders) so an overlapping run cannot send it too, texts it
 // through Twilio, and marks a row sent only after Twilio returns 2xx or
 // rejects the number for good (PERMANENT_ERRORS). Without Twilio credentials
 // it runs dry: logs each message, marks nothing. During quiet hours it does
@@ -24,7 +25,7 @@ export type ReminderRow = {
   phone: string;
   appointment_date: string; // 'YYYY-MM-DD', shop-local
   booking_ids: string[];
-  people: { name: string; time: string; barber: string }[]; // time 'HH:MM', shop-local
+  people: { id: string; name: string; time: string; barber: string }[]; // time 'HH:MM', shop-local
 };
 
 export type RebookRow = {
@@ -35,7 +36,8 @@ export type RebookRow = {
 };
 
 // failed: retried next run. rejected: marked with the error, never retried.
-type Counts = { due: number; sent: number; failed: number; rejected: number };
+// skipped: claimed by another run, which sends it.
+type Counts = { due: number; sent: number; failed: number; rejected: number; skipped: number };
 export type Summary = { dry_run: boolean; reminders: Counts; rebooks: Counts };
 
 const DEFAULT_SITE_URL = 'https://chicopeefadeempire.com';
@@ -192,32 +194,43 @@ function permanentError(status: number, body: string): string | null {
   return `${err.code}: ${err.message ?? ''}`;
 }
 
-async function deliver(
-  env: Env,
-  kind: 'reminder' | 'rebook',
-  messages: { phone: string; ids: string[]; body: string }[],
-): Promise<Counts> {
-  const counts: Counts = { due: messages.length, sent: 0, failed: 0, rejected: 0 };
+// body(ids) builds the text for the booking ids this run claimed.
+type Message = { phone: string; ids: string[]; body: (ids: string[]) => string };
+
+async function deliver(env: Env, kind: 'reminder' | 'rebook', messages: Message[]): Promise<Counts> {
+  const counts: Counts = { due: messages.length, sent: 0, failed: 0, rejected: 0, skipped: 0 };
   for (const m of messages) {
     const to = toE164(m.phone);
-    const mark = async (error?: string) => {
+    if (!env.twilio) {
+      console.log(`[dry-run] ${kind} to ${maskPhone(to)}: ${m.body(m.ids)}`);
+      continue;
+    }
+    let ids: string[];
+    try {
+      ids = await rpc<string[]>(env, 'claim_reminders', { p_kind: kind, p_booking_ids: m.ids });
+    } catch (err) {
+      counts.failed++;
+      console.error(`${kind} to ${maskPhone(to)} not claimed: ${err}`);
+      continue;
+    }
+    if (ids.length === 0) {
+      counts.skipped++;
+      continue;
+    }
+    const mark = async (outcome: string, error?: string) => {
       try {
         await rpc<number>(env, 'mark_reminder_sent', {
-          p_booking_ids: m.ids,
+          p_booking_ids: ids,
           p_kind: kind,
           ...(error ? { p_error: error } : {}),
         });
       } catch (err) {
-        console.error(`${kind} to ${maskPhone(to)} not marked: ${err}`);
+        console.error(`${kind} to ${maskPhone(to)} ${outcome} but not marked, booking ids ${ids.join(', ')}: ${err}`);
       }
     };
-    if (!env.twilio) {
-      console.log(`[dry-run] ${kind} to ${maskPhone(to)}: ${m.body}`);
-      continue;
-    }
     let res: Response;
     try {
-      res = await sendSms(env.twilio, to, m.body);
+      res = await sendSms(env.twilio, to, m.body(ids));
     } catch (err) {
       counts.failed++;
       console.error(`${kind} to ${maskPhone(to)} failed: ${err}`);
@@ -229,7 +242,7 @@ async function deliver(
       if (error) {
         counts.rejected++;
         console.error(`${kind} to ${maskPhone(to)} rejected, not retrying: ${error}`);
-        await mark(error);
+        await mark('rejected', error);
       } else {
         counts.failed++;
         console.error(`${kind} to ${maskPhone(to)} failed: Twilio ${res.status} ${body}`);
@@ -238,7 +251,7 @@ async function deliver(
     }
     await res.body?.cancel();
     counts.sent++;
-    await mark();
+    await mark('sent');
   }
   return counts;
 }
@@ -251,12 +264,12 @@ export async function run(env: Env): Promise<Summary> {
     reminders: await deliver(env, 'reminder', reminders.map((r) => ({
       phone: r.phone,
       ids: r.booking_ids,
-      body: reminderText(r, env.siteUrl),
+      body: (ids) => reminderText({ ...r, people: r.people.filter((p) => ids.includes(p.id)) }, env.siteUrl),
     }))),
     rebooks: await deliver(env, 'rebook', rebooks.map((r) => ({
       phone: r.phone,
       ids: r.booking_ids,
-      body: rebookText(r, env.siteUrl),
+      body: () => rebookText(r, env.siteUrl),
     }))),
   };
 }

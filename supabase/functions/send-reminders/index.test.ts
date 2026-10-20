@@ -1,6 +1,6 @@
 // deno test supabase/functions/send-reminders/
-// fetch is stubbed: a fake PostgREST holds the due rows, a fake Twilio
-// answers with a configurable status and body, or throws.
+// fetch is stubbed: a fake PostgREST holds the due rows and the claims, a
+// fake Twilio answers with a configurable status and body, or throws.
 
 import { assertEquals } from 'jsr:@std/assert@1';
 import {
@@ -41,7 +41,7 @@ const reminderRow = (): ReminderRow => ({
   phone: '4135551234',
   appointment_date: '2026-10-21',
   booking_ids: ['b1'],
-  people: [{ name: 'Ali', time: '10:00', barber: 'Hassan' }],
+  people: [{ id: 'b1', name: 'Ali', time: '10:00', barber: 'Hassan' }],
 });
 const rebookRow = (): RebookRow => ({
   phone: '4135559876',
@@ -56,13 +56,17 @@ type Fake = {
   twilioStatus: number;
   twilioBody?: unknown;
   twilioThrows?: boolean;
+  twilioDelayMs?: number;
+  markStatus?: number;
   sms: URLSearchParams[];
   rpcs: string[];
+  claims: Set<string>; // 'kind:id' held by some run
   marks: { p_booking_ids: string[]; p_kind: string; p_error?: string }[];
 };
 
 // Installs the stub and returns its state; marking a row removes it from the
-// due lists, like the real sent_at columns do.
+// due lists, like the real sent_at columns do. claim_reminders returns the ids
+// not already in `claims` and adds them, like the real claim column.
 function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
   const state: Fake = {
     reminders: [],
@@ -70,6 +74,7 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     twilioStatus: 201,
     sms: [],
     rpcs: [],
+    claims: new Set(),
     marks: [],
     ...fake,
   };
@@ -78,6 +83,7 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     const url = String(input);
     if (url.startsWith('https://api.twilio.com/')) {
       state.sms.push(new URLSearchParams(String(init?.body)));
+      if (state.twilioDelayMs) await new Promise((r) => setTimeout(r, state.twilioDelayMs));
       if (state.twilioThrows) throw new TypeError('network down');
       const body = state.twilioBody ?? { status: state.twilioStatus };
       return new Response(JSON.stringify(body), { status: state.twilioStatus });
@@ -85,7 +91,14 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     if (url.startsWith(`${SUPABASE_URL}/rest/v1/rpc/`)) state.rpcs.push(url.split('/').pop()!);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/reminders_due`) return Response.json(state.reminders);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/rebook_due`) return Response.json(state.rebooks);
+    if (url === `${SUPABASE_URL}/rest/v1/rpc/claim_reminders`) {
+      const args = JSON.parse(String(init?.body));
+      const free = (args.p_booking_ids as string[]).filter((id) => !state.claims.has(`${args.p_kind}:${id}`));
+      free.forEach((id) => state.claims.add(`${args.p_kind}:${id}`));
+      return Response.json(free);
+    }
     if (url === `${SUPABASE_URL}/rest/v1/rpc/mark_reminder_sent`) {
+      if (state.markStatus) return new Response('mark failed', { status: state.markStatus });
       const args = JSON.parse(String(init?.body));
       state.marks.push(args);
       const sent = (ids: string[]) => ids.some((id) => args.p_booking_ids.includes(id));
@@ -118,8 +131,8 @@ Deno.test('reminder text, one person', () => {
 Deno.test('reminder text, group with one barber', () => {
   const row = reminderRow();
   row.people = [
-    { name: 'Ali', time: '10:00', barber: 'Hassan' },
-    { name: 'Sam', time: '10:45', barber: 'Hassan' },
+    { id: 'b1', name: 'Ali', time: '10:00', barber: 'Hassan' },
+    { id: 'b2', name: 'Sam', time: '10:45', barber: 'Hassan' },
   ];
   assertEquals(
     reminderText(row, SITE),
@@ -131,8 +144,8 @@ Deno.test('reminder text, group with one barber', () => {
 Deno.test('reminder text, group across both barbers names each', () => {
   const row = reminderRow();
   row.people = [
-    { name: 'Ali', time: '13:00', barber: 'Hassan' },
-    { name: 'Sam', time: '13:00', barber: 'Larry' },
+    { id: 'b1', name: 'Ali', time: '13:00', barber: 'Hassan' },
+    { id: 'b2', name: 'Sam', time: '13:00', barber: 'Larry' },
   ];
   assertEquals(
     reminderText(row, SITE),
@@ -183,11 +196,12 @@ Deno.test('dry run sends nothing and marks nothing', async () => {
     const summary = await run(dryEnv);
     assertEquals(summary, {
       dry_run: true,
-      reminders: { due: 1, sent: 0, failed: 0, rejected: 0 },
-      rebooks: { due: 1, sent: 0, failed: 0, rejected: 0 },
+      reminders: { due: 1, sent: 0, failed: 0, rejected: 0, skipped: 0 },
+      rebooks: { due: 1, sent: 0, failed: 0, rejected: 0, skipped: 0 },
     });
     assertEquals(fake.sms.length, 0);
     assertEquals(fake.marks.length, 0);
+    assertEquals(fake.rpcs.filter((r) => r === 'claim_reminders').length, 0);
     assertEquals(lines.length, 2);
     assertEquals(lines[0], `[dry-run] reminder to +1******1234: ${reminderText(reminderRow(), SITE)}`);
   } finally {
@@ -199,14 +213,14 @@ Deno.test('dry run sends nothing and marks nothing', async () => {
 Deno.test('Twilio 2xx sends E.164 and marks the rows sent', async () => {
   const group = reminderRow();
   group.booking_ids = ['b1', 'b2'];
-  group.people.push({ name: 'Sam', time: '10:45', barber: 'Hassan' });
+  group.people.push({ id: 'b2', name: 'Sam', time: '10:45', barber: 'Hassan' });
   const fake = stubFetch({ reminders: [group], rebooks: [rebookRow()] });
   try {
     const summary = await run(liveEnv);
     assertEquals(summary, {
       dry_run: false,
-      reminders: { due: 1, sent: 1, failed: 0, rejected: 0 },
-      rebooks: { due: 1, sent: 1, failed: 0, rejected: 0 },
+      reminders: { due: 1, sent: 1, failed: 0, rejected: 0, skipped: 0 },
+      rebooks: { due: 1, sent: 1, failed: 0, rejected: 0, skipped: 0 },
     });
     assertEquals(fake.sms.map((f) => f.get('To')), ['+14135551234', '+14135559876']);
     assertEquals(fake.sms[0].get('From'), '+14135550000');
@@ -237,8 +251,8 @@ Deno.test('a permanent Twilio 4xx marks the row and records the code', async () 
     const restoreConsole = quiet();
     try {
       const summary = await run(liveEnv);
-      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 0, rejected: 1 });
-      assertEquals(summary.rebooks, { due: 1, sent: 0, failed: 0, rejected: 1 });
+      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 0, rejected: 1, skipped: 0 });
+      assertEquals(summary.rebooks, { due: 1, sent: 0, failed: 0, rejected: 1, skipped: 0 });
       assertEquals(fake.marks, [
         { p_booking_ids: ['b1'], p_kind: 'reminder', p_error: `${code}: Rejected` },
         { p_booking_ids: ['b9'], p_kind: 'rebook', p_error: `${code}: Rejected` },
@@ -267,7 +281,7 @@ Deno.test('transient failures leave the row unmarked', async () => {
     const restoreConsole = quiet();
     try {
       const summary = await run(liveEnv);
-      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 1, rejected: 0 }, JSON.stringify(c));
+      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 1, rejected: 0, skipped: 0 }, JSON.stringify(c));
       assertEquals(fake.sms.length, 1);
       assertEquals(fake.marks.length, 0);
       assertEquals(fake.reminders.length, 1);
@@ -289,7 +303,7 @@ Deno.test('a second run after a permanent error sends nothing for that row', asy
     await run(liveEnv);
     assertEquals(fake.sms.length, 1);
     const second = await run(liveEnv);
-    assertEquals(second.reminders, { due: 0, sent: 0, failed: 0, rejected: 0 });
+    assertEquals(second.reminders, { due: 0, sent: 0, failed: 0, rejected: 0, skipped: 0 });
     assertEquals(fake.sms.length, 1);
     assertEquals(fake.marks.length, 1);
   } finally {
@@ -306,8 +320,8 @@ Deno.test('second run is a no-op', async () => {
     const second = await run(liveEnv);
     assertEquals(second, {
       dry_run: false,
-      reminders: { due: 0, sent: 0, failed: 0, rejected: 0 },
-      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0 },
+      reminders: { due: 0, sent: 0, failed: 0, rejected: 0, skipped: 0 },
+      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0, skipped: 0 },
     });
     assertEquals(fake.sms.length, 2);
     assertEquals(fake.marks.length, 2);
@@ -356,8 +370,8 @@ Deno.test('handler returns the JSON summary', async () => {
     assertEquals(res.status, 200);
     assertEquals(await res.json(), {
       dry_run: true,
-      reminders: { due: 1, sent: 0, failed: 0, rejected: 0 },
-      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0 },
+      reminders: { due: 1, sent: 0, failed: 0, rejected: 0, skipped: 0 },
+      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0, skipped: 0 },
     });
   } finally {
     restoreConsole();
@@ -428,7 +442,7 @@ Deno.test('quiet hours: both sides of 09:00 and 20:00 in America/New_York', asyn
     assertEquals(r.status, 200, label);
     if (sends) {
       assertEquals([r.sms, r.marks], [1, 1], label);
-      assertEquals(r.body.reminders, { due: 1, sent: 1, failed: 0, rejected: 0 }, label);
+      assertEquals(r.body.reminders, { due: 1, sent: 1, failed: 0, rejected: 0, skipped: 0 }, label);
     } else {
       assertEquals([r.sms, r.marks, r.rpcs.length], [0, 0, 0], label);
       assertEquals(r.body, {
@@ -459,4 +473,73 @@ Deno.test('QUIET_START_HOUR and QUIET_END_HOUR override the bounds', async () =>
 Deno.test('an invalid quiet hour falls back to the default', () => {
   const env = envFrom({ QUIET_START_HOUR: '24', QUIET_END_HOUR: 'nine' });
   assertEquals([env.quietStartHour, env.quietEndHour], [20, 9]);
+});
+
+// ---------- Claims ----------
+
+Deno.test('two concurrent runs send each row once; the second claims nothing', async () => {
+  const fake = stubFetch({ reminders: [reminderRow()], rebooks: [rebookRow()], twilioDelayMs: 20 });
+  try {
+    const [a, b] = await Promise.all([run(liveEnv), run(liveEnv)]);
+    assertEquals(fake.sms.map((f) => f.get('To')).sort(), ['+14135551234', '+14135559876']);
+    assertEquals(fake.marks.length, 2);
+    for (const kind of ['reminders', 'rebooks'] as const) {
+      assertEquals([a[kind].due, b[kind].due], [1, 1], kind);
+      assertEquals(a[kind].sent + b[kind].sent, 1, kind);
+      assertEquals(a[kind].skipped + b[kind].skipped, 1, kind);
+    }
+  } finally {
+    fake.restore();
+  }
+});
+
+Deno.test('rows claimed by another run are skipped: no send, no mark', async () => {
+  const fake = stubFetch({
+    reminders: [reminderRow()],
+    rebooks: [rebookRow()],
+    claims: new Set(['reminder:b1', 'rebook:b9']),
+  });
+  try {
+    const summary = await run(liveEnv);
+    assertEquals(summary.reminders, { due: 1, sent: 0, failed: 0, rejected: 0, skipped: 1 });
+    assertEquals(summary.rebooks, { due: 1, sent: 0, failed: 0, rejected: 0, skipped: 1 });
+    assertEquals(fake.sms.length, 0);
+    assertEquals(fake.marks.length, 0);
+  } finally {
+    fake.restore();
+  }
+});
+
+Deno.test('a group with one person claimed elsewhere texts and marks only the rest', async () => {
+  const group = reminderRow();
+  group.booking_ids = ['b1', 'b2'];
+  group.people.push({ id: 'b2', name: 'Sam', time: '10:45', barber: 'Hassan' });
+  const fake = stubFetch({ reminders: [group], claims: new Set(['reminder:b2']) });
+  try {
+    const summary = await run(liveEnv);
+    assertEquals(summary.reminders.sent, 1);
+    assertEquals(fake.sms[0].get('Body'), reminderText(reminderRow(), SITE));
+    assertEquals(fake.marks, [{ p_booking_ids: ['b1'], p_kind: 'reminder' }]);
+  } finally {
+    fake.restore();
+  }
+});
+
+Deno.test('a 2xx followed by a failed mark is logged at error level with the booking ids', async () => {
+  const group = reminderRow();
+  group.booking_ids = ['b1', 'b2'];
+  group.people.push({ id: 'b2', name: 'Sam', time: '10:45', barber: 'Hassan' });
+  const fake = stubFetch({ reminders: [group], markStatus: 500 });
+  const errors: string[] = [];
+  const error = console.error;
+  console.error = (line: string) => errors.push(line);
+  try {
+    const summary = await run(liveEnv);
+    assertEquals(summary.reminders.sent, 1);
+    assertEquals(errors.length, 1);
+    assertEquals(errors[0].startsWith('reminder to +1******1234 sent but not marked, booking ids b1, b2: '), true);
+  } finally {
+    console.error = error;
+    fake.restore();
+  }
 });
