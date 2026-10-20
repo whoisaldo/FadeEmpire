@@ -1,12 +1,12 @@
-/* layout.css — containers, sections, hairline rules, the editorial frame */
+/* layout.css — containers, section frame, hairline rules */
 
 .container        { width: var(--container);        margin-inline: auto; padding-inline: 1rem; }
 .container-wide   { width: var(--container-wide);   margin-inline: auto; padding-inline: 1rem; }
 .container-tight  { width: var(--container-tight);  margin-inline: auto; padding-inline: 1rem; }
 
 /* --- Section frame ---
-   Every section gets a hairline top + bottom rule, generous vertical padding,
-   and an eyebrow / display / dek head pattern.
+   A hairline on top, generous vertical padding, and the eyebrow / display /
+   dek head pattern.
 */
 .section {
   position: relative;
@@ -18,30 +18,37 @@
   background: var(--ink-2);
 }
 
-.section--tight {
-  padding: var(--section-pad-y-sm) 0;
-}
-
 .section__head {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: clamp(2rem, 4vw, 4rem);
-  max-width: 720px;
+  gap: 0.85rem;
+  margin-bottom: clamp(2rem, 4vw, 3.5rem);
+  max-width: 760px;
 }
 
 .section__head .t-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   color: var(--gold);
 }
 
-.section__dek {
-  max-width: 520px;
-  color: var(--bone-soft);
+/* A short brass tick before every section eyebrow */
+.section__head .t-eyebrow::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--gold);
+  opacity: 0.8;
 }
 
-/* --- Hairline rules ---
-   Decorative dividers used between rows. Scale-X animation handled in motion.css.
-*/
+.section__dek {
+  max-width: 560px;
+  color: var(--bone-soft);
+  font-size: clamp(1.0625rem, 1.4vw, 1.25rem);
+}
+
+/* --- Hairline rules --- */
 .rule {
   height: 1px;
   width: 100%;
@@ -50,38 +57,24 @@
   transform-origin: left center;
 }
 
-.rule--gold        { background: var(--rule-gold); height: 1px; }
-.rule--strong      { background: var(--rule-strong); }
-.rule--vertical    { width: 1px; height: 100%; background: var(--rule); }
-.rule--short       { width: 56px; height: 1px; background: var(--gold); }
+.rule--gold   { background: var(--rule-gold); }
+.rule--strong { background: var(--rule-strong); }
 
-/* --- Folio mark — small "Chapter II · The Menu" tag in corners --- */
-.folio {
-  position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
-  z-index: 3;
-  color: var(--bone-mute);
+/* --- Accessible skip link: only visible when focused --- */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: 'General Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  border-radius: var(--r-sm);
 }
-
-/* --- Note section --- */
-.note {
-  padding: var(--section-pad-y-sm) 0;
-  text-align: left;
-}
-
-.note .t-pullquote {
-  margin: 1.5rem 0;
-  max-width: 32ch;
-}
-
-.note__sign {
-  display: block;
-  margin-top: 1rem;
-  color: var(--bone-soft);
-}
-
-.note .rule {
-  margin-top: clamp(2rem, 4vw, 3rem);
-  max-width: 240px;
+.skip-link:focus-visible {
+  top: 0.75rem;
 }

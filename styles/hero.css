@@ -1,11 +1,11 @@
-/* hero.css — cover/hero section */
+/* hero.css — full-bleed cover */
 
 .hero {
   position: relative;
-  min-height: clamp(620px, 92vh, 880px);
+  min-height: clamp(640px, 92vh, 960px);
   display: flex;
   align-items: flex-end;
-  padding: clamp(6rem, 12vh, 9rem) 0 clamp(3rem, 6vh, 5rem);
+  padding: clamp(6rem, 12vh, 9rem) 0 clamp(2.5rem, 6vh, 4.5rem);
   overflow: hidden;
   isolation: isolate;
 }
@@ -17,12 +17,26 @@
   overflow: hidden;
 }
 
+/* <picture> is display:block, height:auto in tokens.css; it has to fill the
+   frame too, or the img's height:100% resolves to its natural height and
+   object-position never applies. Same rule in every photo frame. */
+.hero__bg picture { height: 100%; }
+
 .hero__bg img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 25%;
-  filter: contrast(1.05) saturate(0.85) brightness(0.7);
+  object-position: 20% 12%;   /* phones: slides his head right, out from under the title */
+  filter: saturate(0.92) contrast(1.04);
+  animation: heroZoom 9s var(--ease-out) forwards;
+}
+@media (min-width: 768px) {
+  .hero__bg img { object-position: 55% 8%; }
+}
+
+@keyframes heroZoom {
+  from { transform: scale(1.06); }
+  to   { transform: scale(1); }
 }
 
 .hero__scrim {
@@ -30,10 +44,24 @@
   inset: 0;
   background:
     linear-gradient(180deg,
-      rgba(10, 9, 8, 0.55) 0%,
-      rgba(10, 9, 8, 0.30) 30%,
-      rgba(10, 9, 8, 0.70) 70%,
+      rgba(10, 9, 8, 0.5) 0%,
+      rgba(10, 9, 8, 0.18) 26%,
+      rgba(10, 9, 8, 0.68) 60%,
       var(--ink) 100%);
+}
+/* Desktop: the text column sits on a bright wall, so the left 32% holds a
+   heavy shade (the gold eyebrow needs it for 4.5:1) that is gone by 56%,
+   leaving the right half of the photo as shot. */
+@media (min-width: 900px) {
+  .hero__scrim {
+    background:
+      linear-gradient(90deg, rgba(10, 9, 8, 0.78) 0%, rgba(10, 9, 8, 0.66) 32%, rgba(10, 9, 8, 0.2) 46%, rgba(10, 9, 8, 0) 56%),
+      linear-gradient(180deg,
+        rgba(10, 9, 8, 0.35) 0%,
+        rgba(10, 9, 8, 0.05) 30%,
+        rgba(10, 9, 8, 0.6) 68%,
+        var(--ink) 100%);
+  }
 }
 
 .hero__inner {
@@ -41,8 +69,11 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  width: var(--container);
 }
+
+/* Eyebrow, title, dek and CTAs. Phones lay it out as a box over the photo;
+   everywhere else its children sit in .hero__inner as before. */
+.hero__lead { display: contents; }
 
 .hero__eyebrow {
   display: flex;
@@ -61,7 +92,7 @@
 }
 
 .hero__title {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   font-size: clamp(4rem, 14vw, 11rem);
   line-height: 0.86;
   letter-spacing: -0.035em;
@@ -74,9 +105,8 @@
 
 .hero__title-line--accent {
   position: relative;
-  color: var(--bone);
-  padding-bottom: 0.05em;
   display: inline-block;
+  padding-bottom: 0.05em;
 }
 
 .hero__title-rule {
@@ -88,7 +118,7 @@
   background: var(--gold);
   transform-origin: left;
   transform: scaleX(0);
-  animation: heroRule 1.4s var(--ease-curtain) 0.6s forwards;
+  animation: heroRule 1.4s var(--ease-curtain) 0.7s forwards;
 }
 
 @keyframes heroRule {
@@ -96,88 +126,125 @@
 }
 
 .hero__dek {
-  max-width: 36ch;
+  max-width: 38ch;
   font-size: clamp(1.125rem, 1.6vw, 1.375rem);
   color: var(--bone);
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .hero__ctas {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
 }
 
-.hero__ctas .btn__call-num,
 .hero__ctas .t-mono {
   display: inline-block;
   margin-left: 0.25rem;
 }
 
-/* Walk-ins line — tucked under the CTAs */
-.hero__walkins {
+/* Live status strip: open/closed + the next open slot */
+.hero__status {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.45rem 1.1rem;
-  margin: -0.5rem 0 0;
+  align-items: center;
+  gap: 0.75rem 2rem;
+  align-self: flex-start;
+  margin-top: 0.75rem;
+  padding: 0.8rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--gold);
+  border-radius: var(--r-sm);
+  background: rgba(10, 9, 8, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
-.hero__walkins .t-meta { color: var(--bone-soft); }
-
-/* Next available banner */
+.hero__status-now,
 .hero__next {
   display: inline-flex;
   align-items: center;
-  gap: 1rem;
-  align-self: flex-start;
-  padding: 0.7rem 1rem;
-  margin-top: 1rem;
-  background: rgba(200, 162, 74, 0.08);
-  border: 1px solid var(--rule-gold);
-  border-radius: var(--r-sm);
-  color: var(--bone);
+  gap: 0.75rem;
+  margin: 0;
 }
 
+.hero__status-now .t-eyebrow { color: var(--bone); }
+.hero__status-now .t-meta    { color: var(--bone-mute); }
+
+.hero__next .t-mono { color: var(--bone); font-size: 0.875rem; }
+
 .hero__next-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--gold);
   font-weight: 600;
   letter-spacing: 0.12em;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-gold);
+  text-underline-offset: 4px;
 }
+.hero__next-cta:hover { color: var(--gold-pale); text-decoration-color: var(--gold-pale); }
 
-/* Meta stats strip */
-.hero__meta {
+/* Facts row: the honest version of a stats strip */
+.hero__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(1.5rem, 4vw, 3.5rem);
-  margin: 2.25rem 0 0;
-  padding: 1.25rem 0 0;
+  gap: 0.5rem 0;
+  margin: 1.5rem 0 0;
+  padding: 1.1rem 0 0;
   border-top: 1px solid var(--rule);
   list-style: none;
+  color: var(--bone-soft);
 }
 
-.hero__meta li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+.hero__facts li {
+  display: inline-flex;
+  align-items: center;
 }
 
-.hero__meta-num {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 0.04em;
+.hero__facts li + li::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  margin: 0 1rem;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: 0.8;
 }
 
-/* Folio in corner */
-.hero__folio {
-  position: absolute;
-  bottom: 1.5rem;
-  right: 1.25rem;
-  color: var(--bone-mute);
-  z-index: 1;
+/* --- Page-load sequence: eyebrow, title lines, dek, ctas, status, facts --- */
+.hero__eyebrow,
+.hero__title-line,
+.hero__dek,
+.hero__ctas,
+.hero__status,
+.hero__facts {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  animation: heroIn 1s var(--ease-curtain) forwards;
 }
-@media (max-width: 767px) {
-  .hero__folio { display: none; }
+.hero__eyebrow                 { animation-delay: 0.05s; }
+.hero__title-line:nth-child(1) { animation-delay: 0.15s; }
+.hero__title-line:nth-child(2) { animation-delay: 0.27s; }
+.hero__dek                     { animation-delay: 0.45s; }
+.hero__ctas                    { animation-delay: 0.55s; }
+.hero__status                  { animation-delay: 0.65s; }
+.hero__facts                   { animation-delay: 0.75s; }
+
+@keyframes heroIn {
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* --- Wide and short screens (laptops): keep the status strip and the
+   facts row above the fold (1366x768 is the tightest common one). The title
+   sizes from the height as well as the width, and the stack tightens. --- */
+@media (min-width: 900px) and (max-height: 880px) {
+  .hero { padding-top: 4rem; padding-bottom: 2rem; }
+  .hero__inner { gap: 0.9rem; }
+  .hero__title { font-size: clamp(4rem, min(14vw, 18vh), 11rem); }
+  .hero__ctas,
+  .hero__status { margin-top: 0.4rem; }
+  .hero__facts { margin-top: 0.75rem; padding-top: 0.9rem; }
 }

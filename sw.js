@@ -1,42 +1,41 @@
 // sw.js — Fade Empire service worker.
 //
 // Strategy:
-//   * `index.html`              → network-first (fall back to cache)
-//   * Same-origin JS/CSS        → network-first (so deploys propagate immediately)
-//   * Same-origin images / SVG  → cache-first (immutable in practice)
-//   * Supabase REST / RPC       → network-only (always-fresh availability)
-//   * Fonts CDN, esm.sh         → bypass — they manage their own caching
+//   * index.html              → network-first (fall back to cache)
+//   * Same-origin JS/CSS      → network-first (so deploys propagate immediately)
+//   * Same-origin images      → cache-first (the pipeline never rewrites a file in place)
+//   * Video                   → left to the browser (range requests need the real server)
+//   * Supabase REST / RPC     → network-only (always-fresh availability)
+//   * Fonts CDN               → bypass; they manage their own caching
 //
-// VERSION bump on every meaningful client release. New SW skips waiting and
-// claims existing clients, so a tab reload picks it up. Old caches get nuked
-// in the `activate` event.
+// Bump VERSION on every client release. The new worker skips waiting and
+// claims open tabs; scripts/main.js reloads a tab that was already controlled
+// by an older worker. Caches from any other version are deleted on activate.
 
-const VERSION = 'fe-11';
+const VERSION = 'fe-13';
 const STATIC_CACHE = `fe-static-${VERSION}`;
 const HTML_CACHE   = `fe-html-${VERSION}`;
-
-// Known-old version caches to nuke aggressively on activate. The generic
-// "delete everything not matching the current name" loop below covers these,
-// but listing them explicitly is belt-and-suspenders for devices that
-// somehow accumulate multiple stale generations.
-const KNOWN_OLD = [
-  'fe-static-fe-1', 'fe-html-fe-1',
-  'fe-static-fe-2', 'fe-html-fe-2',
-  'fe-static-fe-3', 'fe-html-fe-3',
-  'fe-static-fe-4', 'fe-html-fe-4',
-  'fe-static-fe-5', 'fe-html-fe-5',
-  'fe-static-fe-6', 'fe-html-fe-6',
-  'fe-static-fe-7', 'fe-html-fe-7',
-  'fe-static-fe-8', 'fe-html-fe-8',
-  'fe-static-fe-9', 'fe-html-fe-9',
-  'fe-static-fe-10', 'fe-html-fe-10',
-];
 
 const PRECACHE = [
   '/',
   '/index.html',
   '/404.html',
   '/manifest.webmanifest',
+  '/scripts/vendor/postgrest-js-1.16.3.mjs',
+  '/scripts/nav.js',
+  '/scripts/page.js',
+  '/scripts/booking-return.js',
+  '/scripts/booking-calendar.js',
+  '/assets/img/hassan-face-160.webp',
+  '/assets/img/hassan-face-160.jpg',
+  '/assets/img/larry-face-160.webp',
+  '/assets/img/larry-face-160.jpg',
+  '/assets/img/interior-480.webp',
+  '/assets/img/interior-480.jpg',
+  '/assets/brand/logo-full-240.png',
+  '/assets/brand/logo-full-480.png',
+  '/assets/img/shop-tour-540-poster.jpg',
+  '/assets/img/shop-tour-720-poster.jpg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -49,17 +48,11 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    Promise.all([
-      // Belt: aggressively delete known-old caches by name.
-      ...KNOWN_OLD.map((k) => caches.delete(k)),
-      // Suspenders: generic cleanup of anything not on the current generation.
-      caches.keys().then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== STATIC_CACHE && k !== HTML_CACHE)
-              .map((k) => caches.delete(k))
-        )
-      ),
-    ]).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== STATIC_CACHE && k !== HTML_CACHE).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -73,6 +66,10 @@ function isImageOrFont(req) {
   return ['image', 'font'].includes(req.destination);
 }
 
+function isVideo(req, url) {
+  return req.destination === 'video' || /\.(mp4|webm|mov)$/.test(url.pathname);
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -80,8 +77,7 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache Supabase or anything cross-origin from CDNs we don't manage.
   if (url.hostname.endsWith('supabase.co')) return;
-  if (url.hostname.includes('esm.sh') ||
-      url.hostname.includes('fonts.googleapis.com') ||
+  if (url.hostname.includes('fonts.googleapis.com') ||
       url.hostname.includes('fonts.gstatic.com') ||
       url.hostname.includes('fontshare.com')) {
     return;
@@ -103,6 +99,10 @@ self.addEventListener('fetch', (event) => {
 
   // Same-origin only beyond this point
   if (url.origin !== self.location.origin) return;
+
+  // Video plays through range requests; a cached full response would break
+  // seeking and iOS playback, so the browser talks to the server directly.
+  if (isVideo(req, url)) return;
 
   // Same-origin JS/CSS — network-first so deploys propagate immediately.
   // Falls back to cache only if offline.

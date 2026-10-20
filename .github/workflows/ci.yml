@@ -1,15 +1,18 @@
 # CI — runs on every push and pull request.
 #
-# Two independent jobs:
-#   client-tests  vitest: pure booking logic + the real booking-form markup
-#                 driven under jsdom with the RPC layer mocked (72+ tests).
-#   db-tests      boots a REAL Postgres (the same supabase/postgres image the
-#                 hosted project runs), applies ALL migrations 0001→0009 from
-#                 scratch, then runs the pgTAP suites in supabase/tests/:
-#                 schema + seeds, booking RPC (hours/races/pricing), group +
-#                 cancellation flow, and the anon security model.
+# Three independent jobs:
+#   client-tests    vitest: pure booking logic + the real booking-form markup
+#                   driven under jsdom with the RPC layer mocked.
+#   db-tests        boots a REAL Postgres (the same supabase/postgres image the
+#                   hosted project runs), applies every migration in
+#                   supabase/migrations from scratch, then runs the pgTAP suites
+#                   in supabase/tests/: schema + seeds, booking RPC
+#                   (hours/races/pricing), group + cancellation flow, the anon
+#                   security model, people tracking (0019), and the SMS
+#                   reminder queries (0020).
+#   function-tests  deno test for the send-reminders Edge Function (fetch stubbed).
 #
-# Suggested repo setting: make both jobs required checks on main
+# Suggested repo setting: make all three jobs required checks on main
 # (Settings → Branches → protection rule), so nothing broken can deploy —
 # GitHub Pages publishes whatever lands on main.
 
@@ -56,7 +59,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.0
 
       - name: Start local Postgres + apply all migrations from scratch
         run: supabase db start
@@ -64,5 +67,19 @@ jobs:
       - name: Lint database functions (plpgsql_check)
         run: supabase db lint --fail-on error
 
-      - name: Run pgTAP suites (schema, booking, cancellation, security)
+      - name: Run pgTAP suites (schema, booking, cancellation, security, people, reminders)
         run: supabase test db
+
+  function-tests:
+    name: Edge Function tests (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.7
+
+      - name: Run send-reminders tests
+        run: deno test --no-lock supabase/functions/send-reminders/

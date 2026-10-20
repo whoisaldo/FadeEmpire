@@ -2,7 +2,7 @@
 
 import {
   STORE_HOURS, BARBERS, DEFAULT_BARBER_SLUG, SHOP_TZ, SLOT_MINUTES,
-  SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS,
+  SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS, INCLUDED_ADDONS,
 } from './config.js';
 
 /** Strict ISO yyyy-mm-dd in local (shop) time for a given Date. */
@@ -31,6 +31,11 @@ export function minutesToLabel(mins) {
   return `${h12}:${mm} ${period}`;
 }
 
+/** "10 AM" / "5:30 PM": the label for hours listings, no ":00" on the hour. */
+export function minutesToShortLabel(mins) {
+  return minutesToLabel(mins).replace(':00 ', ' ');
+}
+
 /** Parse "HH:MM:SS" to minutes-since-midnight. */
 export function hmsToMinutes(hms) {
   const [h, m] = hms.split(':').map(Number);
@@ -50,6 +55,14 @@ export function fmtShopTime(d, opts) {
 export function weekdayFromIso(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** The calendar date `n` days after a 'YYYY-MM-DD' date. Calendar math, not
+ *  24-hour steps, so a DST change (a 23- or 25-hour day) never repeats or
+ *  skips a date. */
+export function addDaysIso(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
 /** Human label ("Friday, July 4") for a 'YYYY-MM-DD' calendar date, TZ-safe. */
@@ -75,6 +88,35 @@ export function shopWeekday(d = new Date()) {
     timeZone: SHOP_TZ, weekday: 'short',
   }).format(d);
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(wk);
+}
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Live shop status from STORE_HOURS, for the nav stamp, the hero line and the
+ * hours card. `state` is 'open' | 'soon' | 'closed'; `label` is the short
+ * word, `detail` says what happens next ("Closes 6 PM", "Opens Wed 10 AM").
+ * `closingSoonMin` is how many minutes before close counts as "soon".
+ */
+export function shopStatus({ weekday = shopWeekday(), nowMin = nowMinutesInShopTz(), closingSoonMin = 60 } = {}) {
+  const today = STORE_HOURS[weekday];
+  if (today && nowMin >= today.open && nowMin < today.close) {
+    const closes = `Closes ${minutesToShortLabel(today.close)}`;
+    return today.close - nowMin <= closingSoonMin
+      ? { state: 'soon', label: 'Closing soon', detail: closes }
+      : { state: 'open', label: 'Open now', detail: closes };
+  }
+  if (today && nowMin < today.open) {
+    return { state: 'closed', label: 'Closed', detail: `Opens today ${minutesToShortLabel(today.open)}` };
+  }
+  for (let i = 1; i <= 7; i++) {
+    const wk = (weekday + i) % 7;
+    const hours = STORE_HOURS[wk];
+    if (!hours) continue;
+    const when = i === 1 ? 'tomorrow' : WEEKDAY_SHORT[wk];
+    return { state: 'closed', label: 'Closed', detail: `Opens ${when} ${minutesToShortLabel(hours.open)}` };
+  }
+  return { state: 'closed', label: 'Closed', detail: '' };
 }
 
 /**
@@ -117,11 +159,34 @@ export function serviceSlotCount(serviceSlug) {
   return Math.max(1, Math.ceil(serviceDurationMin(serviceSlug) / SLOT_MINUTES));
 }
 
-/** Compute total cents from service + addon slugs. */
+/** Add-on slugs a service already includes (the VIP's extras). */
+export function includedAddons(serviceSlug) {
+  return INCLUDED_ADDONS[serviceSlug] || [];
+}
+
+/** The add-ons that are actually extra for this service. */
+export function paidAddons(serviceSlug, addonSlugs = []) {
+  const included = includedAddons(serviceSlug);
+  return addonSlugs.filter(a => !included.includes(a));
+}
+
+/** Compute total cents from service + addon slugs; included add-ons cost nothing. */
 export function totalCents(serviceSlug, addonSlugs = []) {
   const base = SERVICE_PRICES_CENTS[serviceSlug] || 0;
-  const add  = addonSlugs.reduce((s, a) => s + (ADDON_PRICES_CENTS[a] || 0), 0);
+  const add  = paidAddons(serviceSlug, addonSlugs).reduce((s, a) => s + (ADDON_PRICES_CENTS[a] || 0), 0);
   return base + add;
+}
+
+/** "Something else" has no menu price: it is priced at the chair. */
+export function isUnpricedService(serviceSlug) {
+  return serviceSlug === 'custom';
+}
+
+/** A total as the customer reads it. With an unpriced request in it, only the
+ *  priced part is a number ("$10 + price at the chair"). */
+export function formatTotal(cents, unpriced = false) {
+  if (!unpriced) return formatPrice(cents);
+  return cents ? `${formatPrice(cents)} + price at the chair` : 'Price at the chair';
 }
 
 /** Format cents as $30 / $30.50. */
@@ -145,8 +210,9 @@ export function cleanPhone(raw) {
   return digits;
 }
 
-/** Map a Postgres error from the booking RPCs to a user-friendly code. */
-export function mapBookingErrorCode(err) {
+/** Map a Postgres error from the booking RPCs to a user-friendly code.
+ *  `status` is the HTTP status of the response, when known. */
+export function mapBookingErrorCode(err, status) {
   if (!err) return 'unknown';
   const msg  = err.message || '';
   const code = err.code    || '';
@@ -169,14 +235,20 @@ export function mapBookingErrorCode(err) {
   if (msg.includes('service_not_found'))       return 'service_not_found';
   if (msg.includes('cannot_cancel'))           return 'cannot_cancel';
   if (msg.includes('cancel_via_primary'))      return 'cannot_cancel';
+  // Rate limited by the API gateway: a known, temporary state, whatever the
+  // body says (often just "Too Many Requests" with no code). A named DB
+  // answer above still wins, since its message says more.
+  if (status === 429)                          return 'rate_limited';
   return 'unknown';
 }
 
-/** Which error codes should NOT fall back to the messaging path.
- *  `slot_taken` must hard-fail to prevent real double-booking. Everything else
- *  is recoverable — we still want to ping the shop via WhatsApp/SMS.
- */
-export const HARD_FAIL_CODES = new Set(['slot_taken']);
+/** The error codes that fall back to a manual WhatsApp/SMS request: the
+ *  booking system couldn't be reached or failed in a way we can't name.
+ *  Every other code is a known answer from the DB (the slot is taken, the
+ *  phone is invalid, too many active bookings, ...) and is shown inline with
+ *  its own next step; `slot_taken` in particular must never fall back, or the
+ *  shop would get a real double booking. */
+export const FALLBACK_CODES = new Set(['network', 'unknown']);
 
 export const ERROR_MESSAGES = {
   slot_taken:      'That time was just booked. Pick another slot above.',
@@ -186,7 +258,7 @@ export const ERROR_MESSAGES = {
   too_many:        'You already have several active bookings. Cancel one first or call us.',
   bad_phone:       'Please enter a valid 10-digit phone number.',
   bad_name:        'Please enter a name (at least 2 characters).',
-  bad_date:        'Date is too far out — we book up to 60 days ahead.',
+  bad_date:        'That date is too far out. We book up to 60 days ahead.',
   bad_slot:        "That time doesn't line up with our slots. Pick a slot pill instead.",
   invalid_people:  'The guest list looks off. Remove and re-add guests, or refresh the page.',
   too_many_people: 'Max 6 people per group. Split into two bookings.',
@@ -195,5 +267,6 @@ export const ERROR_MESSAGES = {
   cannot_cancel:   "We couldn't find an active booking matching that phone. It may already be cancelled.",
   not_setup:       'Online booking is being set up. Please call or text 413·885·4440 to reserve.',
   network:         "Can't reach our booking system right now. Call or text 413·885·4440 to reserve.",
+  rate_limited:    'Too many attempts. Wait a minute and try again.',
   unknown:         'Something went wrong. Please try again, or call 413·885·4440.',
 };

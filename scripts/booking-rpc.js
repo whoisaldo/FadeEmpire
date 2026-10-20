@@ -2,6 +2,10 @@
 
 import { sb } from './supabase.js';
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
+import {
+  mapBookingErrorCode, isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
+  nowMinutesInShopTz, addDaysIso, weekdayFromIso, dateLabelFromIso,
+} from './booking-helpers.js';
 
 export class BookingError extends Error {
   constructor(code, cause) {
@@ -11,10 +15,21 @@ export class BookingError extends Error {
   }
 }
 
-async function toBookingError(error, rpcName) {
-  const { mapBookingErrorCode } = await import('./booking-helpers.js');
+/** `status` is the HTTP status PostgREST answered with (429 = rate limited). */
+function toBookingError(error, rpcName, status) {
   console.error(`[booking] ${rpcName} RPC failed:`, error);
-  return new BookingError(mapBookingErrorCode(error), error);
+  return new BookingError(mapBookingErrorCode(error, status), error);
+}
+
+/** book_slot and book_slot_group take the text-consent flags from migration
+ *  0020 on. Against a database without it PostgREST finds no function with
+ *  that signature (PGRST202), so the booking goes once more without them. */
+async function rpcWithConsent(rpcName, args) {
+  const res = await sb.rpc(rpcName, args);
+  if (res.error?.code !== 'PGRST202') return res;
+  console.warn(`[booking] ${rpcName} takes no p_remind_sms/p_rebook_sms yet (migration 0020); booking without them`);
+  const { p_remind_sms, p_rebook_sms, ...older } = args;
+  return sb.rpc(rpcName, older);
 }
 
 /**
@@ -34,8 +49,10 @@ export async function bookSlot({
   customRequest,
   source = 'web',
   holdMinutes = 15,
+  remindSms = true,      // "Text me a reminder the day before"
+  rebookSms = false,     // "Text me when it's time for my next cut"
 }) {
-  const { data, error } = await sb.rpc('book_slot', {
+  const { data, error, status } = await rpcWithConsent('book_slot', {
     p_barber_slug:    barberSlug,
     p_service_slug:   serviceSlug,
     p_date:           date,
@@ -47,9 +64,11 @@ export async function bookSlot({
     p_custom_request: customRequest || null,
     p_source:         source,
     p_hold_minutes:   holdMinutes,
+    p_remind_sms:     remindSms,
+    p_rebook_sms:     rebookSms,
   });
 
-  if (error) throw await toBookingError(error, 'book_slot');
+  if (error) throw toBookingError(error, 'book_slot', status);
   return data || [];
 }
 
@@ -68,8 +87,10 @@ export async function bookSlotGroup({
   people,
   source = 'web',
   holdMinutes = 15,
+  remindSms = true,
+  rebookSms = false,
 }) {
-  const { data, error } = await sb.rpc('book_slot_group', {
+  const { data, error, status } = await rpcWithConsent('book_slot_group', {
     p_barber_slug:    barberSlug,
     p_date:           date,
     p_start_time:     startTime,
@@ -83,8 +104,10 @@ export async function bookSlotGroup({
     })),
     p_hold_minutes:   holdMinutes,
     p_source:         source,
+    p_remind_sms:     remindSms,
+    p_rebook_sms:     rebookSms,
   });
-  if (error) throw await toBookingError(error, 'book_slot_group');
+  if (error) throw toBookingError(error, 'book_slot_group', status);
   return data || [];
 }
 
@@ -96,8 +119,8 @@ export async function bookSlotGroup({
  * selected_addons, total_price_cents, booking_status }.
  */
 export async function findBookingsByPhone(phone) {
-  const { data, error } = await sb.rpc('find_bookings_by_phone', { p_phone: phone });
-  if (error) throw await toBookingError(error, 'find_bookings_by_phone');
+  const { data, error, status } = await sb.rpc('find_bookings_by_phone', { p_phone: phone });
+  if (error) throw toBookingError(error, 'find_bookings_by_phone', status);
   return data || [];
 }
 
@@ -107,11 +130,11 @@ export async function findBookingsByPhone(phone) {
  * partial unique index then lets someone else book the freed time.
  */
 export async function cancelBooking({ bookingId, phone }) {
-  const { error } = await sb.rpc('cancel_booking', {
+  const { error, status } = await sb.rpc('cancel_booking', {
     p_booking_id: bookingId,
     p_phone:      phone,
   });
-  if (error) throw await toBookingError(error, 'cancel_booking');
+  if (error) throw toBookingError(error, 'cancel_booking', status);
 }
 
 /**
@@ -131,7 +154,9 @@ export async function logBookingError(payload) {
  * Fetch all active (pending/confirmed) bookings between [fromDate, toDate].
  * Pass `barberSlug` to scope to one barber, or null for every barber.
  * Returns array of { barber_slug, booking_date, booking_time, status }.
- * Driven by the PII-free v_slot_availability view.
+ * Driven by the PII-free v_slot_availability view. Throws BookingError when
+ * the read fails: an empty list means "nothing booked", so a failed read must
+ * never look like one.
  */
 export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT_BARBER_SLUG }) {
   let query = sb
@@ -141,10 +166,10 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
     .lte('booking_date', toDate);
   if (barberSlug) query = query.eq('barber_slug', barberSlug);
 
-  const { data, error } = await query;
+  const { data, error, status } = await query;
   if (error) {
     console.warn('[booking] fetchAvailability failed', error);
-    return [];
+    throw new BookingError(mapBookingErrorCode(error, status), error);
   }
   return data || [];
 }
@@ -152,15 +177,11 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
 /**
  * Find the next available 45-minute slot across ALL barbers, looking up to
  * 14 days ahead. Returns { date, time, label, barberSlug, barberName } or null.
+ * Throws when availability can't be read.
  */
 export async function fetchNextAvailable() {
-  const today = new Date();
-  const inTwoWeeks = new Date(today.getTime() + 14 * 86400000);
-  const { isoDate, slotsForWeekday, minutesToHms, minutesToLabel, shopWeekday, nowMinutesInShopTz } =
-    await import('./booking-helpers.js');
-
-  const fromDate = isoDate(today);
-  const toDate   = isoDate(inTwoWeeks);
+  const fromDate = isoDate(new Date());
+  const toDate   = addDaysIso(fromDate, 14);
   const taken    = await fetchAvailability({ fromDate, toDate, barberSlug: null });
 
   const takenSet = new Set(
@@ -172,9 +193,8 @@ export async function fetchNextAvailable() {
   const barbers  = Object.values(BARBERS);
 
   for (let i = 0; i <= 14; i++) {
-    const d = new Date(today.getTime() + i * 86400000);
-    const iso = isoDate(d);
-    const wk  = shopWeekday(d);
+    const iso = addDaysIso(fromDate, i);
+    const wk  = weekdayFromIso(iso);
 
     // Earliest free slot this day, comparing across barbers.
     let best = null;
@@ -187,21 +207,20 @@ export async function fetchNextAvailable() {
       }
     }
     if (best) {
+      const time = minutesToLabel(best.minutes);
       return {
         date: iso,
         time: minutesToHms(best.minutes),
         barberSlug: best.barber.slug,
         barberName: best.barber.name,
-        label: `${dayLabel(d)} · ${minutesToLabel(best.minutes)} · ${best.barber.name.toUpperCase()}`,
+        label: `${dayLabel(iso)} · ${time} · ${best.barber.name.toUpperCase()}`,
+        shortLabel: `${dateLabelFromIso(iso, { weekday: 'short' })} ${time}`,   // fits the sticky bar
       };
     }
   }
   return null;
 }
 
-function dayLabel(d) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short', month: 'short', day: 'numeric',
-  }).format(d).toUpperCase();
+function dayLabel(iso) {
+  return dateLabelFromIso(iso, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 }

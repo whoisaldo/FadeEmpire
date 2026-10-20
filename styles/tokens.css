@@ -1,11 +1,8 @@
-/* tokens.css — design tokens for FadeEmpire
-   Refined dark luxury: warm-tinted ink, brass-not-yellow gold, bone-white.
-   Replaces the old #0a0a0a / #d4af37 palette with a more cinematic version.
+/* tokens.css — design tokens for Fade Empire.
+   Warm-tinted ink, brass gold, bone-white. Fonts are linked from the HTML
+   head (Fraunces, General Sans, JetBrains Mono) so they load in parallel
+   with this file instead of after it.
 */
-
-/* --- Font loading: Fraunces (display), General Sans (body), JetBrains Mono (numerals) --- */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,700;1,9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap');
-@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
 
 :root {
   /* Ink — primary background system */
@@ -17,7 +14,7 @@
   /* Bone — text on dark */
   --bone:       #EDE6D6;          /* primary text — warm white, not pure */
   --bone-soft:  rgba(237, 230, 214, 0.65);
-  --bone-mute:  rgba(237, 230, 214, 0.40);
+  --bone-mute:  rgba(237, 230, 214, 0.56);
   --bone-faint: rgba(237, 230, 214, 0.16);
 
   /* Gold — restrained accent */
@@ -56,6 +53,13 @@
   --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.30);
   --shadow-deep: 0 16px 48px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.35);
   --shadow-gold: 0 0 0 1px var(--gold-soft), 0 12px 32px rgba(200, 162, 74, 0.18);
+  --shadow-plate: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+
+  /* The shop's LED ceiling grid, used as a faint background motif */
+  --led: rgba(255, 255, 255, 0.05);
+
+  /* Photo plates: the inset hairline that frames every picture */
+  --plate-frame: rgba(237, 230, 214, 0.16);
 
   /* Motion — one shared curve and timing */
   --ease-curtain: cubic-bezier(0.16, 1, 0.3, 1);
@@ -74,7 +78,7 @@
 */
 *, *::before, *::after { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 html, body {

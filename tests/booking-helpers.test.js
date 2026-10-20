@@ -4,10 +4,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   isoDate, minutesToHms, minutesToLabel, hmsToMinutes,
-  weekdayFromIso, dateLabelFromIso,
+  weekdayFromIso, dateLabelFromIso, addDaysIso,
   effectiveHours, slotsForWeekday, serviceDurationMin, serviceSlotCount,
-  totalCents, formatPrice, formatPhoneDisplay, cleanPhone,
-  mapBookingErrorCode, HARD_FAIL_CODES, ERROR_MESSAGES,
+  totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
+  mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES,
 } from '../scripts/booking-helpers.js';
 import { STORE_HOURS, BARBERS } from '../scripts/config.js';
 
@@ -45,6 +45,14 @@ describe('time + date helpers', () => {
     expect(weekdayFromIso('2026-07-07')).toBe(2); // Tuesday
     expect(weekdayFromIso('2026-07-11')).toBe(6); // Saturday
     expect(weekdayFromIso('2028-02-29')).toBe(2); // leap day
+  });
+
+  it('addDaysIso steps calendar dates straight through both DST changes', () => {
+    expect(addDaysIso('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDaysIso('2026-10-31', 2)).toBe('2026-11-02');
+    expect(addDaysIso('2026-03-07', 1)).toBe('2026-03-08');
+    expect(addDaysIso('2026-03-07', 2)).toBe('2026-03-09');
+    expect(addDaysIso('2026-12-31', 1)).toBe('2027-01-01');
   });
 
   it('dateLabelFromIso renders the SAME calendar day regardless of viewer TZ', () => {
@@ -130,8 +138,22 @@ describe('pricing', () => {
   it('totalCents sums service + addons from the price mirrors', () => {
     expect(totalCents('hair-cut')).toBe(3000);
     expect(totalCents('hair-cut', ['beard'])).toBe(4000);
-    expect(totalCents('vip-haircut', ['facial', 'eyebrows'])).toBe(8000);
+    expect(totalCents('vip-haircut', ['wax'])).toBe(6500);
     expect(totalCents('nope', ['nope-addon'])).toBe(0);
+  });
+
+  it('the VIP includes beard, hot towel, facial, and eyebrows: they add nothing, wax still does (P3)', () => {
+    expect(includedAddons('vip-haircut')).toEqual(['eyebrows', 'hot-towel', 'facial', 'beard']);
+    expect(includedAddons('hair-cut')).toEqual([]);
+    expect(paidAddons('vip-haircut', ['beard', 'facial', 'wax'])).toEqual(['wax']);
+    expect(paidAddons('hair-cut', ['beard', 'facial'])).toEqual(['beard', 'facial']);
+    expect(totalCents('vip-haircut', ['beard', 'facial', 'hot-towel', 'eyebrows'])).toBe(6000);
+  });
+
+  it('a Beard Trim includes the Beard add-on; the other add-ons still count (D14)', () => {
+    expect(includedAddons('beard-trim')).toEqual(['beard']);
+    expect(totalCents('beard-trim', ['beard'])).toBe(1500);
+    expect(totalCents('beard-trim', ['beard', 'hot-towel'])).toBe(2000);
   });
 
   it('formatPrice renders whole dollars and cents', () => {
@@ -188,19 +210,29 @@ describe('mapBookingErrorCode', () => {
     expect(mapBookingErrorCode(null)).toBe('unknown');
   });
 
+  it('an HTTP 429 is rate_limited whatever its code field, unless the DB named the problem (R5)', () => {
+    expect(mapBookingErrorCode({ message: 'Too Many Requests', code: '' }, 429)).toBe('rate_limited');
+    expect(mapBookingErrorCode({ message: '', code: 'P0001' }, 429)).toBe('rate_limited');
+    expect(mapBookingErrorCode({ message: 'too_many_active_bookings', code: 'P0001' }, 429)).toBe('too_many');
+    expect(mapBookingErrorCode({ message: 'Too Many Requests', code: '' }, 500)).toBe('unknown');
+    expect(ERROR_MESSAGES.rate_limited).toBe('Too many attempts. Wait a minute and try again.');
+    expect(FALLBACK_CODES.has('rate_limited')).toBe(false);
+  });
+
   it('every mapped code has a human message', () => {
     const codes = [
       'slot_taken', 'outside_hours', 'store_closed', 'closed', 'too_many',
       'too_many_people', 'invalid_people', 'bad_phone', 'bad_name', 'bad_date',
       'bad_slot', 'barber_not_found', 'service_not_found', 'cannot_cancel',
-      'not_setup', 'network', 'unknown',
+      'not_setup', 'network', 'rate_limited', 'unknown',
     ];
     for (const c of codes) {
       expect(ERROR_MESSAGES[c], `message for ${c}`).toBeTruthy();
     }
   });
 
-  it('only slot_taken hard-fails (no messaging fallback)', () => {
-    expect([...HARD_FAIL_CODES]).toEqual(['slot_taken']);
+  it('only network and unknown failures fall back to a manual message (P16)', () => {
+    expect([...FALLBACK_CODES].sort()).toEqual(['network', 'unknown']);
+    expect(FALLBACK_CODES.has('slot_taken')).toBe(false);
   });
 });
