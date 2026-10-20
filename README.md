@@ -86,10 +86,12 @@ FadeEmpire/
 │   ├── build-assets.py           Source photos → assets/img/*-{480..2000}.{jpg,webp} + assets/brand/ (icons, social card)
 │   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
 │   ├── screenshot.py             Playwright captures at phone/tablet/desktop sizes + overflow check
-│   └── export-appointments.sh    Owner tooling (see tools/README.md)
+│   ├── export-appointments.sh    Owner tooling (see tools/README.md)
+│   └── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
-│   ├── migrations/0001 … 0018    Schema, RLS, RPCs, hours, barbers, prices (see the history in git)
+│   ├── migrations/0001 … 0019    Schema, RLS, RPCs, hours, barbers, prices, reminders (see the history in git)
+│   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
 │   └── tests/                    pgTAP suites
 └── assets/
     ├── img/                      Everything the page serves (generated, committed)
@@ -155,6 +157,38 @@ If the booking RPC fails for any reason other than `slot_taken` (network, RLS mi
 4. Redirects to WhatsApp/SMS anyway
 
 This means a customer is never lost to a transient backend hiccup. `slot_taken` is the one error that hard-fails (otherwise we'd cause real double-bookings).
+
+### Reminders
+
+The `send-reminders` Edge Function runs hourly (pg_cron calls it through pg_net) and sends texts through Twilio:
+
+- **Day-before reminder.** Confirmed bookings starting 23 to 25 hours from now, with `remind_sms` set and `reminder_sent_at` empty. One text per phone per day; a group booked from one phone gets one text listing each person and time.
+  `Fade Empire: your appointment is tomorrow, Wed Oct 21 at 10:00 AM with Hassan. 1193 Memorial Dr, Chicopee. To cancel: https://chicopeefadeempire.com/#cancel`
+- **Rebook nudge.** The phone's most recent visit (confirmed or completed, already started) has `rebook_sms` set, started 21 to 42 days ago, has `rebook_sent_at` empty, and the phone has no pending or confirmed booking after it.
+  `Fade Empire: it's been 3 weeks since your last cut with Hassan. Book your next one: https://chicopeefadeempire.com/#book. Reply STOP to stop.`
+
+Opt-in flags live on each booking row: `remind_sms` (default on) and `rebook_sms` (default off). `book_slot` and `book_slot_group` take them as `p_remind_sms` and `p_rebook_sms`; callers that omit them get the defaults. A row is marked sent only after Twilio accepts the message, so a failed send is retried on the next run while the booking is still due, and a second run sends nothing new. Without the Twilio secrets the function runs dry: it logs each message and marks nothing. The due queries (`reminders_due`, `rebook_due`, `mark_reminder_sent`) are executable by `service_role` only.
+
+Deploy (from a checkout of `main` with 0019 on it):
+
+```bash
+tools/deploy-reminders.sh --dry-run          # prints every command; runs nothing
+SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... TWILIO_FROM=+1413... \
+CONFIRM_PROD=1 tools/deploy-reminders.sh     # db push, functions deploy, secrets set, cron.schedule
+```
+
+`TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base. Leave the `TWILIO_*` variables out to deploy in dry mode first and read the function logs in the dashboard. The script is safe to re-run.
+
+Turn it off:
+
+```bash
+supabase db query --linked "select cron.unschedule('send-reminders');"
+```
+
+To keep the schedule but stop sending, remove the Twilio secrets (`supabase secrets unset TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM`); the function goes back to dry runs.
+
+Function tests: `deno test --no-lock supabase/functions/send-reminders/`.
 
 ---
 
