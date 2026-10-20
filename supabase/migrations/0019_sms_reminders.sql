@@ -54,6 +54,20 @@ alter table bookings add column if not exists sms_last_error   text;
 alter table bookings add column if not exists reminder_claimed_at timestamptz;
 alter table bookings add column if not exists rebook_claimed_at   timestamptz;
 
+-- claim_reminders and mark_reminder_sent turn fe.sms_bookkeeping on for the
+-- duration of their own UPDATE (transaction-local), so the trigger leaves
+-- updated_at alone for SMS bookkeeping. Every other update still bumps it.
+create or replace function tg_set_updated_at()
+returns trigger as $$
+begin
+  if current_setting('fe.sms_bookkeeping', true) = 'on' then
+    return new;
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$ language plpgsql;
+
 -- =============================================================================
 -- 3. book_slot — 0016 plus p_remind_sms / p_rebook_sms
 -- =============================================================================
@@ -633,6 +647,7 @@ as $$
 declare
   v_count int;
 begin
+  perform set_config('fe.sms_bookkeeping', 'on', true);
   if p_kind = 'reminder' then
     update bookings
        set reminder_sent_at = now(),
@@ -650,6 +665,7 @@ begin
   end if;
 
   get diagnostics v_count = row_count;
+  perform set_config('fe.sms_bookkeeping', 'off', true);
   return v_count;
 end;
 $$;
@@ -679,6 +695,7 @@ as $$
 declare
   v_ids uuid[];
 begin
+  perform set_config('fe.sms_bookkeeping', 'on', true);
   if p_kind = 'reminder' then
     with claimed as (
       update bookings
@@ -709,6 +726,7 @@ begin
     raise exception 'invalid_kind' using errcode = '22023';
   end if;
 
+  perform set_config('fe.sms_bookkeeping', 'off', true);
   return v_ids;
 end;
 $$;

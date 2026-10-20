@@ -517,6 +517,47 @@ select throws_ok(
   'claim_reminders rejects an unknown kind'
 );
 
+-- ---------- SMS bookkeeping leaves updated_at alone ----------
+-- now() is fixed inside this transaction, so the row starts with an old
+-- updated_at: any bump would move it to now().
+select tap_book('5554443001', 'Stamp Check', now() + interval '24 hours 58 minutes');
+update bookings set updated_at = '2026-01-01 12:00+00' where customer_phone = '5554443001';
+select is(
+  (select updated_at from bookings where customer_phone = '5554443001'),
+  now(), 'control: a normal update bumps updated_at'
+);
+alter table bookings disable trigger bookings_updated_at;
+update bookings set updated_at = '2026-01-01 12:00+00' where customer_phone = '5554443001';
+alter table bookings enable trigger bookings_updated_at;
+
+select is(
+  array_length(claim_reminders('reminder', tap_reminder_ids('5554443001')), 1),
+  1, 'the row is claimed'
+);
+select is(
+  (select updated_at from bookings where customer_phone = '5554443001'),
+  '2026-01-01 12:00+00'::timestamptz, 'a claim leaves updated_at unchanged'
+);
+select is(
+  mark_reminder_sent((select array_agg(id) from bookings where customer_phone = '5554443001'), 'reminder'),
+  1, 'the row is marked'
+);
+select is(
+  (select updated_at from bookings where customer_phone = '5554443001'),
+  '2026-01-01 12:00+00'::timestamptz, 'a mark leaves updated_at unchanged'
+);
+select is(
+  (select reminder_claimed_at is not null and reminder_sent_at is not null
+     from bookings where customer_phone = '5554443001'),
+  true, 'the claim and the mark were written'
+);
+select is(current_setting('fe.sms_bookkeeping', true), 'off', 'the setting is off again after the call');
+update bookings set customer_notes = 'later edit' where customer_phone = '5554443001';
+select is(
+  (select updated_at from bookings where customer_phone = '5554443001'),
+  now(), 'a normal update in the same transaction still bumps updated_at'
+);
+
 -- ---------- Ownership and grants ----------
 select is(
   (select bool_and(prosecdef) from pg_proc
