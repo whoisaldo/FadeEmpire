@@ -7,7 +7,7 @@
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 captions) and the pause buttons on both clips
-//   * gallery.js  the lightbox and the filmstrip counter
+//   * gallery.js  the lightbox (with Back) and the filmstrip counter
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
 // those are stubbed just enough to drive the code paths.
 
@@ -490,6 +490,43 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect(document.body.style.overflow).toBe('');
     expect($('[data-lightbox-img]').hasAttribute('src')).toBe(false);
     expect(document.activeElement).toBe(opener);
+  });
+
+  it('Back closes the open photo instead of leaving the page', async () => {
+    await bootGallery();
+    const push = vi.spyOn(history, 'pushState');
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    const opener = $('[data-plate="cut-low-fade"] [data-lightbox-open]');
+    opener.focus();
+    opener.click();
+    expect(push).toHaveBeenCalledWith({ lightbox: true }, '');
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    expect($('[data-lightbox]').hasAttribute('open')).toBe(false);
+    expect(back).not.toHaveBeenCalled();               // the browser already went back
+    expect(document.activeElement).toBe(opener);
+    push.mockRestore(); back.mockRestore();
+  });
+
+  it('closing with the button or Escape takes the entry back off, so the next Back leaves', async () => {
+    await bootGallery();
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    $('[data-plate="cut-low-fade"] [data-lightbox-open]').click();
+    $('[data-lightbox-close]').click();
+    expect(back).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));   // that back() landing
+    expect(back).toHaveBeenCalledTimes(1);
+    expect($('[data-lightbox]').hasAttribute('open')).toBe(false);
+
+    $('[data-plate="cut-low-fade"] [data-lightbox-open]').click();
+    $('[data-lightbox]').close();                      // what Escape ends in on a modal <dialog>
+    expect(back).toHaveBeenCalledTimes(2);
+    back.mockRestore();
+  });
+
+  it('the caption and the count are announced when the photo changes', async () => {
+    await bootGallery();
+    expect($('[data-lightbox-cap]').closest('[aria-live="polite"]')).toBeTruthy();
+    expect($('[data-lightbox-count]').closest('[aria-live="polite"]')).toBeTruthy();
   });
 
   it('a horizontal swipe moves through the photos', async () => {

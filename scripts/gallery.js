@@ -3,7 +3,9 @@
 // Plates are <figure data-plate="stem"> elements. Tapping one opens the
 // single <dialog data-lightbox> with the 1200 px file for that stem, and
 // arrow keys / swipes / the two buttons move through the photos. The video
-// plate has no stem and is skipped by the lightbox.
+// plate has no stem and is skipped by the lightbox. Opening adds a history
+// entry, so the browser's Back closes the photo instead of leaving the page;
+// closing any other way removes that entry again.
 
 const IMG_DIR = './assets/img';
 
@@ -38,6 +40,7 @@ function initLightbox(root) {
   const items = plateImages(root);
   let index = 0;
   let returnTo = null;
+  let inHistory = false;   // our pushState entry is the current one
 
   const show = (i) => {
     index = (i + items.length) % items.length;
@@ -57,17 +60,32 @@ function initLightbox(root) {
     show(i);
     dialog.showModal();
     document.body.style.overflow = 'hidden';
+    history.pushState({ lightbox: true }, '');
+    inHistory = true;
   };
 
   const close = () => {
     if (dialog.open) dialog.close();
   };
 
+  // Back while the photo is open: the entry is already gone, just close.
+  window.addEventListener('popstate', () => {
+    if (!inHistory) return;
+    inHistory = false;
+    close();
+  });
+
   dialog.addEventListener('close', () => {
     document.body.style.overflow = '';
     img.removeAttribute('src');
     img.removeAttribute('srcset');
     returnTo?.focus?.({ preventScroll: true });
+    // Closed with the button, Escape or the backdrop: drop our entry so the
+    // next Back leaves the page as usual.
+    if (inHistory) {
+      inHistory = false;
+      history.back();
+    }
   });
 
   dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
