@@ -60,12 +60,12 @@ async function updateNextAvailable() {
   fill('[data-mobile-cta-next-slot]',         '[data-mobile-cta-next]',        next.shortLabel || next.label);
 
   // "Reserve it" in the hero and "Take it" in the booking section both hand
-  // the advertised barber, day and time to the grid.
+  // the advertised barber, day and time to the grid, which then moves focus
+  // (and the page) to the next step still to do.
   document.querySelectorAll('[data-pick-next]').forEach((el) => {
     el.onclick = (e) => {
       e.preventDefault();
       document.dispatchEvent(new CustomEvent('booking:pick', { detail: next }));
-      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
   });
 }

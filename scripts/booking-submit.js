@@ -16,7 +16,7 @@
 //      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearTime } from './booking-grid.js';
+import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable } from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
@@ -583,6 +583,23 @@ async function submit(form) {
   setFlag(form, 'booked', true);
 }
 
+/** After a shortcut has filled part of the booking (Book with Hassan, Book
+ *  the VIP, Reserve it, Take it): focus the next step still to do, so Tab
+ *  carries on from there. Times take focus only once availability is read. */
+async function focusNextStep(form) {
+  await whenAvailable();
+  const sel = getSelection();
+  const target = !sel.time
+    ? document.querySelector('[data-slot-grid] .booking__slot:not([disabled])')
+      || document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
+    : ['input[name="name"]', 'input[name="phone"]', '[data-service-select]']
+        .map(q => form.querySelector(q)).find(el => el && !el.value.trim())
+      || form.querySelector('[data-submit]');
+  if (!target) return;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 /** "Book another": a fresh form, and a grid that shows the slots just taken. */
 function startOver(form) {
   form.reset();
@@ -647,15 +664,18 @@ export function initBookingSubmit() {
   form.querySelector('[data-add-guest]').addEventListener('click', () => addGuest(form));
   form.querySelector('[data-book-another]')?.addEventListener('click', () => startOver(form));
 
-  // "Book the VIP" in the menu: the service is chosen (and totalled) before
-  // the link's own #book jump lands on the form.
+  // "Book the VIP" in the menu: the service is chosen (and totalled), then
+  // the page moves to the next step still to do instead of the bare #book.
   document.addEventListener('click', (e) => {
     const link = e.target.closest?.('[data-book-service]');
     if (!link) return;
+    e.preventDefault();
     const select = form.querySelector('[data-service-select]');
     select.value = link.dataset.bookService;
     select.dispatchEvent(new Event('change', { bubbles: true }));
+    focusNextStep(form);
   });
+  document.addEventListener('booking:focus-next', () => focusNextStep(form));
 
   document.addEventListener('booking:selected', (e) => {
     updateTimeline(form);

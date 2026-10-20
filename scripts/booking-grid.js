@@ -57,11 +57,12 @@ function bindBarberPicker() {
     btn.addEventListener('click', () => selectBarber(btn.dataset.barberOption));
   });
 
-  // "Book with X" buttons in the barbers section jump here pre-selected.
+  // "Book with X" buttons in the barbers section jump here pre-selected,
+  // with focus on the next step still to do.
   document.querySelectorAll('[data-book-barber]').forEach(btn => {
     btn.addEventListener('click', () => {
       selectBarber(btn.dataset.bookBarber);
-      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.dispatchEvent(new CustomEvent('booking:focus-next'));
     });
   });
 }
@@ -282,7 +283,13 @@ function syncForm() {
 
 /* ---------- Availability load ---------- */
 
-async function loadAvailability() {
+let lastLoad = Promise.resolve();
+function loadAvailability() {
+  lastLoad = readAvailability();
+  return lastLoad;
+}
+
+async function readAvailability() {
   const seq = ++loadSeq;
   const barberSlug = state.barberSlug;
   const fromDate = isoDate(new Date());
@@ -315,8 +322,11 @@ function bindExternalPick() {
     if (!date || !time) return;
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
-    // Wait a tick for slot DOM to render
-    requestAnimationFrame(() => selectTime(time));
+    // Wait a tick for slot DOM to render, then hand focus to the next step.
+    requestAnimationFrame(() => {
+      selectTime(time);
+      document.dispatchEvent(new CustomEvent('booking:focus-next'));
+    });
   });
 
   document.querySelector('[data-clear-selected]')?.addEventListener('click', clearTime);
@@ -374,6 +384,11 @@ export async function initBookingGrid() {
 /** Exposed for booking-submit.js to refresh after a successful book/cancel */
 export async function refreshAvailability() {
   await loadAvailability();
+}
+
+/** Resolves once the latest availability read has landed (or failed). */
+export function whenAvailable() {
+  return lastLoad;
 }
 
 export function getSelection() {

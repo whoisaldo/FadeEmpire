@@ -47,8 +47,8 @@ const FIXED_NOW = new Date('2026-07-06T14:00:00Z');
 
 let rpc, grid, submitMod, cancelMod;
 
-async function boot() {
-  document.body.innerHTML = bookSectionHtml();
+async function boot(extraHtml = '') {
+  document.body.innerHTML = extraHtml + bookSectionHtml();
   rpc       = await import('../scripts/booking-rpc.js');
   grid      = await import('../scripts/booking-grid.js');
   submitMod = await import('../scripts/booking-submit.js');
@@ -854,6 +854,37 @@ describe('booking edge cases', () => {
     expect($('[data-service-select]').value).toBe('vip-haircut');
     expect($('[data-total-display]').textContent).toBe('$60');
     expect($('input[name="addons"][value="facial"]').disabled).toBe(true);
+  });
+
+  it('Take it / Reserve it: focus moves to the first empty detail once the slot is picked (D12)', async () => {
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+    expect($('[data-form-time]').value).toBe('12:15:00');
+    fill('input[name="name"]', 'Pat');
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '13:00:00', barberSlug: 'larry' },
+    }));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="phone"]')));
+  });
+
+  it('Book with Larry: focus moves to his first open time once his availability is read (D12)', async () => {
+    const bookWith = indexHtml.match(/<button[^>]*data-book-barber="larry"[^>]*>[^<]*<\/button>/)[0];
+    vi.resetModules();                 // a fresh grid that binds the inserted button
+    await boot(bookWith);
+    $('button[data-book-barber="larry"]').click();
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
+    expect(document.activeElement.disabled).toBe(false);
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('Book the VIP: focus moves to the first open time when none is picked yet (D12)', async () => {
+    const vipLink = indexHtml.match(/<a [^>]*class="[^"]*menu__feature-cta[^>]*>[^<]*<\/a>/)[0];
+    document.body.insertAdjacentHTML('afterbegin', vipLink);
+    $('.menu__feature-cta').click();
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
+    expect($('[data-service-select]').value).toBe('vip-haircut');
   });
 
   it('switching barber drops the chosen time (his grid is different) but not the day', () => {

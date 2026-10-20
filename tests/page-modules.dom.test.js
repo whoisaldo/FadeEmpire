@@ -138,7 +138,6 @@ describe('cover.js: live status and next open slot', () => {
     expect(reserve.textContent).toBe('Reserve it');
     reserve.click();
     expect(picked).toHaveBeenCalledWith(next);
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     $('[data-next-available-callout] [data-pick-next]').click();
     expect(picked).toHaveBeenCalledTimes(2);
     expect(picked.mock.calls[1][0]).toBe(picked.mock.calls[0][0]);
