@@ -4,14 +4,16 @@
 #
 # Usage:
 #   tools/deploy-reminders.sh --dry-run          print every command, run nothing that writes
-#   CONFIRM_PROD=1 tools/deploy-reminders.sh     run them
+#   CONFIRM_PROD=1 tools/deploy-reminders.sh     run them (from a terminal)
 #
 # Steps (each one is safe to repeat):
 #   1. supabase link        only if this checkout is not linked to PROJECT_REF
-#   2. supabase migration list --linked, printed before the push; then supabase db push.
-#      The push runs only when CONFIRM_PROD=1 and the list was shown in this run. The
-#      dry run prints the list too when the checkout is already linked (read-only);
-#      otherwise it prints the command.
+#   2. supabase migration list --linked, then supabase db push without --yes, so the
+#      CLI lists the pending migrations again and asks before applying them. Two
+#      confirmations: CONFIRM_PROD=1 to run the script at all, then the CLI's prompt.
+#      The CLI takes its default (yes) when stdin is not a terminal, so a real run
+#      refuses to start without one. The dry run prints the list too when the
+#      checkout is already linked (read-only); otherwise it prints the command.
 #   3. supabase functions deploy send-reminders
 #   4. supabase secrets set --env-file <mode-600 temp file> with TWILIO_* (+ SITE_URL),
 #      so no secret is on a command line. The file is deleted afterwards. Skipped when
@@ -74,6 +76,10 @@ SCHEDULE="0 * * * *"
 
 if [[ $DRY_RUN -eq 0 && "$CONFIRM" != "1" ]]; then
   echo "Refusing to deploy to $PROJECT_REF without CONFIRM_PROD=1 (or use --dry-run)." >&2
+  exit 1
+fi
+if [[ $DRY_RUN -eq 0 && ! -t 0 ]]; then
+  echo "Refusing to deploy without a terminal: supabase db push must be able to ask for confirmation." >&2
   exit 1
 fi
 
@@ -150,21 +156,15 @@ else
   step supabase link --project-ref "$PROJECT_REF"
 fi
 
-# 2. Pending migrations, then the push
-LIST_SHOWN=0
+# 2. Pending migrations, then the push (the CLI asks before applying)
 echo "+ supabase migration list --linked"
 if [[ $DRY_RUN -eq 0 || $LINKED -eq 1 ]]; then
   supabase migration list --linked
-  LIST_SHOWN=1
   echo "# pending: rows with a Local version and an empty Remote column"
 else
   echo "# not linked yet: the list is shown in the real run, after linking"
 fi
-if [[ $DRY_RUN -eq 0 && ( "$CONFIRM" != "1" || $LIST_SHOWN -ne 1 ) ]]; then
-  echo "ERROR: db push needs CONFIRM_PROD=1 and the migration list shown above." >&2
-  exit 1
-fi
-step supabase db push --linked --yes
+step supabase db push --linked
 
 # 3. Function (JWT verification stays on; the function also requires the service role key)
 step supabase functions deploy send-reminders --project-ref "$PROJECT_REF"
