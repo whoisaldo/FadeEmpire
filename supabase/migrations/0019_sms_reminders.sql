@@ -4,10 +4,12 @@
 -- pg_net; the schedule itself is created by tools/deploy-reminders.sh).
 --
 --   1. bookings: remind_sms (default true), rebook_sms (default false),
---      reminder_sent_at, rebook_sent_at, sms_last_error. remind_sms is added
---      with default false, so rows that exist when this runs read false, then
---      the default becomes true for new rows. No UPDATE runs, so updated_at
---      and the bookings_updated_at trigger are untouched.
+--      reminder_sent_at, rebook_sent_at, sms_last_error. Existing rows start
+--      opted out because they predate the consent checkbox the booking form
+--      is gaining in this release: remind_sms is added with default false, so
+--      rows that exist when this runs read false, then the default becomes
+--      true for new rows. No UPDATE runs, so updated_at and the
+--      bookings_updated_at trigger are untouched.
 --   2. book_slot / book_slot_group take p_remind_sms and p_rebook_sms as
 --      trailing parameters with defaults. The old signatures are dropped so
 --      PostgREST resolves the current client's named-argument calls to the
