@@ -232,11 +232,13 @@ function markInvalid(form, control, focusTarget = control) {
   focusTarget.focus();
 }
 
-/** The slot grid as the control to fix: marked as a group, focus on its first open time. */
+/** The slot grid as the control to fix: marked as a group, focus on its
+ *  first open time (on Retry while the times failed to load). */
 function markSlotsInvalid(form) {
   const grid = document.querySelector('[data-slot-grid]');
   if (!grid) return;
   const first = grid.querySelector('.booking__slot:not([disabled])')
+    || grid.querySelector('[data-slots-retry]')
     || document.querySelector('[data-day-row] .booking__day[aria-selected="true"]');
   markInvalid(form, grid, first || form.querySelector('[data-form-error]'));
 }
@@ -450,7 +452,9 @@ async function submit(form) {
   });
   if (!check.ok) {
     setFlag(form, 'busy', false);
-    showError(form, check.code, check.message);
+    // No time because the times never loaded: picking a day won't help, Retry will.
+    const unread = check.code === 'no_slot' && document.querySelector('[data-slots-retry]');
+    showError(form, check.code, unread ? "Open times haven't loaded yet. Tap Retry above." : check.message);
     if (check.code === 'no_slot') {
       markSlotsInvalid(form);
     } else {

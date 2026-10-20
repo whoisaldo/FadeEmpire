@@ -387,6 +387,19 @@ describe('booking submit — success', () => {
     expect(grid.hasAttribute('aria-invalid')).toBe(false);
   });
 
+  it('Reserve refused after a failed read says the times have not loaded and focuses Retry (R12)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    await grid.refreshAvailability();
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect($('[data-form-error-text]').textContent).toBe("Open times haven't loaded yet. Tap Retry above.");
+    expect(document.activeElement).toBe($('[data-slots-retry]'));
+    expect($('[data-slot-grid]').getAttribute('aria-invalid')).toBe('true');
+    expect(rpc.bookSlot).not.toHaveBeenCalled();
+  });
+
   it('a short phone is marked, described by the error, focused, and cleared on edit (D9)', async () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
