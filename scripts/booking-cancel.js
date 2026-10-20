@@ -165,7 +165,7 @@ function renderBookings(root, bookings, phoneDigits) {
       if (!await cancelIt(moveBtn, disarm, { move: true })) return;
       setStatus(root, 'Cancelled. Pick a new time.', 'ok');
       document.dispatchEvent(new CustomEvent('booking:move', { detail: {
-        barberSlug: b.barber_slug, serviceSlug: b.service_slug, date: b.booking_date,
+        bookingId: b.booking_id, barberSlug: b.barber_slug, serviceSlug: b.service_slug, date: b.booking_date,
         firstName: b.first_name, phone: phoneDigits,
       } }));
     });

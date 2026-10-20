@@ -2,7 +2,8 @@
 //
 // After a booking (booking:booked from booking-submit.js) the customer's own
 // choices stay in localStorage on this device: name, phone, barber, service,
-// add-ons and the two text boxes. Guests are not kept. On the next visit the
+// add-ons and the two text boxes. Guests are not kept, nor a replacement
+// booked for someone else after a Move. On the next visit the
 // form starts filled in with them, the card at the top of #book says so, the
 // cancel panel has the phone, and the sticky bar reads "Rebook · <Barber>":
 // a day, a time and Reserve rebook. "Not you? Clear" forgets it all.
@@ -110,8 +111,9 @@ export function initBookingReturn() {
   }
 
   document.addEventListener('booking:booked', (e) => {
-    saved = saveLastBooking(e.detail);
     card.hidden = true;                // the confirmation is showing
+    if (e.detail.forSomeoneElse) return;   // a moved guest's booking: the device's owner stays remembered
+    saved = saveLastBooking(e.detail);
     setStickyLabel(saved);
   });
 

@@ -1798,6 +1798,71 @@ describe('move a booking (C4)', () => {
     await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry' })));
   });
 
+  /* --- Whose booking moves (CR5) --- */
+
+  async function bookDanaAndSam() {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'ds-1', person_index: 0, person_name: 'Dana Reyes', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
+      { booking_id: 'ds-2', person_index: 1, person_name: 'Sam', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ name: 'Dana Reyes' });
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Sam');
+    fill('[data-guest-service]', 'kids-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', serviceSlug: 'hair-cut' });
+  }
+  async function reserveAt(time, id) {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: id, slot_index: 0, booking_time: time, total_price_cents: 2500 }]);
+    clickSlot(time);
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Chair reserved'));
+    await vi.waitFor(() => expect($('[data-success-list] li').dataset.bookingId).toBe(id));
+  }
+
+  it('moving a guest of the group on the card books the replacement under the guest\'s name and keeps the owner remembered (CR5)', async () => {
+    await bookDanaAndSam();
+    await findRow(hassanRow({ booking_id: 'ds-2', service_slug: 'kids-cut', first_name: 'Sam', booking_time: '12:15:00' }));
+    await confirmMove();
+    expect($('input[name="name"]').value).toBe('Sam');
+    expect($('[data-service-select]').value).toBe('kids-cut');
+    await reserveAt('13:00:00', 'ds-3');
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Sam', serviceSlug: 'kids-cut', time: '13:00:00' }));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', serviceSlug: 'hair-cut', barberSlug: 'hassan' });
+
+    await reboot();                                             // the next visit still welcomes the owner
+    expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hassan, Hair Cut. Pick a day.');
+  });
+
+  it('moving the primary\'s own booking on the card keeps the typed name and is remembered as usual (CR5)', async () => {
+    await bookDanaAndSam();
+    await findRow({ ...larryRow, booking_id: 'ds-1', barber_slug: 'hassan', service_slug: 'hair-cut', first_name: 'Dana', booking_time: '11:30:00' });
+    await confirmMove();
+    expect($('input[name="name"]').value).toBe('Dana Reyes');
+    expect($('[data-service-select]').value).toBe('hair-cut');
+    await pickBarber('larry');                                  // a change the customer makes before reserving
+    await reserveAt('13:00:00', 'ds-4');
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Dana Reyes', serviceSlug: 'hair-cut', barberSlug: 'larry' }));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', barberSlug: 'larry' });
+  });
+
+  it('with no card, a booking under another first name than the one typed is someone else\'s (CR5)', async () => {
+    localStorage.setItem('fe.lastBooking', JSON.stringify({
+      name: 'Dana Reyes', phone: '4135550123', barberSlug: 'hassan', serviceSlug: 'hair-cut',
+      addons: [], remindSms: true, rebookSms: false, savedAt: '2026-06-20T15:00:00.000Z',
+    }));
+    await reboot();
+    await findRow({ ...larryRow, first_name: 'Sam', service_slug: 'kids-cut' });
+    await confirmMove();
+    expect($('input[name="name"]').value).toBe('Sam');
+    await reserveAt('11:30:00', 'ns-1');
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Sam', serviceSlug: 'kids-cut', barberSlug: 'larry' }));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', serviceSlug: 'hair-cut', barberSlug: 'hassan' });
+  });
+
   /* --- The moved booking's day (CR3) --- */
 
   it('a Move to another barber keeps the booking\'s own day selected, not the grid\'s first day', async () => {

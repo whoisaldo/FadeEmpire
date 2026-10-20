@@ -530,6 +530,7 @@ async function submit(form) {
         total_price_cents: i === 0 ? primary.total_price_cents : 0,
         addons:            i === 0 ? addons : [],
         slot_index:        r.slot_index ?? i,
+        person_index:      0,
       }));
       bookings[0] = asRequested(bookings[0], service, addons);
     } else {
@@ -562,6 +563,7 @@ async function submit(form) {
           booking_time:      r.booking_time,
           total_price_cents: r.total_price_cents,
           addons:            r.person_index === 0 ? addons : [],
+          person_index:      r.person_index,
         };
         return r.person_index === 0 ? asRequested(b, service, addons) : b;
       });
@@ -688,9 +690,11 @@ async function submit(form) {
   setBooked(form, true);
 
   // The customer's own choices, for next time (booking-return.js). Guests aren't kept.
+  const forSomeoneElse = movedFor === 'someone-else';
+  movedFor = null;
   document.dispatchEvent(new CustomEvent('booking:booked', { detail: {
     name, phone: phone.replace(/\D/g, '').slice(-10), barberSlug: sel.barberSlug,
-    serviceSlug: service, addons, remindSms, rebookSms,
+    serviceSlug: service, addons, remindSms, rebookSms, forSomeoneElse,
   } }));
 }
 
@@ -718,6 +722,21 @@ async function focusNextStep(form) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// Whose booking the last Move opened the form for: 'own', 'someone-else'
+// (a guest, a child), or null. Someone else's replacement is booked under
+// their name and never becomes the remembered customer (booking-return.js).
+let movedFor = null;
+
+/** Whether a moved booking is someone else's: a guest line on the card, or a
+ *  first name other than the card's primary (or, with no card, the name typed). */
+function movingSomeoneElse(bookingId, firstName, typedName) {
+  const onCard = shown && bookingId && shown.rows.find(b => b.booking_id === bookingId);
+  if (onCard) return onCard.person_index !== 0;
+  const primary = shown?.rows.find(b => b.person_index === 0)?.person_name || typedName;
+  const first = (n) => String(n || '').trim().split(/\s+/)[0].toLowerCase();
+  return Boolean(primary && firstName && first(primary) !== first(firstName));
+}
+
 /** "Move it" in the cancel panel: the old booking is cancelled (and struck
  *  off the confirmation, if it is on it). A locked form opens again the way
  *  "Book another" opens it, the card staying as the record; then the form
@@ -725,12 +744,14 @@ async function focusNextStep(form) {
  *  from the lookup when empty) and the two text boxes as the customer left
  *  them, and focus goes to the day row for a new time:
  *  the booking's own day if it still has an open time, otherwise the next. */
-async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, phone } = {}) {
-  // What the customer typed wins over the lookup's first name and phone.
+async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, firstName, phone } = {}) {
+  // What the customer typed wins over the lookup's first name and phone,
+  // unless the booking is someone else's: then it goes under their name.
   const name = form.querySelector('input[name="name"]');
   const tel  = form.querySelector('input[name="phone"]');
   const typedName = name.value.trim() ? name.value : '';
   const typedTel  = tel.value.trim() ? tel.value : '';
+  const someoneElse = movingSomeoneElse(bookingId, firstName, typedName);
   // The text boxes are the customer's own choice: opening the form must not
   // reset them to their defaults.
   const remind = form.querySelector('input[name="remind_sms"]');
@@ -739,6 +760,7 @@ async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, pho
   if (form.dataset.booked === 'true') unlock(form);
   remind.checked = consent.remind;
   rebook.checked = consent.rebook;
+  movedFor = someoneElse ? 'someone-else' : 'own';
   // One fresh read for the freed slot: a new barber's is already on its way.
   const sameBarber = getSelection().barberSlug === barberSlug;
   chooseBarber(barberSlug);
@@ -748,7 +770,7 @@ async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, pho
     select.value = serviceSlug;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  name.value = typedName || firstName || '';
+  name.value = someoneElse ? firstName : (typedName || firstName || '');
   tel.value  = typedTel || (phone ? formatPhoneDisplay(phone) : '');
 
   const selectedDay = () => document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
@@ -774,6 +796,7 @@ function unlock(form) {
 
 /** Every field back to its default, no guests, no time picked. */
 export function resetForm(form) {
+  movedFor = null;
   form.reset();
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
