@@ -342,7 +342,7 @@
 }
 
 .stamp--closed {
-  color: var(--status-closed);
+  color: #E5735F;   /* --status-closed lifted to 6:1 on the nav; the dot keeps the deeper red */
   border-color: rgba(192, 57, 43, 0.45);
   background: rgba(192, 57, 43, 0.05);
 }

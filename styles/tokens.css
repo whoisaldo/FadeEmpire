@@ -14,7 +14,7 @@
   /* Bone — text on dark */
   --bone:       #EDE6D6;          /* primary text — warm white, not pure */
   --bone-soft:  rgba(237, 230, 214, 0.65);
-  --bone-mute:  rgba(237, 230, 214, 0.50);
+  --bone-mute:  rgba(237, 230, 214, 0.56);
   --bone-faint: rgba(237, 230, 214, 0.16);
 
   /* Gold — restrained accent */
