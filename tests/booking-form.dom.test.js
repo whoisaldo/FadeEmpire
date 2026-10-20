@@ -1430,6 +1430,35 @@ describe('booking edge cases', () => {
     expect(focusNext).toHaveBeenCalledTimes(1);
   });
 
+  it('Reserve it during a background refresh of the same barber goes to the day at once, the grid busy (R17)', async () => {
+    let land;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
+    grid.refreshAvailability();                // the 5-minute tick or a tab wake-up; Hassan stays 'ok'
+    expect($('[data-slot-grid]').getAttribute('aria-busy')).toBe('true');
+    Element.prototype.scrollIntoView.mockClear();
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-06', time: '11:30:00', barberSlug: 'hassan' },
+    }));
+    const chip = $('[data-day-row] .booking__day[data-date="2026-07-06"]');
+    expect(document.activeElement).toBe(chip);
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(chip);
+    expect($('[data-form-time]').value).toBe('');
+
+    land([]);
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('11:30:00'));
+    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(false);
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+  });
+
+  it('with no read in flight a pick needs no wait and the grid is not busy (R17)', async () => {
+    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(false);
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-06', time: '11:30:00', barberSlug: 'hassan' },
+    }));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+    expect($('[data-form-time]').value).toBe('11:30:00');
+  });
+
   it('a pick waiting on a read leaves focus alone if the customer moved it meanwhile (R8)', async () => {
     let land;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));

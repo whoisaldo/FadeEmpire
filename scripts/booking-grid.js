@@ -199,7 +199,6 @@ function renderSlots() {
   }
 
   if (state.availability === 'error') {
-    wrap.removeAttribute('aria-busy');
     wrap.innerHTML = '<p class="booking__slots-empty booking__slots-error">Couldn\'t load open times.</p>'
       + '<button type="button" class="btn btn--mini booking__slots-retry" data-slots-retry>Retry</button>';
     wrap.querySelector('[data-slots-retry]').addEventListener('click', retry);
@@ -212,8 +211,6 @@ function renderSlots() {
   }
 
   const loading  = state.availability === 'loading';
-  if (loading) wrap.setAttribute('aria-busy', 'true');   // an empty value isn't exposed as busy
-  else wrap.removeAttribute('aria-busy');
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
   let selectionStillOpen = false;
@@ -288,6 +285,17 @@ async function retry() {
     ?.focus({ preventScroll: true });
 }
 
+/** The grid is busy while any read is in flight, including a background
+ *  refresh that leaves the current times on screen. */
+function reading() { return settledSeq !== loadSeq; }
+
+function syncBusy() {
+  const wrap = document.querySelector('[data-slot-grid]');
+  if (!wrap) return;
+  if (reading()) wrap.setAttribute('aria-busy', 'true');   // an empty value isn't exposed as busy
+  else wrap.removeAttribute('aria-busy');
+}
+
 /** Select a time. Only an open pill can be selected: a taken, passed or
  *  not-yet-read slot is never picked, whoever asks. Returns whether it was. */
 function selectTime(hms) {
@@ -345,6 +353,7 @@ function loadAvailability() {
 
 async function readAvailability() {
   const seq = ++loadSeq;
+  syncBusy();
   try {
     await readInto(seq);
   } finally {
@@ -393,10 +402,10 @@ function bindExternalPick() {
     const pick = ++pickSeq;            // a newer pick or a choice by hand cancels this one
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
-    // Times still loading: go to the day now, its times shown loading, and
-    // finish the pick when the read lands.
+    // A read in flight (first load, barber switch or background refresh): go
+    // to the day now, the grid shown busy, and finish the pick when it lands.
     let waitingOn = null;
-    if (state.availability === 'loading') {
+    if (reading()) {
       waitingOn = document.querySelector(`[data-day-row] .booking__day[data-date="${date}"]`);
       waitingOn?.focus({ preventScroll: true });
       waitingOn?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -485,6 +494,7 @@ export function whenAvailable() {
 
 function settle(seq) {
   settledSeq = seq;
+  syncBusy();
   const ready = waiters;
   waiters = [];
   ready.forEach((resolve) => resolve());
