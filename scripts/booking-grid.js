@@ -356,12 +356,22 @@ function bindExternalPick() {
     if (!date || !time || locked) return;
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
+    // Times still loading: go to the day now, its times shown loading, and
+    // finish the pick when the read lands.
+    let waitingOn = null;
+    if (state.availability === 'loading') {
+      waitingOn = document.querySelector(`[data-day-row] .booking__day[data-date="${date}"]`);
+      waitingOn?.focus({ preventScroll: true });
+      waitingOn?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     await whenAvailable();
     if (state.selectedDate !== date || (barberSlug && state.barberSlug !== barberSlug)) return;   // superseded
     if (state.availability === 'ok' && !selectTime(time)) {
       const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]`);
       if (pill?.classList.contains('is-taken')) setSlotsNote('That time was just booked.');
     }
+    // Focus moves on unless the customer moved it themselves while waiting.
+    if (waitingOn && ![waitingOn, document.body].includes(document.activeElement)) return;
     document.dispatchEvent(new CustomEvent('booking:focus-next'));
   });
 

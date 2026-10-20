@@ -1087,6 +1087,38 @@ describe('booking edge cases', () => {
     expect($('[data-form-time]').value).toBe('13:00:00');
   });
 
+  it('Reserve it while the times are still loading goes to the day at once and picks when the read lands (R8)', async () => {
+    let land;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
+    Element.prototype.scrollIntoView.mockClear();
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    const chip = $('[data-day-row] .booking__day[data-date="2026-07-09"]');
+    expect(document.activeElement).toBe(chip);                 // no silent wait
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(true);
+    expect($('[data-slot-grid] .booking__slot[data-time="12:15:00"]').classList.contains('is-loading')).toBe(true);
+    expect($('[data-form-time]').value).toBe('');
+
+    land([]);
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+  });
+
+  it('a pick waiting on a read leaves focus alone if the customer moved it meanwhile (R8)', async () => {
+    let land;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    $('input[name="phone"]').focus();
+    land([]);
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(document.activeElement).toBe($('input[name="phone"]'));
+  });
+
   it('switching barber drops the chosen time (his grid is different) but not the day', () => {
     clickDay('2026-07-10');
     clickSlot('14:30:00');
