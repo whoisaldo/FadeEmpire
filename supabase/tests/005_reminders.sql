@@ -65,22 +65,53 @@ select is(
 );
 
 -- ---------- Consent first: rows that predate 0019 are opted out ----------
--- Replays 0019's own update, read from the CLI's migration history
--- (supabase_migrations.schema_migrations), against a row inserted before it.
-select tap_book('5554448001', 'Booked Before', now() + interval '23 hours 30 minutes');
+-- Replays 0019's own remind_sms statements, read from the CLI's migration
+-- history (supabase_migrations.schema_migrations): the column is dropped
+-- (inside this transaction), a row is inserted with an old updated_at, then
+-- the two statements run against it.
 select is(
   (select count(*)::int from supabase_migrations.schema_migrations, unnest(statements) st
-    where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms\s*=\s*false'),
-  1, '0019 has one statement that opts existing bookings out'
+    where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms'),
+  0, '0019 has no UPDATE of remind_sms'
 );
+select is(
+  (select count(*)::int from supabase_migrations.schema_migrations, unnest(statements) st
+    where version = '0019'
+      and (st ~* 'add\s+column\s+if\s+not\s+exists\s+remind_sms\s+boolean\s+not\s+null\s+default\s+false'
+        or st ~* 'alter\s+column\s+remind_sms\s+set\s+default\s+true')),
+  2, '0019 adds remind_sms with default false, then sets the default to true'
+);
+
+alter table bookings drop column remind_sms;
+insert into bookings (barber_id, service_id, booking_date, booking_time,
+                      customer_name, customer_phone, total_price_cents, status,
+                      created_at, updated_at)
+select b.id, s.id, ((now() + interval '23 hours 30 minutes') at time zone 'America/New_York')::date,
+       ((now() + interval '23 hours 30 minutes') at time zone 'America/New_York')::time,
+       'Booked Before', '5554448001', 3000, 'confirmed',
+       '2026-01-01 12:00+00', '2026-01-01 12:00+00'
+  from barbers b, services s
+ where b.slug = 'hassan' and s.slug = 'hair-cut';
 do $$
+declare st text;
 begin
-  execute (select st from supabase_migrations.schema_migrations, unnest(statements) st
-            where version = '0019' and st ~* 'update\s+bookings\s+set\s+remind_sms\s*=\s*false');
+  for st in
+    select x from supabase_migrations.schema_migrations, unnest(statements) with ordinality u(x, n)
+     where version = '0019'
+       and (x ~* 'add\s+column\s+if\s+not\s+exists\s+remind_sms\s'
+         or x ~* 'alter\s+column\s+remind_sms\s+set\s+default')
+     order by n
+  loop
+    execute st;
+  end loop;
 end $$;
 select is(
   (select remind_sms from bookings where customer_phone = '5554448001'),
   false, 'a booking that existed before the migration has remind_sms false'
+);
+select is(
+  (select updated_at from bookings where customer_phone = '5554448001'),
+  '2026-01-01 12:00+00'::timestamptz, 'and its updated_at is unchanged'
 );
 select is(tap_reminder_ids('5554448001'), null, 'and is not due a reminder');
 
