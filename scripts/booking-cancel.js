@@ -11,7 +11,7 @@
 //      knows the gap is real: auto-open SMS on mobile, tap-to-send links on
 //      desktop. Then the slot grid refreshes so the freed time shows as open.
 //   4. "Move it" cancels the same way (two taps, "Yes, move Wed 10:00 AM"),
-//      then hands the booking's barber and service to the form for a new time.
+//      then hands the booking's barber, service and add-ons to the form for a new time.
 
 import { findBookingsByPhone, cancelBooking, BookingError } from './booking-rpc.js';
 import { refreshAvailability as gridRefresh } from './booking-grid.js';
@@ -159,14 +159,14 @@ function renderBookings(root, bookings, phoneDigits) {
     });
 
     // "Move it": the same cancel, then the form takes this booking's barber,
-    // service and day, and the day row is next (booking-submit.js).
+    // service, add-ons and day, and the day row is next (booking-submit.js).
     const day = dateLabelFromIso(b.booking_date, { weekday: 'short' });
     twoTap(moveBtn, 'Move it', `Yes, move ${day} ${timeLabel}`, async (disarm) => {
       if (!await cancelIt(moveBtn, disarm, { move: true })) return;
       setStatus(root, 'Cancelled. Pick a new time.', 'ok');
       document.dispatchEvent(new CustomEvent('booking:move', { detail: {
         bookingId: b.booking_id, barberSlug: b.barber_slug, serviceSlug: b.service_slug, date: b.booking_date,
-        firstName: b.first_name, phone: phoneDigits,
+        firstName: b.first_name, phone: phoneDigits, addons: b.selected_addons,
       } }));
     });
   });

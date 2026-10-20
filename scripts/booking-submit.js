@@ -267,6 +267,17 @@ function showError(form, code, override, action = null) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+/** A line in the error area that leaves the cards and focus where they are. */
+function showNote(form, text) {
+  const el = form.querySelector('[data-form-error]');
+  el.querySelector('[data-form-error-text]').textContent = text;
+  const btn = el.querySelector('[data-form-error-action]');
+  btn.hidden = true;
+  btn.onclick = null;
+  el.hidden = false;
+  announce(form, 'status', text);
+}
+
 /** The control a client-side refusal is about. */
 function controlForCheck(form, code) {
   switch (code) {
@@ -744,11 +755,13 @@ function movingSomeoneElse(bookingId, firstName, typedName) {
 /** "Move it" in the cancel panel: the old booking is cancelled (and struck
  *  off the confirmation, if it is on it). A locked form opens again the way
  *  "Book another" opens it, the card staying as the record; then the form
- *  takes the booking's barber and service, keeps the name and phone (filled
- *  from the lookup when empty) and the two text boxes as the customer left
- *  them, and focus goes to the day row for a new time:
- *  the booking's own day if it still has an open time, otherwise the next. */
-async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, firstName, phone } = {}) {
+ *  takes the booking's barber, service and add-ons, keeps the name and phone
+ *  (filled from the lookup when empty) and the two text boxes as the customer
+ *  left them, and focus goes to the day row for a new time:
+ *  the booking's own day if it still has an open time, otherwise the next.
+ *  The add-ons come from the lookup, else from the card's line for the
+ *  booking; with neither, the error area says to tick them again. */
+async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, firstName, phone, addons } = {}) {
   // What the customer typed wins over the lookup's first name and phone,
   // unless the booking is someone else's: then it goes under their name.
   const name = form.querySelector('input[name="name"]');
@@ -756,6 +769,8 @@ async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, fir
   const typedName = name.value.trim() ? name.value : '';
   const typedTel  = tel.value.trim() ? tel.value : '';
   const someoneElse = movingSomeoneElse(bookingId, firstName, typedName);
+  const onCard = shown && bookingId && shown.rows.find(b => b.booking_id === bookingId);
+  const carried = Array.isArray(addons) ? addons : onCard ? onCard.addons : null;
   // The text boxes are the customer's own choice: opening the form must not
   // reset them to their defaults.
   const remind = form.querySelector('input[name="remind_sms"]');
@@ -777,6 +792,12 @@ async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, fir
     select.value = serviceSlug;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  // Ones the service includes stay as it shows them (checked, disabled).
+  form.querySelectorAll('input[name="addons"]:not(:disabled)').forEach(input => {
+    input.checked = Boolean(carried?.includes(input.value));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  if (!carried) showNote(form, "Add-ons weren't carried over. Tick them again.");
   name.value = someoneElse ? firstName : (typedName || firstName || '');
   tel.value  = typedTel || (phone ? formatPhoneDisplay(phone) : '');
 

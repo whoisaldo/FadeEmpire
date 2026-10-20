@@ -1852,6 +1852,64 @@ describe('move a booking (C4)', () => {
     expect($('[data-book-another]').hidden).toBe(false);
   });
 
+  /* --- The booking's add-ons (X1) --- */
+
+  const checkedAddons = () => $$('input[name="addons"]:checked:not(:disabled)').map(i => i.value);
+  const noAddonsNote = "Add-ons weren't carried over. Tick them again.";
+
+  it('a Move carries the add-ons from the card\'s line when the lookup has none, into the total, the replacement and the saved record (X1)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'ad-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 5500 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ name: 'Dana Reyes' });
+    $('input[name="addons"][value="hot-towel"]').click();
+    $('input[name="addons"][value="facial"]').click();
+    expect($('[data-total-display]').textContent).toBe('$55');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect($('[data-success-list] li').textContent).toBe('Dana Reyes · Hair Cut + Hot Towel, Facial · 11:30 AM');
+
+    const { selected_addons, ...noAddons } = hassanRow({ booking_id: 'ad-1', service_slug: 'hair-cut', first_name: 'Dana', booking_time: '11:30:00' });
+    await findRow(noAddons);
+    await confirmMove();
+    expect(checkedAddons()).toEqual(['hot-towel', 'facial']);
+    expect($('[data-total-display]').textContent).toBe('$55');
+    expect($('[data-form-error]').hidden).toBe(true);
+
+    await reserveAt('13:00:00', 'ad-2');
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ time: '13:00:00', addons: ['hot-towel', 'facial'] }));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', addons: ['hot-towel', 'facial'] });
+  });
+
+  it('a Move carries the add-ons the lookup returns, and ones the service includes stay included (X1)', async () => {
+    $('input[name="addons"][value="eyebrows"]').click();          // ticked before: the booking's add-ons replace it
+    await findRow({ ...larryRow, service_slug: 'beard-trim', service_name: 'Beard Trim', selected_addons: ['beard', 'wax'] });
+    await confirmMove();
+    expect($('[data-service-select]').value).toBe('beard-trim');
+    const beard = $('input[name="addons"][value="beard"]');
+    expect(beard.checked).toBe(true);
+    expect(beard.disabled).toBe(true);                           // Beard Trim includes it
+    expect(checkedAddons()).toEqual(['wax']);
+    expect($('[data-total-display]').textContent).toBe('$20');
+    expect($('[data-form-error]').hidden).toBe(true);
+
+    await reserveAt('11:30:00', 'ad-3');
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ serviceSlug: 'beard-trim', addons: ['wax'] }));
+  });
+
+  it('a Move with add-ons from neither the lookup nor the card says to tick them again (X1)', async () => {
+    $('input[name="addons"][value="hot-towel"]').click();
+    const { selected_addons, ...noAddons } = larryRow;
+    await findRow(noAddons);
+    await confirmMove();
+    expect(checkedAddons()).toEqual([]);
+    expect($('[data-form-error]').hidden).toBe(false);
+    expect($('[data-form-error-text]').textContent).toBe(noAddonsNote);
+    expect($('[data-form-error-action]').hidden).toBe(true);
+    expect(document.activeElement).toBe($('[data-day-row] .booking__day[aria-selected="true"]'));
+    await vi.waitFor(() => expect($('[data-live-status]').textContent).toBe(noAddonsNote));
+  });
+
   /* --- Whose booking moves (CR5) --- */
 
   async function bookDanaAndSam() {
