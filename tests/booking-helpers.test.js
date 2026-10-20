@@ -210,12 +210,21 @@ describe('mapBookingErrorCode', () => {
     expect(mapBookingErrorCode(null)).toBe('unknown');
   });
 
+  it('an HTTP 429 is rate_limited whatever its code field, unless the DB named the problem (R5)', () => {
+    expect(mapBookingErrorCode({ message: 'Too Many Requests', code: '' }, 429)).toBe('rate_limited');
+    expect(mapBookingErrorCode({ message: '', code: 'P0001' }, 429)).toBe('rate_limited');
+    expect(mapBookingErrorCode({ message: 'too_many_active_bookings', code: 'P0001' }, 429)).toBe('too_many');
+    expect(mapBookingErrorCode({ message: 'Too Many Requests', code: '' }, 500)).toBe('unknown');
+    expect(ERROR_MESSAGES.rate_limited).toBe('Too many attempts. Wait a minute and try again.');
+    expect(FALLBACK_CODES.has('rate_limited')).toBe(false);
+  });
+
   it('every mapped code has a human message', () => {
     const codes = [
       'slot_taken', 'outside_hours', 'store_closed', 'closed', 'too_many',
       'too_many_people', 'invalid_people', 'bad_phone', 'bad_name', 'bad_date',
       'bad_slot', 'barber_not_found', 'service_not_found', 'cannot_cancel',
-      'not_setup', 'network', 'unknown',
+      'not_setup', 'network', 'rate_limited', 'unknown',
     ];
     for (const c of codes) {
       expect(ERROR_MESSAGES[c], `message for ${c}`).toBeTruthy();

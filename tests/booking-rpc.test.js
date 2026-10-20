@@ -12,10 +12,20 @@ vi.mock('../scripts/supabase.js', () => {
   return { sb: { from: () => query, rpc: vi.fn() } };
 });
 
-const { fetchAvailability, fetchNextAvailable, BookingError } = await import('../scripts/booking-rpc.js');
+const { fetchAvailability, fetchNextAvailable, bookSlot, BookingError } = await import('../scripts/booking-rpc.js');
+const { sb } = await import('../scripts/supabase.js');
 
 beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+describe('rate limiting (R5)', () => {
+  it('a 429 from PostgREST reaches the form as rate_limited', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    sb.rpc.mockResolvedValueOnce({ data: null, error: { message: 'Too Many Requests', code: '' }, status: 429 });
+    await expect(bookSlot({ serviceSlug: 'hair-cut', date: '2026-07-08', time: '11:30:00', name: 'A', phone: '4135550123' }))
+      .rejects.toMatchObject({ code: 'rate_limited' });
+  });
 });
 
 describe('availability reads (P2)', () => {

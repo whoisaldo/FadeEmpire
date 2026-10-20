@@ -709,6 +709,14 @@ describe('booking submit — validation and failures', () => {
     await vi.waitFor(() => expect(rpc.findBookingsByPhone).toHaveBeenCalledWith('4135550123'));
   });
 
+  it('HTTP 429 says to wait a minute, inline, never the fallback, and Reserve works again (R5)', async () => {
+    await submitWithRpcError('rate_limited');
+    expect($('#booking-error').textContent).toBe('Too many attempts. Wait a minute and try again.');
+    expect($('[data-form-fallback]').hidden).toBe(true);
+    expect($('[data-submit]').disabled).toBe(false);
+    expect(document.activeElement).toBe($('[data-form-error]'));
+  });
+
   it('invalid_phone stays inline and puts the cursor in Phone (P16)', async () => {
     await submitWithRpcError('bad_phone');
     expect($('[data-form-error]').textContent).toContain('valid 10-digit phone');

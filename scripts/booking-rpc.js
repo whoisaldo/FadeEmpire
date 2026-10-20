@@ -15,9 +15,10 @@ export class BookingError extends Error {
   }
 }
 
-function toBookingError(error, rpcName) {
+/** `status` is the HTTP status PostgREST answered with (429 = rate limited). */
+function toBookingError(error, rpcName, status) {
   console.error(`[booking] ${rpcName} RPC failed:`, error);
-  return new BookingError(mapBookingErrorCode(error), error);
+  return new BookingError(mapBookingErrorCode(error, status), error);
 }
 
 /**
@@ -38,7 +39,7 @@ export async function bookSlot({
   source = 'web',
   holdMinutes = 15,
 }) {
-  const { data, error } = await sb.rpc('book_slot', {
+  const { data, error, status } = await sb.rpc('book_slot', {
     p_barber_slug:    barberSlug,
     p_service_slug:   serviceSlug,
     p_date:           date,
@@ -52,7 +53,7 @@ export async function bookSlot({
     p_hold_minutes:   holdMinutes,
   });
 
-  if (error) throw toBookingError(error, 'book_slot');
+  if (error) throw toBookingError(error, 'book_slot', status);
   return data || [];
 }
 
@@ -72,7 +73,7 @@ export async function bookSlotGroup({
   source = 'web',
   holdMinutes = 15,
 }) {
-  const { data, error } = await sb.rpc('book_slot_group', {
+  const { data, error, status } = await sb.rpc('book_slot_group', {
     p_barber_slug:    barberSlug,
     p_date:           date,
     p_start_time:     startTime,
@@ -87,7 +88,7 @@ export async function bookSlotGroup({
     p_hold_minutes:   holdMinutes,
     p_source:         source,
   });
-  if (error) throw toBookingError(error, 'book_slot_group');
+  if (error) throw toBookingError(error, 'book_slot_group', status);
   return data || [];
 }
 
@@ -99,8 +100,8 @@ export async function bookSlotGroup({
  * selected_addons, total_price_cents, booking_status }.
  */
 export async function findBookingsByPhone(phone) {
-  const { data, error } = await sb.rpc('find_bookings_by_phone', { p_phone: phone });
-  if (error) throw toBookingError(error, 'find_bookings_by_phone');
+  const { data, error, status } = await sb.rpc('find_bookings_by_phone', { p_phone: phone });
+  if (error) throw toBookingError(error, 'find_bookings_by_phone', status);
   return data || [];
 }
 
@@ -110,11 +111,11 @@ export async function findBookingsByPhone(phone) {
  * partial unique index then lets someone else book the freed time.
  */
 export async function cancelBooking({ bookingId, phone }) {
-  const { error } = await sb.rpc('cancel_booking', {
+  const { error, status } = await sb.rpc('cancel_booking', {
     p_booking_id: bookingId,
     p_phone:      phone,
   });
-  if (error) throw toBookingError(error, 'cancel_booking');
+  if (error) throw toBookingError(error, 'cancel_booking', status);
 }
 
 /**
@@ -146,10 +147,10 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
     .lte('booking_date', toDate);
   if (barberSlug) query = query.eq('barber_slug', barberSlug);
 
-  const { data, error } = await query;
+  const { data, error, status } = await query;
   if (error) {
     console.warn('[booking] fetchAvailability failed', error);
-    throw new BookingError(mapBookingErrorCode(error), error);
+    throw new BookingError(mapBookingErrorCode(error, status), error);
   }
   return data || [];
 }

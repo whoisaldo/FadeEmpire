@@ -210,8 +210,9 @@ export function cleanPhone(raw) {
   return digits;
 }
 
-/** Map a Postgres error from the booking RPCs to a user-friendly code. */
-export function mapBookingErrorCode(err) {
+/** Map a Postgres error from the booking RPCs to a user-friendly code.
+ *  `status` is the HTTP status of the response, when known. */
+export function mapBookingErrorCode(err, status) {
   if (!err) return 'unknown';
   const msg  = err.message || '';
   const code = err.code    || '';
@@ -234,6 +235,10 @@ export function mapBookingErrorCode(err) {
   if (msg.includes('service_not_found'))       return 'service_not_found';
   if (msg.includes('cannot_cancel'))           return 'cannot_cancel';
   if (msg.includes('cancel_via_primary'))      return 'cannot_cancel';
+  // Rate limited by the API gateway: a known, temporary state, whatever the
+  // body says (often just "Too Many Requests" with no code). A named DB
+  // answer above still wins, since its message says more.
+  if (status === 429)                          return 'rate_limited';
   return 'unknown';
 }
 
@@ -262,5 +267,6 @@ export const ERROR_MESSAGES = {
   cannot_cancel:   "We couldn't find an active booking matching that phone. It may already be cancelled.",
   not_setup:       'Online booking is being set up. Please call or text 413·885·4440 to reserve.',
   network:         "Can't reach our booking system right now. Call or text 413·885·4440 to reserve.",
+  rate_limited:    'Too many attempts. Wait a minute and try again.',
   unknown:         'Something went wrong. Please try again, or call 413·885·4440.',
 };
