@@ -1,18 +1,19 @@
-// booking-submit.js — form submission + group-booking UI + redirect + fallback.
+// booking-submit.js — form submission + group-booking UI + the result cards.
 //
 // Flow:
 //   1. Pre-validate (HTML5 + barber/slot selection + guest overrun).
-//   2. Open placeholder tab synchronously on desktop (gesture-preserving).
-//   3. Call book_slot or book_slot_group RPC.
-//   4. On success: show success card + redirect to WhatsApp/SMS.
-//   5. On a known DB answer (slot_taken, invalid_phone, too_many_active_bookings,
+//   2. Call book_slot or book_slot_group RPC.
+//   3. On success: the booking exists. Show who is booked, when, the total,
+//      and "Send your details to <barber>:" with WhatsApp (and Text where
+//      sms: works) links to the prefilled message. Nothing opens by itself.
+//   4. On a known DB answer (slot_taken, invalid_phone, too_many_active_bookings,
 //      ...): show its message inline with its next step (pick another time,
 //      fix the phone, cancel a booking). slot_taken must never fall back —
 //      that would cause a double booking.
-//   6. On a network or unknown failure: log to booking_errors, show the amber
-//      fallback card, still build the WhatsApp message (with a ⚠ BOOKING SYSTEM
-//      ERROR prefix), and redirect anyway. We don't lose the customer to a
-//      transient backend hiccup.
+//   5. On a network or unknown failure: log to booking_errors and show the
+//      amber card: the time isn't reserved, and the same send links carry the
+//      request (with a ⚠ BOOKING SYSTEM ERROR prefix) to the barber. We don't
+//      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
 import { getSelection, refreshAvailability as gridRefresh, clearTime } from './booking-grid.js';
@@ -145,19 +146,9 @@ function updateTimelineAndCheckOverrun(form) {
   return offenderSet.size === 0;
 }
 
-/** Side-effect-y wrapper that also enables/disables submit buttons. */
+/** Side-effect-y wrapper that also turns Reserve off while the party overruns. */
 function updateTimeline(form) {
-  const ok = updateTimelineAndCheckOverrun(form);
-  const submitBtns = form.querySelectorAll('[data-submit-whatsapp], [data-submit-sms]');
-  submitBtns.forEach(b => {
-    if (!ok) {
-      b.disabled = true;
-      b.setAttribute('data-overrun-blocked', '');
-    } else if (b.hasAttribute('data-overrun-blocked')) {
-      b.disabled = false;
-      b.removeAttribute('data-overrun-blocked');
-    }
-  });
+  setFlag(form, 'overrun', !updateTimelineAndCheckOverrun(form));
 }
 
 /* ---------- Guest add/remove ---------- */
@@ -254,55 +245,71 @@ async function showKnownError(form, code, phone) {
   if (field) field.focus();
 }
 
-function linkLabel(mode) {
-  return mode === 'sms' ? 'Open Messages →' : 'Open WhatsApp →';
+/** Where an sms: link can open something: phones and tablets. */
+function canText() {
+  return window.matchMedia('(pointer: coarse)').matches
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
-/** The confirmation: who is booked, for what, at what time, and the total.
- *  `people` is [{ name, service, time }]; without it only `text` is shown. */
-function showSuccess(form, { text, people = [], total = '', link, mode }) {
+/** "Send your details to <barber>:" with plain links to the prefilled
+ *  message. On a phone they navigate in place, which hands off to WhatsApp
+ *  or Messages; on a desktop WhatsApp opens in a new tab and Text is left
+ *  out, since sms: has nothing to open there. */
+function fillSend(card, { barberName, whatsapp, sms }) {
+  const phone = canText();
+  card.querySelector('[data-send-head]').textContent = `Send your details to ${barberName}:`;
+  const wa = card.querySelector('[data-send-whatsapp]');
+  wa.href = whatsapp;
+  if (phone) wa.removeAttribute('target'); else wa.target = '_blank';
+  const text = card.querySelector('[data-send-sms]');
+  text.href = sms;
+  text.hidden = !phone;
+}
+
+/** The confirmation: who is booked, for what, at what time, the total, and
+ *  how the barber gets the details. `people` is [{ name, service, time }]. */
+function showSuccess(form, { text, people, total, next, send }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
   card.querySelector('[data-success-text]').textContent = text;
-  const list = card.querySelector('[data-success-list]');
-  if (list) {
-    list.replaceChildren(...people.map(p => {
-      const li = document.createElement('li');
-      li.textContent = `${p.name} · ${p.service} · ${p.time}`;
-      return li;
-    }));
-  }
-  const totalEl = card.querySelector('[data-success-total]');
-  if (totalEl) {
-    totalEl.textContent = total;
-    totalEl.parentElement.hidden = !total;
-  }
-  const a = card.querySelector('[data-success-link]');
-  if (link) { a.href = link; a.textContent = linkLabel(mode); a.hidden = false; } else { a.hidden = true; }
+  card.querySelector('[data-success-list]').replaceChildren(...people.map(p => {
+    const li = document.createElement('li');
+    li.textContent = `${p.name} · ${p.service} · ${p.time}`;
+    return li;
+  }));
+  card.querySelector('[data-success-total]').textContent = total;
+  card.querySelector('[data-success-next]').textContent = next;
+  fillSend(card, send);
   card.hidden = false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function showFallback(form, { text, link, mode }) {
+function showFallback(form, { text, send }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-fallback]');
-  if (!card) {
-    // Fallback card markup missing — degrade to the regular success card.
-    showSuccess(form, { text, link, mode });
-    return;
-  }
   card.querySelector('[data-fallback-text]').textContent = text;
-  const a = card.querySelector('[data-fallback-link]');
-  if (link) { a.href = link; a.textContent = linkLabel(mode); a.hidden = false; } else { a.hidden = true; }
+  fillSend(card, send);
   card.hidden = false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ---------- Reserve button state ---------- */
+
+/** Reserve is off while a request is in flight, while the party runs past
+ *  closing, and after a booking until "Book another". */
+function setFlag(form, key, on) {
+  form.dataset[key] = on ? 'true' : 'false';
+  const off = ['busy', 'overrun', 'booked'].some(k => form.dataset[k] === 'true');
+  form.querySelectorAll('[data-submit]').forEach(b => { b.disabled = off; });
 }
 
 /* ---------- Submit ---------- */
 
-async function submit(form, mode) {
+async function submit(form) {
+  if (form.dataset.busy === 'true' || form.dataset.booked === 'true') return;
+
   // 1. Pre-flight HTML5 validation — surface required-field errors cleanly
-  //    BEFORE we open any placeholder tab or hit the RPC.
+  //    before we hit the RPC.
   if (!form.checkValidity()) {
     form.reportValidity();
     return;
@@ -310,9 +317,8 @@ async function submit(form, mode) {
 
   hideMessages(form);
 
-  // 2. Disable buttons immediately to slam the double-tap window shut.
-  const submitBtns = form.querySelectorAll('[data-submit-whatsapp], [data-submit-sms]');
-  submitBtns.forEach(b => (b.disabled = true));
+  // 2. Disable Reserve immediately to slam the double-tap window shut.
+  setFlag(form, 'busy', true);
 
   // 3. Read form data + selection, then validate as one unit.
   const sel = getSelection();
@@ -333,26 +339,20 @@ async function submit(form, mode) {
   });
   if (!check.ok) {
     showError(form, check.code, check.message);
-    submitBtns.forEach(b => (b.disabled = false));
+    setFlag(form, 'busy', false);
     return;
   }
   // Recheck guest overrun — UI should have prevented this already, but verify.
   if (!updateTimelineAndCheckOverrun(form)) {
     showError(form, 'outside_hours', 'One of your party runs past closing time. Pick an earlier start.');
-    submitBtns.forEach(b => (b.disabled = false));
+    setFlag(form, 'busy', false);
     return;
   }
 
   const barber     = BARBERS[sel.barberSlug];
   const barberName = barber ? barber.name : 'the shop';
 
-  // 5. Pre-open placeholder tab on desktop (preserves user gesture)
-  const isMobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
-  const placeholder = (!isMobile && (mode === 'whatsapp' || mode === 'sms'))
-    ? window.open('about:blank', '_blank', 'noopener')
-    : null;
-
-  // 6. Call the appropriate RPC
+  // 4. Call the appropriate RPC
   let bookings;        // unified array of person bookings
   let rpcError = null;
   const primaryServiceSlug = bookableService(service);
@@ -419,9 +419,16 @@ async function submit(form, mode) {
     rpcError = err;
   }
 
-  // 7. Build context shared by both success + fallback paths
-  const dateLabel   = dateLabelFromIso(sel.date);
-  const useMarkdown = mode === 'whatsapp';
+  // 5. Context shared by the success and fallback paths: the prefilled
+  //    message in both flavours (WhatsApp markdown, plain text).
+  const dateLabel = dateLabelFromIso(sel.date);
+  const sendLinks = (rows, extra = {}) => {
+    const build = (useMarkdown) => buildBookingMessage({
+      name, phone: formatPhoneDisplay(phone), barberName, dateLabel, bookings: rows, notes,
+      customRequest: service === 'custom' ? custom : null, useMarkdown, ...extra,
+    });
+    return { barberName, whatsapp: messagingUrl('whatsapp', build(true)), sms: messagingUrl('sms', build(false)) };
+  };
 
   /* ===== ERROR PATH ===== */
   if (rpcError) {
@@ -441,19 +448,18 @@ async function submit(form, mode) {
       source: 'web',
     });
 
-    // 7a. A known answer from the DB: inline, with its own next step. Never
+    // 5a. A known answer from the DB: inline, with its own next step. Never
     //     a messaging fallback (for slot_taken that would double-book).
     if (!FALLBACK_CODES.has(code)) {
-      if (placeholder) placeholder.close();
       if (code !== 'slot_taken') logError();
       await showKnownError(form, code, phone);
-      submitBtns.forEach(b => (b.disabled = false));
+      setFlag(form, 'busy', false);
       return;
     }
 
-    // 7b. Network or unknown failure: log to booking_errors, then build a
-    //     fallback message and route the customer to WhatsApp/SMS anyway. We
-    //     don't lose customers to transient backend hiccups.
+    // 5b. Network or unknown failure: log to booking_errors, then offer the
+    //     request as a message to the barber. We don't lose customers to
+    //     transient backend hiccups, and we don't claim the slot is held.
     logError();
 
     // Build "pending-ref" so the shop can correlate manual confirmations.
@@ -474,47 +480,15 @@ async function submit(form, mode) {
       booking_id:        i === 0 ? pendingRef : `${pendingRef}-g${i}`,
     }));
 
-    const fallbackMessage = buildBookingMessage({
-      name,
-      phone: formatPhoneDisplay(phone),
-      barberName,
-      dateLabel,
-      bookings: fakeBookings,
-      notes,
-      customRequest: service === 'custom' ? custom : null,
-      useMarkdown,
-      systemError: true,
-      errorCode: code,
-    });
-    const url = messagingUrl(mode, fallbackMessage);
-
     showFallback(form, {
-      text: `Couldn't lock the slot in our system right now — but we're sending your request straight to ${barberName}. You'll get a confirmation by ${mode === 'whatsapp' ? 'WhatsApp' : 'text'} as soon as possible.`,
-      link: url,
-      mode,
+      text: `Couldn't reach the booking system, so this time isn't reserved yet. ${barberName} will reply to confirm once he has your details.`,
+      send: sendLinks(fakeBookings, { systemError: true, errorCode: code }),
     });
-
-    // Redirect: same pattern as success path.
-    if (isMobile) {
-      setTimeout(() => { window.location.href = url; }, 800);
-    } else if (placeholder && !placeholder.closed) {
-      try { placeholder.location.href = url; } catch (_) { /* noop */ }
-    }
-    submitBtns.forEach(b => (b.disabled = false));
+    setFlag(form, 'busy', false);
     return;
   }
 
   /* ===== SUCCESS PATH ===== */
-  const message = buildBookingMessage({
-    name, phone: formatPhoneDisplay(phone),
-    barberName,
-    dateLabel, bookings, notes,
-    customRequest: service === 'custom' ? custom : null,
-    useMarkdown,
-    systemError: false,
-  });
-  const url = messagingUrl(mode, message);
-
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
   // One line per person; a multi-slot service's continuation rows have no id.
@@ -525,30 +499,19 @@ async function submit(form, mode) {
     time:    minutesToLabel(hmsToMinutes(b.booking_time)),
   }));
 
+  // The booking already exists; the message is how the barber gets the details.
   showSuccess(form, {
     text: `${dateLabel} · ${barberName}`,
     people,
     total: formatTotal(total, unpriced),
-    link: url,
-    mode,
+    next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details; he'll reply to confirm.`,
+    send: sendLinks(bookings),
   });
-  setBooked(form, true);
 
-  if (isMobile) {
-    setTimeout(() => { window.location.href = url; }, 700);
-  } else if (placeholder && !placeholder.closed) {
-    try { placeholder.location.href = url; } catch (_) { /* noop */ }
-  }
-
-  // The form stays as submitted next to the confirmation; "Book another"
-  // clears it. Submitting again is not offered until then.
-  submitBtns.forEach(b => (b.disabled = false));
-}
-
-/** While a confirmation is showing, the reserve buttons are put away. */
-function setBooked(form, booked) {
-  const row = form.querySelector('[data-submit-row]');
-  if (row) row.hidden = booked;
+  // The form stays as submitted next to the confirmation, and Reserve stays
+  // off, until "Book another".
+  form.dataset.busy = 'false';
+  setFlag(form, 'booked', true);
 }
 
 /** "Book another": a fresh form, and a grid that shows the slots just taken. */
@@ -560,10 +523,10 @@ function startOver(form) {
   syncCustomField(form);       // reset() fires no change event
   syncIncludedAddons(form);
   hideMessages(form);
-  setBooked(form, false);
   clearTime();
   updateTotal(form);
   updateTimeline(form);
+  setFlag(form, 'booked', false);
   gridRefresh();
   form.closest('.booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -632,14 +595,6 @@ export function initBookingSubmit() {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    submit(form, 'whatsapp');
-  });
-  form.querySelector('[data-submit-whatsapp]')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    submit(form, 'whatsapp');
-  });
-  form.querySelector('[data-submit-sms]')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    submit(form, 'sms');
+    submit(form);
   });
 }

@@ -266,7 +266,7 @@ describe('booking submit — success', () => {
     $('input[name="addons"][value="beard"]').click();
     expect($('[data-total-display]').textContent).toBe('$40');
 
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
 
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
@@ -281,10 +281,80 @@ describe('booking submit — success', () => {
     expect($$('[data-success-list] li').map(li => li.textContent))
       .toEqual(['Test Customer · Hair Cut + Beard · 11:30 AM']);
     expect($('[data-success-total]').textContent).toBe('$40');
-    const link = $('[data-success-link]');
+    const link = $('[data-form-success] [data-send-whatsapp]');
     expect(link.hidden).toBe(false);
     expect(link.href).toContain('wa.me');
     expect(decodeURIComponent(link.href)).toContain('Barber:  Larry');
+  });
+
+  it('one Reserve button books first; the card then offers the message by WhatsApp only on a desktop (D18, D3)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'd1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    expect($$('[data-booking-form] [type="submit"]')).toHaveLength(1);
+    expect($('[data-submit]').textContent.trim()).toBe('Reserve');
+    expect($('[data-booking-form]').textContent).not.toContain('Reserve by text');
+    expect($('[data-booking-form]').textContent).not.toContain('Reserve on WhatsApp');
+
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    expect(window.open).not.toHaveBeenCalled();             // no blank placeholder tab
+    expect(rpc.bookSlot).toHaveBeenCalledTimes(1);           // booked before any channel is chosen
+    const card = $('[data-form-success]');
+    expect(card.querySelector('[data-success-next]').textContent)
+      .toBe("Your chair is reserved. Send the message so Hassan has your details; he'll reply to confirm.");
+    expect(card.querySelector('[data-send-head]').textContent).toBe('Send your details to Hassan:');
+    const wa = card.querySelector('[data-send-whatsapp]');
+    expect(wa.textContent).toBe('WhatsApp');
+    expect(wa.href).toContain('https://wa.me/14138854440?text=');
+    expect(wa.target).toBe('_blank');
+    expect(wa.rel).toBe('noopener');
+    expect(card.querySelector('[data-send-sms]').hidden).toBe(true);   // sms: has nothing to open on a desktop
+    expect(card.textContent).not.toMatch(/didn't open|Ref|tap the button/i);
+  });
+
+  it('on a phone the card offers WhatsApp and Text, both opening in place (D18, D3)', async () => {
+    window.matchMedia.mockReturnValue({
+      matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+    });
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'd2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    const card = $('[data-form-success]');
+    expect(card.querySelector('[data-send-head]').textContent).toBe('Send your details to Larry:');
+    const wa = card.querySelector('[data-send-whatsapp]');
+    const sms = card.querySelector('[data-send-sms]');
+    expect(wa.hasAttribute('target')).toBe(false);
+    expect(sms.hidden).toBe(false);
+    expect(sms.textContent).toBe('Text');
+    expect(sms.href).toMatch(/^sms:\+14138854440\?&body=/);
+    expect(decodeURIComponent(sms.href)).toContain('Barber:  Larry');
+    expect(decodeURIComponent(wa.href)).toContain('*FADE EMPIRE — BOOKING REQUEST*');   // WhatsApp keeps its markdown
+    expect(decodeURIComponent(sms.href)).not.toContain('*FADE EMPIRE');
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('the fallback card says the time is not reserved and offers the same send links (D18)', async () => {
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
+    const card = $('[data-form-fallback]');
+    expect(card.textContent).toContain('Not reserved yet');
+    expect(card.querySelector('[data-fallback-text]').textContent)
+      .toBe("Couldn't reach the booking system, so this time isn't reserved yet. Hassan will reply to confirm once he has your details.");
+    expect(card.querySelector('[data-send-head]').textContent).toBe('Send your details to Hassan:');
+    expect(card.querySelector('[data-send-whatsapp]').target).toBe('_blank');
+    expect(window.open).not.toHaveBeenCalled();
+    expect($('[data-submit]').disabled).toBe(false);          // not booked: Reserve can be tried again
   });
 
   it('books a group, lists every person in the confirmation, and keeps the form until Book another (P15)', async () => {
@@ -310,7 +380,7 @@ describe('booking submit — success', () => {
     expect($('[data-group-timeline]').hidden).toBe(false);
     expect($('[data-group-timeline]').textContent).toContain('Kiddo — 12:15 PM');
 
-    $('[data-submit-sms]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
 
     expect(rpc.bookSlotGroup).toHaveBeenCalledWith(expect.objectContaining({
@@ -332,7 +402,7 @@ describe('booking submit — success', () => {
     expect($('[data-total-display]').textContent).toBe('$55');
     expect($$('[data-guest-list] [data-guest]')).toHaveLength(1);
     expect($('input[name="name"]').value).toBe('Test Customer');
-    expect($('[data-submit-row]').hidden).toBe(true);
+    expect($('[data-submit]').disabled).toBe(true);           // Reserve is off until Book another
 
     const refreshes = rpc.fetchAvailability.mock.calls.length;
     $('[data-book-another]').click();
@@ -340,7 +410,7 @@ describe('booking submit — success', () => {
     expect($$('[data-guest-list] [data-guest]')).toHaveLength(0);
     expect($('input[name="name"]').value).toBe('');
     expect($('[data-total-display]').textContent).toBe('$0');
-    expect($('[data-submit-row]').hidden).toBe(false);
+    expect($('[data-submit]').disabled).toBe(false);
     expect($('[data-form-time]').value).toBe('');
     expect(rpc.fetchAvailability.mock.calls.length).toBeGreaterThan(refreshes);
   });
@@ -351,7 +421,7 @@ describe('booking submit — success', () => {
 describe('booking submit — validation and failures', () => {
   it('blocks submit without a slot selection', async () => {
     fillPrimary();
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
     expect($('[data-form-error]').textContent).toContain('Pick a day and a time');
     expect(rpc.bookSlot).not.toHaveBeenCalled();
@@ -361,7 +431,7 @@ describe('booking submit — validation and failures', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary({ phone: '55501' });
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
     expect($('[data-form-error]').textContent).toContain('10-digit');
     expect(rpc.bookSlot).not.toHaveBeenCalled();
@@ -381,13 +451,13 @@ describe('booking submit — validation and failures', () => {
 
     const timeline = $('[data-group-timeline]');
     expect(timeline.textContent).toContain('⚠ past closing');
-    expect($('[data-submit-whatsapp]').disabled).toBe(true);
-    expect($('[data-submit-sms]').disabled).toBe(true);
+    expect($('[data-submit]').disabled).toBe(true);
+    expect($('[data-submit]').disabled).toBe(true);
 
     // Moving to an earlier slot clears the overrun and re-enables submit.
     clickSlot('14:30:00');
     expect(timeline.textContent).not.toContain('⚠ past closing');
-    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+    expect($('[data-submit]').disabled).toBe(false);
   });
 
   it('hard-fails on slot_taken: error card, no fallback, availability refreshed', async () => {
@@ -398,7 +468,7 @@ describe('booking submit — validation and failures', () => {
     fillPrimary();
     const callsBefore = rpc.fetchAvailability.mock.calls.length;
 
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
 
     expect($('[data-form-error]').textContent).toContain('just booked');
@@ -418,7 +488,7 @@ describe('booking submit — validation and failures', () => {
     rpc.fetchAvailability.mockResolvedValue([   // the refresh after the conflict shows the stolen slot
       { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '11:30:00', status: 'confirmed' },
     ]);
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
     await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot[data-time="11:30:00"]').disabled).toBe(true));
 
@@ -429,7 +499,7 @@ describe('booking submit — validation and failures', () => {
 
     rpc.bookSlot.mockResolvedValueOnce([{ booking_id: 'b2', slot_index: 0, booking_time: '12:15:00', total_price_cents: 3000 }]);
     clickSlot('12:15:00');
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ date: '2026-07-08', time: '12:15:00' }));
   });
@@ -440,14 +510,14 @@ describe('booking submit — validation and failures', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary();
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
 
     expect(rpc.logBookingError).toHaveBeenCalledWith(expect.objectContaining({
       code: 'network',
       attempted: expect.objectContaining({ barber: 'hassan', date: '2026-07-08' }),
     }));
-    const link = $('[data-fallback-link]');
+    const link = $('[data-form-fallback] [data-send-whatsapp]');
     expect(link.hidden).toBe(false);
     expect(decodeURIComponent(link.href)).toContain('BOOKING SYSTEM ERROR');
   });
@@ -457,11 +527,11 @@ describe('booking submit — validation and failures', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary();
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
     expect($('[data-form-fallback]').hidden).toBe(true);     // no manual-message card
     expect($('[data-form-success]').hidden).toBe(true);
-    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+    expect($('[data-submit]').disabled).toBe(false);
   }
 
   it('too_many_active_bookings stays inline and offers Cancel a booking with the phone filled in (P16)', async () => {
@@ -508,9 +578,9 @@ describe('booking submit — validation and failures', () => {
     $('input[name="addons"][value="hot-towel"]').click();
     $('input[name="addons"][value="facial"]').click();
     expect($('[data-total-display]').textContent).toBe('$55');
-    $('[data-submit-sms]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
-    const msg = decodeURIComponent($('[data-fallback-link]').href);
+    const msg = decodeURIComponent($('[data-form-fallback] [data-send-whatsapp]').href);
     expect(msg).toContain('Total:   $55');
     expect(msg).not.toContain('$30');
   });
@@ -521,9 +591,9 @@ describe('booking submit — validation and failures', () => {
     clickSlot('11:30:00');
     fillPrimary({ service: 'custom' });
     fill('textarea[name="custom_request"]', 'Design on the side');
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
-    const msg = decodeURIComponent($('[data-fallback-link]').href);
+    const msg = decodeURIComponent($('[data-form-fallback] [data-send-whatsapp]').href);
     expect(msg).toContain('Something else: Design on the side · price at the chair');
     expect(msg).toContain('Total:   Price at the chair');
     expect(msg).not.toContain('$30');
@@ -708,8 +778,8 @@ describe('booking edge cases', () => {
     clickDay('2026-07-08');
     clickSlot('17:30:00');
     fillPrimary({ service: 'vip-haircut' });
-    expect($('[data-submit-whatsapp]').disabled).toBe(false);
-    $('[data-submit-whatsapp]').click();
+    expect($('[data-submit]').disabled).toBe(false);
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ time: '17:30:00', serviceSlug: 'vip-haircut' }));
     expect($('[data-success-list]').textContent).toContain('5:30 PM');
@@ -749,12 +819,12 @@ describe('booking edge cases', () => {
     const form = $('[data-booking-form]');
     const report = vi.spyOn(form, 'reportValidity');
     expect(form.checkValidity()).toBe(false);
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await new Promise((r) => setTimeout(r, 20));
     expect(report).toHaveBeenCalled();
     expect(rpc.bookSlot).not.toHaveBeenCalled();
     expect(rpc.bookSlotGroup).not.toHaveBeenCalled();
-    expect($('[data-submit-whatsapp]').disabled).toBe(false);     // nothing left disabled
+    expect($('[data-submit]').disabled).toBe(false);     // nothing left disabled
   });
 
   it('a group total counts every guest, and a VIP guest pushes the next one 45 minutes', () => {
@@ -800,7 +870,7 @@ describe('booking edge cases', () => {
     addon('wax').click();
     expect($('[data-total-display]').textContent).toBe('$65');
 
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: ['wax'] }));
   });
@@ -812,7 +882,7 @@ describe('booking edge cases', () => {
     fillPrimary({ service: 'hair-cut' });
     $('input[name="addons"][value="beard"]').click();
     fill('[data-service-select]', 'vip-haircut');
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect($('[data-success-list] li').textContent).toBe('Test Customer · VIP Haircut · 11:30 AM');
     $('[data-book-another]').click();
@@ -864,7 +934,7 @@ describe('booking edge cases', () => {
     row.querySelector('[data-guest-service]').value = 'vip-haircut';
     row.querySelector('[data-guest-service]').dispatchEvent(new Event('change', { bubbles: true }));
     expect($('[data-total-display]').textContent).toBe('$70');
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect(rpc.bookSlotGroup).toHaveBeenCalled());
     expect(rpc.bookSlotGroup.mock.calls[0][0].people[1]).toEqual(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: [] }));
   });
@@ -880,7 +950,7 @@ describe('booking edge cases', () => {
     expect($('[data-total-display]').textContent).toBe('$10 + price at the chair');
     $('input[name="addons"][value="beard"]').click();
     fill('textarea[name="custom_request"]', 'Mid taper, keep the length on top');
-    $('[data-submit-whatsapp]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
       serviceSlug: 'hair-cut',                          // the slot is still held through the same mapping
@@ -891,7 +961,7 @@ describe('booking edge cases', () => {
       .toBe('Test Customer · Something else: Mid taper, keep the length on top · price at the chair · 11:30 AM');
     expect($('[data-success-total]').textContent).toBe('Price at the chair');
     expect(card).not.toContain('$30');
-    const msg = decodeURIComponent($('[data-success-link]').href);
+    const msg = decodeURIComponent($('[data-form-success] [data-send-whatsapp]').href);
     expect(msg).toContain('Something else: Mid taper, keep the length on top · price at the chair');
     expect(msg).toContain('Total:   Price at the chair');
     expect(msg).not.toContain('$30');
@@ -913,16 +983,22 @@ describe('booking edge cases', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary();
-    $('[data-submit-whatsapp]').click();
-    $('[data-submit-whatsapp]').click();
-    $('[data-submit-sms]').click();
+    $('[data-submit]').click();
+    $('[data-submit]').click();
+    $('[data-submit]').click();
     await vi.waitFor(() => expect(rpc.bookSlot).toHaveBeenCalledTimes(1));
-    expect($('[data-submit-whatsapp]').disabled).toBe(true);
-    expect($('[data-submit-sms]').disabled).toBe(true);
+    expect($('[data-submit]').disabled).toBe(true);
     resolve([{ booking_id: 'x', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledTimes(1);
-    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+    // Booked: Reserve stays off until the customer starts over (D7).
+    expect($('[data-submit]').disabled).toBe(true);
+    $('[data-submit]').click();
+    $('[data-booking-form]').dispatchEvent(new Event('submit', { cancelable: true }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(rpc.bookSlot).toHaveBeenCalledTimes(1);
+    $('[data-book-another]').click();
+    expect($('[data-submit]').disabled).toBe(false);
   });
 
   it('rebuilds the day row when the tab wakes up on a new day', async () => {

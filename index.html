@@ -899,29 +899,31 @@
             <span class="t-eyebrow">Total</span>
             <span class="t-mono" data-success-total></span>
           </p>
-          <div class="booking__success-actions">
-            <a class="btn btn--gold btn--lg" data-success-link target="_blank" rel="noopener" hidden>Open WhatsApp</a>
+          <p class="booking__success-next" data-success-next></p>
+          <div class="booking__send">
+            <p class="booking__send-head" data-send-head></p>
+            <div class="booking__send-actions">
+              <a class="btn btn--gold btn--lg" data-send-whatsapp rel="noopener">WhatsApp</a>
+              <a class="btn btn--ghost btn--lg" data-send-sms hidden>Text</a>
+            </div>
           </div>
-          <p class="booking__success-fine t-meta">If your messaging app didn't open on its own, tap the button above.</p>
           <button type="button" class="btn btn--ghost btn--block" data-book-another>Book another</button>
         </div>
 
         <div class="booking__fallback-card" data-form-fallback hidden role="status">
-          <p class="t-eyebrow">Sending your request straight to the shop</p>
+          <p class="t-eyebrow">Not reserved yet</p>
           <p class="booking__fallback-text" data-fallback-text></p>
-          <div class="booking__fallback-actions">
-            <a class="btn btn--gold btn--lg" data-fallback-link target="_blank" rel="noopener" hidden>Open WhatsApp</a>
+          <div class="booking__send">
+            <p class="booking__send-head" data-send-head></p>
+            <div class="booking__send-actions">
+              <a class="btn btn--gold btn--lg" data-send-whatsapp rel="noopener">WhatsApp</a>
+              <a class="btn btn--ghost btn--lg" data-send-sms hidden>Text</a>
+            </div>
           </div>
-          <p class="booking__fallback-fine t-meta">Tap the button if your messaging app didn't open on its own.</p>
         </div>
 
-        <div class="booking__submit" data-submit-row>
-          <button type="submit" class="btn btn--gold btn--lg" data-submit-whatsapp>
-            <span>Reserve on WhatsApp</span>
-          </button>
-          <button type="button" class="btn btn--ghost btn--lg" data-submit-sms>
-            <span>Reserve by text</span>
-          </button>
+        <div class="booking__submit">
+          <button type="submit" class="btn btn--gold btn--lg" data-submit>Reserve</button>
         </div>
 
         <p class="booking__fine t-meta">
