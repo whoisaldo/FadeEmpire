@@ -1723,6 +1723,41 @@ describe('move a booking (C4)', () => {
     expect($('input[name="phone"]').value).toBe('(413) 555-7777');
   });
 
+  it('the text boxes survive a Move from the card and reach the new booking and the saved record (CR4)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: larryRow.booking_id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 1000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('10:00:00');
+    fillPrimary({ name: 'Dana Reyes', service: 'line-up' });
+    $('input[name="remind_sms"]').click();                      // reminder off
+    $('input[name="rebook_sms"]').click();                      // next cut on
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ remindSms: false, rebookSms: true }));
+    localStorage.removeItem('fe.lastBooking');                  // written again only by the replacement
+    await findRow();
+    await confirmMove();
+    expect($('input[name="remind_sms"]').checked).toBe(false);
+    expect($('input[name="rebook_sms"]').checked).toBe(true);
+    expect(localStorage.getItem('fe.lastBooking')).toBeNull();
+
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'moved-2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 1000 }]);
+    clickSlot('11:30:00');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Chair reserved'));
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ time: '11:30:00', remindSms: false, rebookSms: true }));
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking'))).toMatchObject({ name: 'Dana Reyes', remindSms: false, rebookSms: true });
+  });
+
+  it('the text boxes are kept by a Move from an open form too (CR4)', async () => {
+    $('input[name="remind_sms"]').click();
+    $('input[name="rebook_sms"]').click();
+    await findRow();
+    await confirmMove();
+    expect($('input[name="remind_sms"]').checked).toBe(false);
+    expect($('input[name="rebook_sms"]').checked).toBe(true);
+  });
+
   it('moving one guest of the group on the card strikes that line, opens the form for the guest\'s service, and the card keeps tracking', async () => {
     await bookGroupOnCard();
     await findRow(hassanRow({ booking_id: 'grp-2', service_slug: 'kids-cut', first_name: 'Kid', booking_time: '12:15:00' }));

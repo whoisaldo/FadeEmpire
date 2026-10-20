@@ -722,7 +722,8 @@ async function focusNextStep(form) {
  *  off the confirmation, if it is on it). A locked form opens again the way
  *  "Book another" opens it, the card staying as the record; then the form
  *  takes the booking's barber and service, keeps the name and phone (filled
- *  from the lookup when empty), and focus goes to the day row for a new time:
+ *  from the lookup when empty) and the two text boxes as the customer left
+ *  them, and focus goes to the day row for a new time:
  *  the booking's own day if it still has an open time, otherwise the next. */
 async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, phone } = {}) {
   // What the customer typed wins over the lookup's first name and phone.
@@ -730,7 +731,14 @@ async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, pho
   const tel  = form.querySelector('input[name="phone"]');
   const typedName = name.value.trim() ? name.value : '';
   const typedTel  = tel.value.trim() ? tel.value : '';
+  // The text boxes are the customer's own choice: opening the form must not
+  // reset them to their defaults.
+  const remind = form.querySelector('input[name="remind_sms"]');
+  const rebook = form.querySelector('input[name="rebook_sms"]');
+  const consent = { remind: remind.checked, rebook: rebook.checked };
   if (form.dataset.booked === 'true') unlock(form);
+  remind.checked = consent.remind;
+  rebook.checked = consent.rebook;
   // One fresh read for the freed slot: a new barber's is already on its way.
   const sameBarber = getSelection().barberSlug === barberSlug;
   chooseBarber(barberSlug);
