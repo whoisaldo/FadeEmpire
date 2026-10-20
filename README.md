@@ -106,7 +106,7 @@ Sources stay in `assets/Haircuts`, `assets/FadeEmpireStore`, `assets/Barbers`. E
 
 ```bash
 pip3 install pillow                 # once
-python3 tools/build-assets.py       # every photo at 480/800/1200(/1600/2000) px, JPG + WebP, EXIF baked in
+python3 tools/build-assets.py       # every photo at 480/800/1200(/1600/2000) px (barbers also 160 for the booking thumbs), JPG + WebP, EXIF baked in
 python3 tools/build-assets.py hero-cut brand   # just one stem, or just the brand files
 
 brew install ffmpeg                 # once

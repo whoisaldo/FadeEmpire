@@ -12,7 +12,9 @@ Video encodes live in tools/build-video.sh.
 
 Needs Pillow (`pip3 install pillow`). Sizes are chosen per image from how large
 it renders: gallery plates top out around 600 CSS px, the hero fills the
-viewport, so it gets a 2000 px rung for 2x desktop screens.
+viewport, so it gets a 2000 px rung for 2x desktop screens. The interior renders
+about 400 px wide on 1x desktops, so it gets a 480 rung; the barbers' 160 px
+rung is the 52 px booking thumbnail at 3x.
 """
 
 import sys
@@ -28,7 +30,8 @@ JPEG_QUALITY = 82
 WEBP_QUALITY = 80
 
 GALLERY = (480, 800, 1200)
-WIDE = (800, 1200, 1600, 2000)
+WIDE = (480, 800, 1200, 1600, 2000)
+THUMB = 160
 PORTRAIT_HERO = (480, 800, 1200, 1600, 2000)
 
 # stem -> (source, widths)
@@ -40,8 +43,8 @@ SOURCES = {
     "storefront":        ("assets/FadeEmpireStore/FadeEmpireStoreFront.JPG", GALLERY),
     "price-wall":        ("assets/Haircuts/cut-price-list-wall.jpg", GALLERY),
     # barbers
-    "hassan":            ("assets/Barbers/Hassan/HassanBarber.png", GALLERY),
-    "larry":             ("assets/Barbers/Larry/LarryBarber.jpg", GALLERY),
+    "hassan":            ("assets/Barbers/Hassan/HassanBarber.png", (THUMB,) + GALLERY),
+    "larry":             ("assets/Barbers/Larry/LarryBarber.jpg", (THUMB,) + GALLERY),
     # gallery, newest first
     "cut-textured-taper":  ("assets/Haircuts/cut-textured-taper.jpg", GALLERY),
     "cut-curls-full-beard":("assets/Haircuts/cut-curls-full-beard.jpg", GALLERY),
@@ -101,6 +104,14 @@ def build_brand() -> None:
     full = tinted(alpha, BONE)
     full = full.crop(alpha.getbbox())
     full.save(BRAND / "logo-full.png", optimize=True)
+    # The footer shows it 120-150 px wide: 240 for 1x, 480 up to 3x. The art is
+    # one colour, so a palette PNG of bone at every alpha level is exact and
+    # 40% of the RGBA size.
+    for w in (240, 480):
+        small = full.resize((w, round(full.height * w / full.width)), Image.LANCZOS).getchannel("A")
+        pal = Image.frombytes("P", small.size, small.tobytes())
+        pal.putpalette(list(BONE) * 256)
+        pal.save(BRAND / f"logo-full-{w}.png", optimize=True, transparency=bytes(range(256)))
 
     # The knight helmet alone is the monogram (the wordmark on the site is set
     # in Fraunces, and the pole runs the full height beside the text).
@@ -132,7 +143,7 @@ def build_brand() -> None:
     badge.thumbnail((360, 360), Image.LANCZOS)
     card.alpha_composite(badge, (72, 630 - badge.height - 56))
     card.convert("RGB").save(BRAND / "og-cover.jpg", "JPEG", quality=86, optimize=True, progressive=True)
-    print("  brand: logo-full, logo-mark, icons, apple-touch-icon, og-cover")
+    print("  brand: logo-full(-240, -480), logo-mark, icons, apple-touch-icon, og-cover")
 
 
 def main(argv) -> None:
