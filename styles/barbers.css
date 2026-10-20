@@ -14,6 +14,14 @@
   }
 }
 
+/* Desktop: the name and bio start level with the top of the portrait, and
+   the portrait stops growing at 560px so the text is not left beside a
+   tall empty band. */
+@media (min-width: 1024px) {
+  .feature { align-items: start; }
+  .feature__portrait { max-height: 560px; }
+}
+
 .feature__portrait {
   position: relative;
   margin: 0;
