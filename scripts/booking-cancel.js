@@ -204,9 +204,15 @@ export function initBookingCancel() {
     lookup(root);
   });
 
-  // The "Need to cancel?" toggle in the booking fine print.
+  // The "Cancel a booking" disclosure in the booking fine print: opens the
+  // panel and puts the cursor in Phone; a second tap closes it again.
   document.querySelectorAll('[data-cancel-open]').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (!root.hidden) {
+        root.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+      }
       root.hidden = false;
       btn.setAttribute('aria-expanded', 'true');
       root.scrollIntoView({ behavior: 'smooth', block: 'center' });

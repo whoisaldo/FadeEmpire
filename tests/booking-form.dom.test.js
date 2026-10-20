@@ -555,6 +555,21 @@ describe('cancellation flow', () => {
     $('[data-cancel-find]').click();
   }
 
+  it('"Cancel a booking" toggles: a second tap closes the panel and leaves focus on the control (P18)', () => {
+    const toggle = $('[data-cancel-open]');
+    toggle.focus();
+    toggle.click();
+    expect($('[data-cancel-root]').hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+
+    toggle.focus();
+    toggle.click();
+    expect($('[data-cancel-root]').hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+  });
+
   it('requires a 10-digit phone before looking anything up', async () => {
     $('[data-cancel-open]').click();
     fill('[data-cancel-phone]', '413555');
