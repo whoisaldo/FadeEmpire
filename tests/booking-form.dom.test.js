@@ -465,6 +465,24 @@ describe('booking submit — success', () => {
     expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('Reserve it while the confirmation shows goes to the card, like the other shortcuts (R11)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r11', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    document.activeElement.blur();
+    Element.prototype.scrollIntoView.mockClear();
+
+    document.dispatchEvent(new CustomEvent('booking:pick', { detail: { date: '2026-07-10', time: '10:00:00', barberSlug: 'larry' } }));
+    const card = $('[data-form-success]');
+    await vi.waitFor(() => expect(document.activeElement).toBe(card));
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(card);
+    expect($('[data-form-time]').value).toBe('11:30:00');
+    expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('true');
+  });
+
   it('Book another puts keyboard focus on step 01, the selected barber, and scrolls there (R3)', async () => {
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'r3', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     await pickBarber('larry');

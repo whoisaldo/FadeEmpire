@@ -368,7 +368,11 @@ function bindExternalPick() {
   // said so; either way nothing is selected.
   document.addEventListener('booking:pick', async (e) => {
     const { date, time, barberSlug } = e.detail || {};
-    if (!date || !time || locked) return;
+    if (!date || !time) return;
+    if (locked) {                      // the confirmation is the next step
+      document.dispatchEvent(new CustomEvent('booking:focus-next'));
+      return;
+    }
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
     // Times still loading: go to the day now, its times shown loading, and
