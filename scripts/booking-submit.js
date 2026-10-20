@@ -615,6 +615,16 @@ export function initBookingSubmit() {
   form.querySelector('[data-add-guest]').addEventListener('click', () => addGuest(form));
   form.querySelector('[data-book-another]')?.addEventListener('click', () => startOver(form));
 
+  // "Book the VIP" in the menu: the service is chosen (and totalled) before
+  // the link's own #book jump lands on the form.
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest?.('[data-book-service]');
+    if (!link) return;
+    const select = form.querySelector('[data-service-select]');
+    select.value = link.dataset.bookService;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
   document.addEventListener('booking:selected', () => updateTimeline(form));
 
   updateTotal(form);

@@ -121,6 +121,29 @@ describe('cover.js: live status and next open slot', () => {
     expect(picked).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-09-10', time: '10:45:00', barberSlug: 'larry' }));
   });
 
+  it('"Reserve it" in the hero picks the advertised slot exactly like "Take it" (P11)', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    const next = {
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    };
+    rpc.fetchNextAvailable.mockResolvedValue(next);
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+
+    const picked = vi.fn();
+    document.addEventListener('booking:pick', (e) => picked(e.detail));
+    const reserve = $('[data-next-available] a');
+    expect(reserve.textContent).toBe('Reserve it');
+    reserve.click();
+    expect(picked).toHaveBeenCalledWith(next);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    $('[data-next-available-callout] [data-pick-next]').click();
+    expect(picked).toHaveBeenCalledTimes(2);
+    expect(picked.mock.calls[1][0]).toBe(picked.mock.calls[0][0]);
+  });
+
   it('keeps the next-slot lines hidden when there is nothing free or the lookup fails', async () => {
     const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
     rpc.fetchNextAvailable.mockRejectedValue(new Error('offline'));

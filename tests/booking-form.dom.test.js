@@ -655,6 +655,18 @@ describe('booking edge cases', () => {
     expect($('[data-selected-text]').textContent).toBe('Thu, Jul 9 · 12:15 PM · Larry');
   });
 
+  it('"Book the VIP" in the menu selects VIP and totals it before the jump to the form (P10)', () => {
+    const vipLink = indexHtml.match(/<a [^>]*class="[^"]*menu__feature-cta[^>]*>[^<]*<\/a>/)[0];
+    document.body.insertAdjacentHTML('afterbegin', vipLink);
+    fillPrimary({ service: 'line-up' });                     // a different service already chosen
+    const link = $('.menu__feature-cta');
+    expect(link.textContent).toBe('Book the VIP');
+    link.click();
+    expect($('[data-service-select]').value).toBe('vip-haircut');
+    expect($('[data-total-display]').textContent).toBe('$60');
+    expect($('input[name="addons"][value="facial"]').disabled).toBe(true);
+  });
+
   it('switching barber drops the chosen time (his grid is different) but not the day', () => {
     clickDay('2026-07-10');
     clickSlot('14:30:00');
