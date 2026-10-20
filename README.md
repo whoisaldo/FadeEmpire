@@ -13,9 +13,14 @@ Live: <https://chicopeefadeempire.com>
 - **Landing page** built around the shop's own photos and the professionally edited tour video: hero, "inside the shop" (video with a sound toggle, off by default), the price list and a "which one do I book?" comparison, a fifteen-plate gallery with a lightbox, the two barbers, booking, and the storefront with live hours.
 - **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
+- **The price list books itself** — each service row is a button ("Book Hair Cut, $30") that picks that service in the form and moves to the next step still to do; each add-on row ("Add Hot Towel, +$5") ticks or unticks its box the same way
 - **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
 - **Multi-slot services** — any service longer than the 45-minute grid books linked consecutive slots automatically. No current service needs it: the VIP is 45 minutes (migration 0018), so every service fits one slot — the machinery stays for the day one doesn't
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
+- **Move a booking** — "Move it" next to Cancel, the same two taps ("Yes, move Wed 10:00 AM"): the booking is cancelled, the form takes its barber and service, under the guest's own name when it is someone else's booking (and opens again if a confirmation was showing, the card kept as the record), and focus goes to the day row for a new time: the booking's own day if it still has an open time, otherwise the next
+- **Text consent** — two boxes in your details: a reminder the day before (on by default) and a text when the next cut is due, about every 3 weeks (off). Sent with the booking as `p_remind_sms` / `p_rebook_sms` (migration 0019)
+- **Returning customer** — after a booking, the customer's own choices (name, phone, barber, service, add-ons, the text boxes; never guests, nor a guest's booking moved to a new time) stay in `localStorage` under `fe.lastBooking`. The next visit opens with "Welcome back" and the form filled in, the cancel panel has the phone, and the sticky bar reads "Rebook · Hassan". "Not you? Clear" forgets it
+- **Add to calendar** — the confirmation offers `fade-empire-<date>.ics`: one event per booking (a group spans the first start to the last end), in UTC from the shop's clock, with the address, the shop phone and the cancel link
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
 - **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across both barbers) pulled from Supabase
@@ -74,8 +79,10 @@ FadeEmpire/
 │   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
 │   ├── booking-submit.js         Form submit, group flow, the result cards and their WhatsApp/text links, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
+│   ├── booking-return.js         The remembered customer: saved choices, the rebook card, Clear
 │   ├── booking-validate.js       Pure form validation + duration-aware party planning
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
+│   ├── booking-calendar.js       The .ics for "Add to calendar"
 │   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map
 │   ├── nav.js                    Mobile menu (loads without the database client)
 │   ├── page.js                   Nav stamp, hero status, sticky nav, compare collapse, footer year (no database)
@@ -190,6 +197,7 @@ npm run test:watch # watch mode while developing
 | `shop-status.test.js` | `shopStatus()` open / closing soon / closed with the next opening (skips the closed Tuesday), boundaries at open and close, the shop clock across both DST switches |
 | `booking-validate.test.js` | Duration-aware party planning and pure form validation |
 | `booking-messages.test.js` | The WhatsApp/SMS texts and deep links |
+| `booking-calendar.test.js` | The .ics read back by a small parser (`ics-parse.js`): required properties, UTC times in EDT and EST, groups, escaping, CRLF |
 | `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
 | `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return, filmstrip counter) |
 | `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the barbers match `BARBERS`, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |

@@ -67,9 +67,9 @@ ready(() => {
   initGallery();
   initVisit();
 
-  // cover.js and the three booking modules load side by side and fail on
+  // cover.js and the four booking modules load side by side and fail on
   // their own: a booking module that fails shows the notice at once, without
-  // waiting on cover.js or the other two.
+  // waiting on cover.js or the other three.
   import('./cover.js')
     .then((cover) => cover.initCover())
     .catch((err) => console.warn('[main] next open slot and sticky bar failed to start', err));
@@ -83,10 +83,12 @@ ready(() => {
     load(import('./booking-grid.js')),
     load(import('./booking-submit.js')),
     load(import('./booking-cancel.js')),
-  ]).then(([grid, submit, cancel]) => {
+    load(import('./booking-return.js')),
+  ]).then(([grid, submit, cancel, ret]) => {
     try {
       submit.initBookingSubmit();
       cancel.initBookingCancel();
+      ret.initBookingReturn();  // before the grid: it starts on a returning customer's barber
       grid.initBookingGrid();  // async; loads availability in the background
     } catch (err) {
       bookingFailed(err);

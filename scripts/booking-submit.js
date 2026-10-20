@@ -16,13 +16,16 @@
 //      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked } from './booking-grid.js';
+import {
+  getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked, chooseBarber, selectDayFrom,
+} from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
   includedAddons, isUnpricedService,
 } from './booking-helpers.js';
-import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS } from './booking-messages.js';
+import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS, SERVICE_LABELS } from './booking-messages.js';
+import { buildIcs, icsDataUrl } from './booking-calendar.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
 import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
 
@@ -202,6 +205,7 @@ function relabelGuests(form) {
 function hideMessages(form) {
   form.querySelector('[data-form-error]').hidden    = true;
   form.querySelector('[data-form-success]').hidden  = true;
+  shown = null;                // the confirmation is gone, so nothing tracks it
   const fb = form.querySelector('[data-form-fallback]');
   if (fb) fb.hidden = true;
 }
@@ -328,9 +332,20 @@ function fillSend(card, { barberName, whatsapp, sms }) {
   text.hidden = !phone;
 }
 
+/** "Add to calendar": the .ics for what the card shows, `file` being
+ *  { name, href } (or null once nothing is left on it). */
+function fillCalendar(card, file) {
+  const link = card.querySelector('[data-add-calendar]');
+  if (!link) return;
+  link.hidden = !file;
+  if (!file) return;
+  link.href = file.href;
+  link.download = file.name;
+}
+
 /** The confirmation: who is booked, for what, at what time, the total, and
  *  how the barber gets the details. `people` is [{ name, service, time }]. */
-function showSuccess(form, { text, people, total, next, send }) {
+function showSuccess(form, { text, people, total, next, send, calendar }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
   setCardCancelled(card, false);
@@ -344,6 +359,8 @@ function showSuccess(form, { text, people, total, next, send }) {
   card.querySelector('[data-success-total]').textContent = total;
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
+  fillCalendar(card, calendar);
+  card.querySelector('[data-book-another]').hidden = false;   // a Move may have hidden it
   revealCard(form, card, next);
 }
 
@@ -353,20 +370,23 @@ function setCardCancelled(card, on) {
   const head = card.querySelector('[data-success-head]');
   head.textContent = on ? 'Cancelled.' : 'Chair reserved';
   head.classList.toggle('tone-gold', !on);
-  card.querySelectorAll('.booking__success-total, [data-success-next], .booking__send')
+  card.querySelectorAll('.booking__success-total, [data-success-next], .booking__send, [data-add-calendar]')
     .forEach(el => { el.hidden = on; });
 }
 
 // The booking the confirmation card shows, so a cancel from the panel below
-// can update it: { barberSlug, phone, date, rows, cancelled: Set of ids, send(rows) }.
+// can update it: { barberSlug, phone, date, rows, cancelled: Set of ids,
+// send(rows), calendar(rows) }. Kept while the card is on screen, also after
+// a Move has opened the form again; cleared when the card is hidden.
 let shown = null;
 
 /** A booking was cancelled in the panel. If the card shows it, that person
  *  is struck off the card, the total and the message to the barber; once
- *  nobody is left the card says "Cancelled." and the form opens again as
- *  after "Book another", leaving focus and the cancel status where they are. */
-function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
-  if (form.dataset.booked !== 'true' || !shown) return;
+ *  nobody is left the card says "Cancelled." and a locked form opens again
+ *  as after "Book another", leaving focus and the cancel status where they are.
+ *  A Move opens the form itself (moveBooking), after it has read the name and phone. */
+function onCancelled(form, { bookingId, barberSlug, phone, date, time, move = false } = {}) {
+  if (!shown) return;
   // The booking id first; otherwise the same barber, phone, day and time (one
   // barber's slot holds one booking, so that is the same booking too).
   const open = shown.rows.filter(b => b.booking_id && !shown.cancelled.has(b.booking_id));
@@ -379,7 +399,7 @@ function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   const left = shown.rows.filter(b => !shown.cancelled.has(b.booking_id));
   if (!left.some(b => b.booking_id)) {
     setCardCancelled(card, true);
-    unlock(form);
+    if (form.dataset.booked === 'true' && !move) unlock(form);
     return;
   }
   const li = card.querySelector(`[data-success-list] li[data-booking-id="${hit.booking_id}"]`);
@@ -387,6 +407,7 @@ function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   card.querySelector('[data-success-total]').textContent = formatTotal(
     left.reduce((sum, b) => sum + b.total_price_cents, 0), left.some(b => isUnpricedService(b.service_slug)));
   fillSend(card, shown.send(left));
+  fillCalendar(card, shown.calendar(left));
 }
 
 function showFallback(form, { text, send }) {
@@ -447,6 +468,8 @@ async function submit(form) {
   const addons  = readAddons(form);
   const guests  = readGuests(form);
   const guestsRaw = readGuestsRaw(form);
+  const remindSms = form.querySelector('input[name="remind_sms"]').checked;
+  const rebookSms = form.querySelector('input[name="rebook_sms"]').checked;
 
   const check = validateBookingInput({
     name, phone, serviceSlug: service,
@@ -495,6 +518,8 @@ async function submit(form) {
         customRequest: service === 'custom' ? custom : null,
         source: 'web',
         holdMinutes: 15,
+        remindSms,
+        rebookSms,
       });
       // book_slot returns N rows; row 0 is primary, rows 1+ are linked continuation slots.
       const primary = rows[0] || {};
@@ -506,6 +531,7 @@ async function submit(form) {
         total_price_cents: i === 0 ? primary.total_price_cents : 0,
         addons:            i === 0 ? addons : [],
         slot_index:        r.slot_index ?? i,
+        person_index:      0,
       }));
       bookings[0] = asRequested(bookings[0], service, addons);
     } else {
@@ -527,6 +553,8 @@ async function submit(form) {
         people,
         source: 'web',
         holdMinutes: 15,
+        remindSms,
+        rebookSms,
       });
       bookings = rows.map(r => {
         const b = {
@@ -536,6 +564,7 @@ async function submit(form) {
           booking_time:      r.booking_time,
           total_price_cents: r.total_price_cents,
           addons:            r.person_index === 0 ? addons : [],
+          person_index:      r.person_index,
         };
         return r.person_index === 0 ? asRequested(b, service, addons) : b;
       });
@@ -616,14 +645,31 @@ async function submit(form) {
   /* ===== SUCCESS PATH ===== */
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
+  const detail = (b) => serviceLine(b.service_slug, custom)
+    + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : '');
   // One line per person; a multi-slot service's continuation rows have no id.
   const people = bookings.filter(b => b.booking_id).map(b => ({
     id:      b.booking_id,
     name:    b.person_name,
-    service: serviceLine(b.service_slug, custom)
-      + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : ''),
+    service: detail(b),
     time:    minutesToLabel(hmsToMinutes(b.booking_time)),
   }));
+  // The calendar event runs from the first start to one slot after the last.
+  const calendar = (rows) => {
+    const booked = rows.filter(b => b.booking_id);
+    if (!booked.length) return null;
+    return {
+      name: `fade-empire-${sel.date}.ics`,
+      href: icsDataUrl(buildIcs({
+        uid: booked[0].booking_id, date: sel.date, barberName,
+        people: booked.map(b => ({
+          name: b.person_name, service: SERVICE_LABELS[b.service_slug] || b.service_slug,
+          detail: detail(b), time: b.booking_time,
+        })),
+        lastStart: rows.map(b => b.booking_time).sort().pop(),
+      })),
+    };
+  };
 
   // The booking already exists; the message is how the barber gets the details.
   showSuccess(form, {
@@ -632,16 +678,25 @@ async function submit(form) {
     total: formatTotal(total, unpriced),
     next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details; he'll reply to confirm.`,
     send: sendLinks(bookings),
+    calendar: calendar(bookings),
   });
   shown = {
     barberSlug: sel.barberSlug, phone: phone.replace(/\D/g, '').slice(-10), date: sel.date,
-    rows: bookings, cancelled: new Set(), send: sendLinks,
+    rows: bookings, cancelled: new Set(), send: sendLinks, calendar,
   };
 
   // The form stays as submitted next to the confirmation, and Reserve stays
   // off, until "Book another".
   form.dataset.busy = 'false';
   setBooked(form, true);
+
+  // The customer's own choices, for next time (booking-return.js). Guests aren't kept.
+  const forSomeoneElse = movedFor === 'someone-else';
+  movedFor = null;
+  document.dispatchEvent(new CustomEvent('booking:booked', { detail: {
+    name, phone: phone.replace(/\D/g, '').slice(-10), barberSlug: sel.barberSlug,
+    serviceSlug: service, addons, remindSms, rebookSms, forSomeoneElse,
+  } }));
 }
 
 /** After a shortcut has filled part of the booking (Book with Hassan, Book
@@ -668,10 +723,84 @@ async function focusNextStep(form) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// Whose booking the last Move opened the form for: 'own', 'someone-else'
+// (a guest, a child), or null. Someone else's replacement is booked under
+// their name and never becomes the remembered customer (booking-return.js).
+let movedFor = null;
+
+/** Whether a moved booking is someone else's: a guest line on the card, or a
+ *  first name other than the card's primary (or, with no card, the name typed). */
+function movingSomeoneElse(bookingId, firstName, typedName) {
+  const onCard = shown && bookingId && shown.rows.find(b => b.booking_id === bookingId);
+  if (onCard) return onCard.person_index !== 0;
+  const primary = shown?.rows.find(b => b.person_index === 0)?.person_name || typedName;
+  const first = (n) => String(n || '').trim().split(/\s+/)[0].toLowerCase();
+  return Boolean(primary && firstName && first(primary) !== first(firstName));
+}
+
+/** "Move it" in the cancel panel: the old booking is cancelled (and struck
+ *  off the confirmation, if it is on it). A locked form opens again the way
+ *  "Book another" opens it, the card staying as the record; then the form
+ *  takes the booking's barber and service, keeps the name and phone (filled
+ *  from the lookup when empty) and the two text boxes as the customer left
+ *  them, and focus goes to the day row for a new time:
+ *  the booking's own day if it still has an open time, otherwise the next. */
+async function moveBooking(form, { bookingId, barberSlug, serviceSlug, date, firstName, phone } = {}) {
+  // What the customer typed wins over the lookup's first name and phone,
+  // unless the booking is someone else's: then it goes under their name.
+  const name = form.querySelector('input[name="name"]');
+  const tel  = form.querySelector('input[name="phone"]');
+  const typedName = name.value.trim() ? name.value : '';
+  const typedTel  = tel.value.trim() ? tel.value : '';
+  const someoneElse = movingSomeoneElse(bookingId, firstName, typedName);
+  // The text boxes are the customer's own choice: opening the form must not
+  // reset them to their defaults.
+  const remind = form.querySelector('input[name="remind_sms"]');
+  const rebook = form.querySelector('input[name="rebook_sms"]');
+  const consent = { remind: remind.checked, rebook: rebook.checked };
+  if (form.dataset.booked === 'true') unlock(form);
+  // The card stays as the record, without "Book another": it would empty
+  // the form this Move has just filled in.
+  form.querySelector('[data-form-success] [data-book-another]').hidden = true;
+  remind.checked = consent.remind;
+  rebook.checked = consent.rebook;
+  movedFor = someoneElse ? 'someone-else' : 'own';
+  // One fresh read for the freed slot: a new barber's is already on its way.
+  const sameBarber = getSelection().barberSlug === barberSlug;
+  chooseBarber(barberSlug);
+  if (sameBarber) gridRefresh();
+  const select = form.querySelector('[data-service-select]');
+  if (serviceSlug && select.querySelector(`option[value="${serviceSlug}"]`)) {
+    select.value = serviceSlug;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  name.value = someoneElse ? firstName : (typedName || firstName || '');
+  tel.value  = typedTel || (phone ? formatPhoneDisplay(phone) : '');
+
+  const selectedDay = () => document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
+    || document.querySelector('[data-day-row] .booking__day:not([disabled])');
+  const settled = selectDayFrom(date);          // the booking's day now, checked once read
+  const first = selectedDay();
+  if (!first) return;
+  first.focus({ preventScroll: true });
+  first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await settled;
+  // A full day moved the selection on: focus follows unless the customer moved it.
+  const now = selectedDay();
+  if (now === first || ![first, document.body].includes(document.activeElement)) return;
+  now.focus({ preventScroll: true });
+  now.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 /** Out of the booked state: the picker and fields open and emptied. */
 function unlock(form) {
-  shown = null;
   setBooked(form, false);
+  resetForm(form);
+}
+
+/** Every field back to its default, no guests, no time picked. */
+export function resetForm(form) {
+  movedFor = null;
   form.reset();
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
@@ -745,8 +874,9 @@ export function initBookingSubmit() {
   form.querySelector('[data-add-guest]').addEventListener('click', () => addGuest(form));
   form.querySelector('[data-book-another]')?.addEventListener('click', () => startOver(form));
 
-  // "Book the VIP" in the menu: the service is chosen (and totalled), then
-  // the page moves to the next step still to do instead of the bare #book.
+  // "Book the VIP" and the service rows of the price list: the service is
+  // chosen (and totalled), then the page moves to the next step still to do
+  // instead of the bare #book.
   document.addEventListener('click', (e) => {
     const link = e.target.closest?.('[data-book-service]');
     if (!link) return;
@@ -757,8 +887,21 @@ export function initBookingSubmit() {
     select.dispatchEvent(new Event('change', { bubbles: true }));
     focusNextStep(form);
   });
+  // An add-on row in the price list ticks (or unticks) that add-on and moves
+  // on the same way. One the service already includes stays included.
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest?.('[data-book-addon]');
+    if (!row) return;
+    const input = form.querySelector(`input[name="addons"][value="${row.dataset.bookAddon}"]`);
+    if (input && !input.disabled && form.dataset.booked !== 'true') {
+      input.checked = !input.checked;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    focusNextStep(form);
+  });
   document.addEventListener('booking:focus-next', () => focusNextStep(form));
   document.addEventListener('booking:cancelled', (e) => onCancelled(form, e.detail));
+  document.addEventListener('booking:move', (e) => moveBooking(form, e.detail));
 
   document.addEventListener('booking:selected', (e) => {
     updateTimeline(form);

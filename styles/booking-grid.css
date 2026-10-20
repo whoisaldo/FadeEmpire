@@ -34,6 +34,34 @@
    here (Take it, Retry, the error's next step, the cancel-text links) too. */
 .booking .btn--mini { min-height: 44px; }
 
+/* --- Returning customer: last time's choices, and a way to forget them --- */
+.booking__rebook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.booking__rebook-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.85rem 0.75rem 0.85rem 1.1rem;
+  background: rgba(200, 162, 74, 0.06);
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-md);
+}
+.booking__rebook-text {
+  flex: 1 1 22rem;
+  margin: 0;
+  color: var(--bone-soft);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.booking__rebook-text strong { color: var(--bone); font-weight: 600; }
+.booking__rebook-clear { padding: 0 0.35rem; font-size: 0.875rem; }
+.booking__rebook-note { margin: 0; color: var(--bone-mute); }
+
 /* --- Next-available callout pill --- */
 .booking__callout {
   display: inline-flex;
@@ -442,6 +470,13 @@
 .booking__addon.is-included { cursor: default; }
 .booking__addon.is-included input { cursor: default; opacity: 0.6; }
 .booking__addon.is-included span:nth-of-type(2) { color: var(--gold); }
+
+/* --- Text consent: the add-on checkbox, one per row, text that wraps --- */
+.booking__consent {
+  display: grid;
+  min-width: 0;
+}
+.booking__consent .booking__addon span:first-of-type { white-space: normal; }
 
 /* --- Total + submit --- */
 .booking__total {
@@ -914,7 +949,14 @@
 
 .cancel__meta { color: var(--bone-mute); }
 
-.cancel__btn.is-arming {
+.cancel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.cancel__btn.is-arming,
+.cancel__move.is-arming {
   border-color: #e08e79;
   color: #e08e79;
 }

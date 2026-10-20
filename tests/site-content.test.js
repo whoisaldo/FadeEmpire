@@ -76,6 +76,16 @@ describe('service prices in the markup match config.js', () => {
     }
   });
 
+  it('each menu row books its own service, labelled with the configured price', () => {
+    const rows = [...html.matchAll(/<button type="button" class="menu__book" data-book-service="([^"]+)" aria-label="Book ([^"]+), \$(\d+)"[^>]*>\s*<span class="menu__name[^>]*>([^<]+)</g)];
+    expect(rows).toHaveLength(6);
+    for (const [, slug, label, dollars, name] of rows) {
+      expect(label).toBe(SERVICE_LABELS[slug]);
+      expect(name).toBe(label);
+      expect(Number(dollars) * 100, `menu row price for ${slug}`).toBe(SERVICE_PRICES_CENTS[slug]);
+    }
+  });
+
   it('the VIP card, the comparison, and the JSON-LD price range agree with config', () => {
     const vip = SERVICE_PRICES_CENTS['vip-haircut'];
     expect(html).toContain(`<span class="t-price--lg">${formatPrice(vip)}</span>`);
@@ -100,13 +110,25 @@ describe('add-ons in the markup match config.js', () => {
     }
   });
 
+  it('each add-on row in the price list toggles its own add-on, labelled with the configured price', () => {
+    for (const [slug, cents] of Object.entries(ADDON_PRICES_CENTS)) {
+      const price = cents === 0 ? 'free' : `+${formatPrice(cents)}`;
+      const re = new RegExp(`data-book-addon="${slug}" aria-label="Add ([^"]+), ([^"]+)"><span class="t-display-sm">([^<]+)</span><span class="t-price">([^<]+)</span>`);
+      const m = html.match(re);
+      expect(m, `price list row for ${slug}`).toBeTruthy();
+      expect(m[1]).toBe(m[3]);
+      expect(m[2]).toBe(price);
+      expect(m[4]).toBe(price);
+    }
+  });
+
   it('there is no add-on checkbox the config does not know about', () => {
     const slugs = [...html.matchAll(/name="addons" value="([^"]+)"/g)].map((m) => m[1]);
     expect(slugs.sort()).toEqual(Object.keys(ADDON_PRICES_CENTS).sort());
   });
 
   it('the menu add-on list shows the same prices', () => {
-    const rows = [...html.matchAll(/<li><span class="t-display-sm">([^<]+)<\/span><span class="t-price">([^<]+)<\/span><\/li>/g)];
+    const rows = [...html.matchAll(/<li><button[^>]*><span class="t-display-sm">([^<]+)<\/span><span class="t-price">([^<]+)<\/span><\/button><\/li>/g)];
     expect(rows).toHaveLength(Object.keys(ADDON_PRICES_CENTS).length);
     for (const [, name, price] of rows) {
       const slug = name.toLowerCase().replace(/\s+/g, '-');
