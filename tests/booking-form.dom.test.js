@@ -338,7 +338,7 @@ describe('booking submit — success', () => {
   it('books a single cut with the selected barber and shows the success card', async () => {
     rpc.bookSlot.mockResolvedValue([{
       booking_id: 'b1', slot_index: 0, booking_time: '11:30:00',
-      booking_status: 'confirmed', hold_expires_at: null, total_price_cents: 4000,
+      booking_status: 'confirmed', hold_expires_at: null, total_price_cents: 4500,
     }]);
 
     await pickBarber('larry');
@@ -346,7 +346,7 @@ describe('booking submit — success', () => {
     clickSlot('11:30:00');
     fillPrimary();
     $('input[name="addons"][value="beard"]').click();
-    expect($('[data-total-display]').textContent).toBe('$40');
+    expect($('[data-total-display]').textContent).toBe('$45');
 
     $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
@@ -362,7 +362,7 @@ describe('booking submit — success', () => {
     expect($('[data-success-text]').textContent).toBe('Wednesday, July 8 · Larry');
     expect($$('[data-success-list] li').map(li => li.textContent))
       .toEqual(['Test Customer · Hair Cut + Beard · 11:30 AM']);
-    expect($('[data-success-total]').textContent).toBe('$40');
+    expect($('[data-success-total]').textContent).toBe('$45');
     const link = $('[data-form-success] [data-send-whatsapp]');
     expect(link.hidden).toBe(false);
     expect(link.href).toContain('wa.me');
@@ -739,7 +739,7 @@ describe('add to calendar (C2)', () => {
   };
 
   it('the confirmation offers the booking as fade-empire-<date>.ics', async () => {
-    rpc.bookSlot.mockResolvedValue([{ booking_id: 'cal-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 4000 }]);
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'cal-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 4500 }]);
     await pickBarber('larry');
     clickDay('2026-07-08');
     clickSlot('11:30:00');
@@ -874,7 +874,7 @@ describe('remembered customer (C1)', () => {
     expect($$('input[name="addons"]:checked').map(i => i.value)).toEqual(['wax', 'beard']);
     expect($('input[name="remind_sms"]').checked).toBe(false);
     expect($('input[name="rebook_sms"]').checked).toBe(true);
-    expect($('[data-total-display]').textContent).toBe('$45');
+    expect($('[data-total-display]').textContent).toBe('$50');
     expect($('[data-cancel-phone]').value).toBe('(413) 555-0123');
   });
 
@@ -2068,7 +2068,7 @@ describe('price list rows (C5)', () => {
       'Book Kids Cut, $25', 'Book Military Cut, $25', 'Book Senior Cut, $25',
     ]);
     expect($$('.menu__addons button[data-book-addon]').map(b => b.getAttribute('aria-label'))).toEqual([
-      'Add Eyebrows, free', 'Add Hot Towel, +$5', 'Add Wax, +$5', 'Add Beard, +$10', 'Add Facial, +$20',
+      'Add Eyebrows, free', 'Add Hot Towel, +$5', 'Add Wax, +$5', 'Add Beard, +$15', 'Add Facial, +$20',
     ]);
   });
 
@@ -2531,7 +2531,7 @@ describe('booking edge cases', () => {
     clickSlot('11:30:00');
     fillPrimary({ service: 'hair-cut' });
     $('input[name="addons"][value="beard"]').click();          // chosen before switching to VIP
-    expect($('[data-total-display]').textContent).toBe('$40');
+    expect($('[data-total-display]').textContent).toBe('$45');
 
     fill('[data-service-select]', 'vip-haircut');
     const addon = (v) => $(`input[name="addons"][value="${v}"]`);
@@ -2568,7 +2568,7 @@ describe('booking edge cases', () => {
       expect(input.checked, v).toBe(false);
       expect(input.disabled, v).toBe(false);
     }
-    expect($('input[name="addons"][value="beard"]').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$10');
+    expect($('input[name="addons"][value="beard"]').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$15');
   });
 
   it('Beard Trim shows the Beard add-on as included and leaves the rest selectable (D14)', () => {
@@ -2593,7 +2593,7 @@ describe('booking edge cases', () => {
     expect(addon('facial').checked).toBe(false);
     expect(addon('facial').disabled).toBe(false);
     expect(addon('facial').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$20');
-    expect($('[data-total-display]').textContent).toBe('$20');    // 10 + beard 10
+    expect($('[data-total-display]').textContent).toBe('$25');    // 10 + beard 15
   });
 
   it('a VIP guest adds $60 and books with no add-ons (guest rows carry none) (P3)', async () => {
@@ -2624,7 +2624,7 @@ describe('booking edge cases', () => {
     expect($('[data-custom-field]').hidden).toBe(false);
     expect($('[data-total-display]').textContent).toBe('Price at the chair');
     $('input[name="addons"][value="beard"]').click();
-    expect($('[data-total-display]').textContent).toBe('$10 + price at the chair');
+    expect($('[data-total-display]').textContent).toBe('$15 + price at the chair');
     $('input[name="addons"][value="beard"]').click();
     fill('textarea[name="custom_request"]', 'Mid taper, keep the length on top');
     $('[data-submit]').click();

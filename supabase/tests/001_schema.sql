@@ -112,9 +112,9 @@ select is(
 select is((select count(*)::int from services where is_active), 7, 'seven active services');
 select is((select duration_minutes from services where slug = 'vip-haircut'), 45, 'VIP takes 45 minutes — one slot (0018)');
 select is((select base_price_cents from services where slug = 'hair-cut'), 3000, 'hair cut is $30');
-select is((select base_price_cents from services where slug = 'beard-trim'), 1500, 'standalone beard trim is $15 (the beard ADD-ON stays $10)');
+select is((select base_price_cents from services where slug = 'beard-trim'), 1500, 'standalone beard trim is $15');
 select is((select count(*)::int from addons where is_active), 5, 'five active add-ons');
-select is((select price_cents from addons where slug = 'beard'), 1000, 'beard add-on is $10');
+select is((select price_cents from addons where slug = 'beard'), 1500, 'beard add-on is $15 (0021)');
 select is((select price_cents from addons where slug = 'eyebrows'), 0, 'eyebrows are free');
 
 -- ---------- is_within_store_hours helper sanity ----------
