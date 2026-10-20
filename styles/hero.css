@@ -49,10 +49,13 @@
       rgba(10, 9, 8, 0.68) 60%,
       var(--ink) 100%);
 }
+/* Desktop: the text column sits on a bright wall, so the left 32% holds a
+   heavy shade (the gold eyebrow needs it for 4.5:1) that is gone by 56%,
+   leaving the right half of the photo as shot. */
 @media (min-width: 900px) {
   .hero__scrim {
     background:
-      linear-gradient(90deg, rgba(10, 9, 8, 0.55) 0%, rgba(10, 9, 8, 0.15) 45%, rgba(10, 9, 8, 0) 70%),
+      linear-gradient(90deg, rgba(10, 9, 8, 0.78) 0%, rgba(10, 9, 8, 0.66) 32%, rgba(10, 9, 8, 0.2) 46%, rgba(10, 9, 8, 0) 56%),
       linear-gradient(180deg,
         rgba(10, 9, 8, 0.35) 0%,
         rgba(10, 9, 8, 0.05) 30%,
