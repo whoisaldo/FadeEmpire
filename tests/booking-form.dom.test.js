@@ -1612,6 +1612,23 @@ describe('booking edge cases', () => {
     expect($('[data-form-time]').value).toBe('11:30:00');
   });
 
+  it('today running out while the confirmation shows is caught up on Book another (R13c)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r13c', slot_index: 0, booking_time: '17:30:00', total_price_cents: 3000 }]);
+    clickSlot('17:30:00');                                     // today, Mon Jul 6
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    vi.setSystemTime(new Date('2026-07-06T21:31:00Z'));      // 5:31 PM: the last slot has started
+    vi.advanceTimersByTime(5 * 60_000);                      // skipped while locked
+    expect($('[data-day-row] .booking__day[data-date="2026-07-06"]').disabled).toBe(false);
+
+    $('[data-book-another]').click();
+    const today = $('[data-day-row] .booking__day[data-date="2026-07-06"]');
+    expect(today.disabled).toBe(true);
+    expect(today.textContent).toContain('No slots left');
+    expect($('[data-form-date]').value).toBe('2026-07-08');  // Tuesday is closed
+  });
+
   it('the day row lists each date once across the November DST change', async () => {
     vi.setSystemTime(new Date('2026-10-25T04:30:00Z'));     // Sun Oct 25, 00:30 EDT
     document.dispatchEvent(new Event('visibilitychange'));

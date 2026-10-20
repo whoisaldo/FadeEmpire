@@ -32,13 +32,14 @@ let loadSeq = 0;           // drops stale responses when reads overlap
 // After a booking the picker must not change under the confirmation: its
 // parts go inert (no taps, no focus) and every way in is refused, including
 // the shortcuts from elsewhere on the page and the background refresh.
-// "Book another" unlocks.
+// "Book another" unlocks, and the day row catches up on what it skipped.
 let locked = false;
 const LOCKED_PARTS = ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]'];
 
 export function setLocked(on) {
   locked = on;
   LOCKED_PARTS.forEach(sel => document.querySelectorAll(sel).forEach(el => el.toggleAttribute('inert', on)));
+  if (!on) maybeRolloverDay();
 }
 
 /* ---------- Barber picker ---------- */
@@ -402,7 +403,7 @@ function bindExternalPick() {
 
 let _cachedToday = null;
 function maybeRolloverDay() {
-  if (locked) return;                  // caught up by the next tick after "Book another"
+  if (locked) return;                  // caught up on unlock
   const today = isoDate(new Date());
   const todayChip = document.querySelector(`[data-day-row] .booking__day[data-date="${today}"]`);
   if (_cachedToday && _cachedToday !== today) {
