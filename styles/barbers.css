@@ -20,6 +20,8 @@
 @media (min-width: 1024px) {
   .feature { align-items: start; }
   .feature__portrait { max-height: 560px; }
+  /* Capped, the flipped portrait keeps the container's right edge. */
+  .feature--flip .feature__portrait { justify-self: end; width: min(100%, 560px * 4 / 5); }
 }
 
 .feature__portrait {
