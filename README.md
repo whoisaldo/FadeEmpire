@@ -177,8 +177,10 @@ Deploy (from a checkout of `main` with 0019 on it):
 tools/deploy-reminders.sh --dry-run          # prints every command; runs nothing
 SUPABASE_SERVICE_ROLE_KEY=eyJ... \
 TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... TWILIO_FROM=+1413... \
-CONFIRM_PROD=1 tools/deploy-reminders.sh     # db push, functions deploy, secrets set, cron.schedule
+CONFIRM_PROD=1 tools/deploy-reminders.sh     # db push, functions deploy, secrets set, Vault, cron.schedule
 ```
+
+The cron job does not contain the service role key. The script stores it in Supabase Vault as `send-reminders-service-key` (created on the first run, updated on later runs), and the job's command reads it from `vault.decrypted_secrets` each time it runs, so neither `cron.job` nor `cron.job_run_details` holds the key. To rotate the key, re-run the script with the new one.
 
 `TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base. Leave the `TWILIO_*` variables out to deploy in dry mode first and read the function logs in the dashboard. The script is safe to re-run.
 
@@ -186,6 +188,7 @@ Turn it off:
 
 ```bash
 supabase db query --linked "select cron.unschedule('send-reminders');"
+supabase db query --linked "delete from vault.secrets where name = 'send-reminders-service-key';"   # optional
 ```
 
 To keep the schedule but stop sending, remove the Twilio secrets (`supabase secrets unset TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM`); the function goes back to dry runs.

@@ -12,8 +12,11 @@
 #   3. supabase functions deploy send-reminders
 #   4. supabase secrets set TWILIO_* (+ SITE_URL). Skipped when no TWILIO_* variable
 #      is set; the function then runs dry (logs messages, sends and marks nothing).
-#   5. cron.schedule('send-reminders', hourly) calling the function through pg_net.
-#      Re-running replaces the job of the same name.
+#   5. Stores the service role key in Supabase Vault as 'send-reminders-service-key'
+#      (created, or updated if present), then cron.schedule('send-reminders', hourly)
+#      calling the function through pg_net. The job reads the key from
+#      vault.decrypted_secrets when it runs, so cron.job and cron.job_run_details hold
+#      no key. Re-running updates the secret and replaces the job of the same name.
 #
 # Environment:
 #   SUPABASE_SERVICE_ROLE_KEY   required for step 5 (the legacy service_role JWT; the
@@ -25,6 +28,7 @@
 #
 # Turn it off:
 #   supabase db query --linked "select cron.unschedule('send-reminders');"
+#   supabase db query --linked "delete from vault.secrets where name = 'send-reminders-service-key';"
 
 set -euo pipefail
 
@@ -34,6 +38,7 @@ ENV_FILE="$SCRIPT_DIR/.env.local"
 
 PROJECT_REF="${PROJECT_REF:-mjehfaonibgobimfiijk}"
 JOB_NAME="send-reminders"
+VAULT_NAME="send-reminders-service-key"
 SCHEDULE="0 * * * *"
 
 DRY_RUN=0
@@ -97,6 +102,13 @@ step() {
   if [[ $DRY_RUN -eq 0 ]]; then "$@"; fi
 }
 
+TMP_FILES=()
+cleanup() {
+  local f
+  for f in ${TMP_FILES[@]+"${TMP_FILES[@]}"}; do rm -f "$f"; done
+}
+trap cleanup EXIT
+
 cd "$REPO_DIR"
 
 # 1. Link
@@ -124,7 +136,20 @@ else
   [[ -n "${SITE_URL:-}" ]] && step supabase secrets set --project-ref "$PROJECT_REF" "SITE_URL=$SITE_URL"
 fi
 
-# 5. Hourly schedule
+# 5. Service role key in Vault, then the hourly schedule
+VAULT_SQL="do \$vault\$
+declare
+  v_id uuid;
+begin
+  select id into v_id from vault.secrets where name = '$VAULT_NAME';
+  if v_id is null then
+    perform vault.create_secret('$SERVICE_KEY', '$VAULT_NAME', 'service_role key for the send-reminders cron job');
+  else
+    perform vault.update_secret(v_id, '$SERVICE_KEY');
+  end if;
+end
+\$vault\$;"
+
 CRON_SQL="select cron.schedule(
   '$JOB_NAME',
   '$SCHEDULE',
@@ -133,7 +158,8 @@ CRON_SQL="select cron.schedule(
     url := 'https://$PROJECT_REF.supabase.co/functions/v1/send-reminders',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer $SERVICE_KEY'
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                                     where name = '$VAULT_NAME')
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 60000
@@ -141,10 +167,22 @@ CRON_SQL="select cron.schedule(
   \$cmd\$
 );"
 
-printf '+ supabase db query --linked <<SQL\n%s\nSQL\n' "$(redact "$CRON_SQL")"
-if [[ $DRY_RUN -eq 0 ]]; then
-  supabase db query --linked "$CRON_SQL"
-fi
+# The Vault SQL goes through a mode-600 temp file, not the command line.
+query_file() {
+  local sql="$1" file
+  printf '+ supabase db query --linked -f <tmpfile> <<SQL\n%s\nSQL\n' "$(redact "$sql")"
+  if [[ $DRY_RUN -eq 0 ]]; then
+    file="$(mktemp)"
+    TMP_FILES+=("$file")
+    chmod 600 "$file"
+    printf '%s\n' "$sql" > "$file"
+    supabase db query --linked -f "$file"
+    rm -f "$file"
+  fi
+}
+
+query_file "$VAULT_SQL"
+query_file "$CRON_SQL"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "# dry run: nothing was executed"
