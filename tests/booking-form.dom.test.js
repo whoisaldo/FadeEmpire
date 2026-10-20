@@ -1339,6 +1339,81 @@ describe('booking edge cases', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
   });
 
+  // Reads that land when the test says: lands[i](rows) answers the i-th read.
+  function heldReads() {
+    const lands = [];
+    rpc.fetchAvailability.mockImplementation(() => new Promise((r) => { lands.push(r); }));
+    return lands;
+  }
+
+  it('newer read lands first: the pick finishes on it, and a later choice by hand survives the old read (R15)', async () => {
+    const lands = heldReads();
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    grid.refreshAvailability();
+    lands[1]([]);                              // the newest read lands; the first is still out
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+
+    clickSlot('13:00:00');                     // the customer changes their mind
+    lands[0]([]);                              // the stale read lands
+    await new Promise(r => setTimeout(r, 0));
+    expect($('[data-form-time]').value).toBe('13:00:00');
+
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r15', slot_index: 0, booking_time: '13:00:00', total_price_cents: 3000 }]);
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect(rpc.bookSlot).toHaveBeenCalled());
+    expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ barberSlug: 'larry', time: '13:00:00' }));
+  });
+
+  it('older read lands first: a choice by hand while the pick waits cancels the pick (R15)', async () => {
+    const lands = heldReads();
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    grid.refreshAvailability();
+    lands[0]([]);                              // superseded: nothing happens yet
+    await new Promise(r => setTimeout(r, 0));
+    expect($('[data-form-time]').value).toBe('');
+    clickDay('2026-07-10');                    // chosen by hand while the pick waits
+    lands[1]([]);
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    await new Promise(r => setTimeout(r, 0));
+    expect($('[data-form-date]').value).toBe('2026-07-10');
+    expect($('[data-form-time]').value).toBe('');
+  });
+
+  it('a time chosen by hand during a background refresh is not overwritten by a waiting pick (R15)', async () => {
+    const lands = heldReads();
+    grid.refreshAvailability();                // Hassan read, grid stays open on the old data
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-06', time: '11:30:00', barberSlug: 'hassan' },
+    }));
+    clickSlot('13:00:00');
+    lands[0]([]);
+    await new Promise(r => setTimeout(r, 0));
+    expect($('[data-form-time]').value).toBe('13:00:00');
+    expect(document.activeElement).not.toBe($('input[name="name"]'));
+  });
+
+  it('a newer pick replaces one still waiting (R15)', async () => {
+    const lands = heldReads();
+    const focusNext = vi.fn();
+    document.addEventListener('booking:focus-next', focusNext);
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '13:45:00', barberSlug: 'larry' },
+    }));
+    lands.forEach(land => land([]));
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('13:45:00'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(focusNext).toHaveBeenCalledTimes(1);
+  });
+
   it('a pick waiting on a read leaves focus alone if the customer moved it meanwhile (R8)', async () => {
     let land;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));

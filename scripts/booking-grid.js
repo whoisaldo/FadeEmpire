@@ -26,6 +26,12 @@ let state = {
   availability: 'loading',
 };
 let loadSeq = 0;           // drops stale responses when reads overlap
+let settledSeq = 0;        // the newest read that has landed or failed
+let pickSeq = 0;           // the shortcut pick still waiting, if any (see bindExternalPick)
+
+/** A choice the customer makes by hand cancels a shortcut pick still waiting
+ *  on a read, so the pick can't overwrite it when the read lands. */
+function cancelPick() { pickSeq++; }
 
 /* ---------- Locked while a confirmation shows ---------- */
 
@@ -69,13 +75,14 @@ function selectBarber(slug, { keepDate = false } = {}) {
 
 function bindBarberPicker() {
   document.querySelectorAll('[data-barber-option]').forEach(btn => {
-    btn.addEventListener('click', () => selectBarber(btn.dataset.barberOption));
+    btn.addEventListener('click', () => { cancelPick(); selectBarber(btn.dataset.barberOption); });
   });
 
   // "Book with X" buttons in the barbers section jump here pre-selected,
   // with focus on the next step still to do.
   document.querySelectorAll('[data-book-barber]').forEach(btn => {
     btn.addEventListener('click', () => {
+      cancelPick();
       selectBarber(btn.dataset.bookBarber);
       document.dispatchEvent(new CustomEvent('booking:focus-next'));
     });
@@ -124,7 +131,7 @@ function renderDayRow() {
       btn.title = note;
     }
 
-    btn.addEventListener('click', () => selectDate(iso));
+    btn.addEventListener('click', () => { cancelPick(); selectDate(iso); });
     row.appendChild(btn);
   }
 
@@ -244,7 +251,7 @@ function renderSlots() {
       btn.disabled = true;
       btn.title = 'Already passed';
     } else {
-      btn.addEventListener('click', () => selectTime(hms));
+      btn.addEventListener('click', () => { cancelPick(); selectTime(hms); });
       // Re-apply the user's current selection across background re-renders
       // (availability refresh every 5 min / on tab focus rebuilds the pills).
       if (state.selectedTime === hms) {
@@ -337,6 +344,14 @@ function loadAvailability() {
 
 async function readAvailability() {
   const seq = ++loadSeq;
+  try {
+    await readInto(seq);
+  } finally {
+    if (seq === loadSeq) settle(seq);
+  }
+}
+
+async function readInto(seq) {
   const barberSlug = state.barberSlug;
   const fromDate = isoDate(new Date());
   if (state.availability === 'error') {      // Retry: back to "not read yet"
@@ -374,6 +389,7 @@ function bindExternalPick() {
       document.dispatchEvent(new CustomEvent('booking:focus-next'));
       return;
     }
+    const pick = ++pickSeq;            // a newer pick or a choice by hand cancels this one
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
     // Times still loading: go to the day now, its times shown loading, and
@@ -385,7 +401,8 @@ function bindExternalPick() {
       waitingOn?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     await whenAvailable();
-    if (state.selectedDate !== date || (barberSlug && state.barberSlug !== barberSlug)) return;   // superseded
+    if (pick !== pickSeq) return;      // cancelled while it waited
+    if (state.selectedDate !== date || (barberSlug && state.barberSlug !== barberSlug)) return;   // moved on
     if (state.availability === 'ok' && !selectTime(time)) {
       const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]`);
       if (pill?.classList.contains('is-taken')) setSlotsNote('That time was just booked.');
@@ -396,7 +413,7 @@ function bindExternalPick() {
     document.dispatchEvent(new CustomEvent('booking:focus-next'));
   });
 
-  document.querySelector('[data-clear-selected]')?.addEventListener('click', clearTime);
+  document.querySelector('[data-clear-selected]')?.addEventListener('click', () => { cancelPick(); clearTime(); });
 }
 
 /* ---------- Auto-refresh: tab visibility + midnight rollover ---------- */
@@ -457,14 +474,19 @@ export async function refreshAvailability() {
   await loadAvailability();
 }
 
-/** Resolves once the latest availability read has landed (or failed),
- *  including a read that starts while this one is waited on. */
-export async function whenAvailable() {
-  let load;
-  do {
-    load = lastLoad;
-    await load;
-  } while (load !== lastLoad);
+/** Resolves once the newest availability read has landed (or failed): a
+ *  read it supersedes is never waited for, and a read that starts meanwhile is. */
+let waiters = [];
+export function whenAvailable() {
+  if (settledSeq === loadSeq) return Promise.resolve();
+  return new Promise((resolve) => waiters.push(resolve));
+}
+
+function settle(seq) {
+  settledSeq = seq;
+  const ready = waiters;
+  waiters = [];
+  ready.forEach((resolve) => resolve());
 }
 
 export function getSelection() {
