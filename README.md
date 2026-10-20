@@ -72,7 +72,7 @@ FadeEmpire/
 │   ├── supabase.js               Singleton Supabase client (loaded from esm.sh)
 │   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable
 │   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
-│   ├── booking-submit.js         Form submit, group flow, WhatsApp/SMS redirect, fallback path
+│   ├── booking-submit.js         Form submit, group flow, the result cards and their WhatsApp/text links, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
 │   ├── booking-validate.js       Pure form validation + duration-aware party planning
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
@@ -147,14 +147,14 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 
 ### Messaging fallback
 
-If the booking RPC fails for any reason other than `slot_taken` (network, RLS misconfiguration, schema mismatch, pg_cron failure, anything), the client:
+If the booking RPC can't be reached or fails with an error the client can't name (network, RLS misconfiguration, anything unmapped), the client:
 
 1. Logs the failure to `booking_errors` table for Hassan to review
 2. Builds a fallback WhatsApp/SMS message with a `⚠ BOOKING SYSTEM ERROR — manual confirm needed` banner
-3. Shows an amber fallback card with the details
-4. Redirects to WhatsApp/SMS anyway
+3. Shows an amber card saying the time isn't reserved yet
+4. Offers the request to the barber through the same WhatsApp/text links as a successful booking
 
-This means a customer is never lost to a transient backend hiccup. `slot_taken` is the one error that hard-fails (otherwise we'd cause real double-bookings).
+This means a customer is never lost to a transient backend hiccup. Known answers from the DB (`slot_taken`, `invalid_phone`, `too_many_active_bookings`, `service_not_found`, and the rest of `ERROR_MESSAGES`) are shown inline with their next step instead: pick another time, fix the field, or cancel a booking. `slot_taken` in particular must never fall back, or the shop would get a real double booking.
 
 ---
 

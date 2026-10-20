@@ -8,8 +8,8 @@
 
 import { fetchAvailability } from './booking-rpc.js';
 import {
-  isoDate, slotsForWeekday, minutesToHms, minutesToLabel, shopWeekday,
-  nowMinutesInShopTz, fmtShopTime, weekdayFromIso, dateLabelFromIso,
+  isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
+  nowMinutesInShopTz, weekdayFromIso, dateLabelFromIso, addDaysIso,
 } from './booking-helpers.js';
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
 
@@ -20,12 +20,38 @@ let state = {
   selectedDate: null,      // 'YYYY-MM-DD'
   selectedTime: null,      // 'HH:MM:SS'
   takenSet:     new Set(), // 'YYYY-MM-DD|HH:MM' keys for the CURRENT barber's taken slots
+  // Availability read for the current barber: 'loading' (nothing read yet),
+  // 'ok' (takenSet is real, possibly empty), or 'error' (the read failed, so
+  // no slot is offered until a retry succeeds).
+  availability: 'loading',
 };
+let loadSeq = 0;           // drops stale responses when reads overlap
+let settledSeq = 0;        // the newest read that has landed or failed
+let pickSeq = 0;           // the shortcut pick still waiting, if any (see bindExternalPick)
+
+/** A choice the customer makes by hand cancels a shortcut pick still waiting
+ *  on a read, so the pick can't overwrite it when the read lands. */
+function cancelPick() { pickSeq++; }
+
+/* ---------- Locked while a confirmation shows ---------- */
+
+// After a booking the picker must not change under the confirmation: its
+// parts go inert (no taps, no focus) and every way in is refused, including
+// the shortcuts from elsewhere on the page and the background refresh.
+// "Book another" unlocks, and the day row catches up on what it skipped.
+let locked = false;
+const LOCKED_PARTS = ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]'];
+
+export function setLocked(on) {
+  locked = on;
+  LOCKED_PARTS.forEach(sel => document.querySelectorAll(sel).forEach(el => el.toggleAttribute('inert', on)));
+  if (!on) maybeRolloverDay();
+}
 
 /* ---------- Barber picker ---------- */
 
 function selectBarber(slug, { keepDate = false } = {}) {
-  if (!BARBERS[slug]) return;
+  if (!BARBERS[slug] || locked) return;
   const changed = state.barberSlug !== slug;
   state.barberSlug = slug;
 
@@ -40,6 +66,7 @@ function selectBarber(slug, { keepDate = false } = {}) {
     state.selectedTime = null;
     if (!keepDate) state.selectedDate = null;
     state.takenSet = new Set();
+    state.availability = 'loading';
     renderDayRow();
     syncForm();
     loadAvailability();
@@ -48,69 +75,87 @@ function selectBarber(slug, { keepDate = false } = {}) {
 
 function bindBarberPicker() {
   document.querySelectorAll('[data-barber-option]').forEach(btn => {
-    btn.addEventListener('click', () => selectBarber(btn.dataset.barberOption));
+    btn.addEventListener('click', () => { cancelPick(); selectBarber(btn.dataset.barberOption); });
   });
 
-  // "Book with X" buttons in the barbers section jump here pre-selected.
+  // "Book with X" buttons in the barbers section jump here pre-selected,
+  // with focus on the next step still to do.
   document.querySelectorAll('[data-book-barber]').forEach(btn => {
     btn.addEventListener('click', () => {
+      cancelPick();
       selectBarber(btn.dataset.bookBarber);
-      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.dispatchEvent(new CustomEvent('booking:focus-next'));
     });
   });
 }
 
 /* ---------- Day row ---------- */
 
+/** Whether today still has a slot that hasn't started (after 5:30 PM it doesn't). */
+function todayHasSlotsLeft(todayIso) {
+  const nowMin = nowMinutesInShopTz();
+  return slotsForWeekday(weekdayFromIso(todayIso), state.barberSlug).some(m => m > nowMin);
+}
+
 function renderDayRow() {
   const row = document.querySelector('[data-day-row]');
   if (!row) return;
   row.innerHTML = '';
 
-  const today = new Date();
+  const todayIso = isoDate(new Date());
 
   for (let i = 0; i < DAYS_AHEAD; i++) {
-    const d = new Date(today.getTime() + i * 86400000);
-    const iso = isoDate(d);
-    const wk  = shopWeekday(d);
+    const iso = addDaysIso(todayIso, i);
+    const wk  = weekdayFromIso(iso);
     const slots = slotsForWeekday(wk, state.barberSlug);
     const closed = slots.length === 0;
+    // Today after its last slot: not offered, and it says why.
+    const over = !closed && i === 0 && !todayHasSlotsLeft(iso);
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'booking__day' + (closed ? ' is-closed' : '');
+    btn.className = 'booking__day' + (closed || over ? ' is-closed' : '');
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', 'false');
     btn.dataset.date = iso;
-    if (closed) btn.disabled = true;
+    if (closed || over) btn.disabled = true;
 
+    const note = closed ? 'Closed' : over ? 'No slots left' : null;
     btn.innerHTML = `
-      <span class="booking__day-weekday">${fmtShopTime(d, { weekday: 'short' })}</span>
-      <span class="booking__day-num">${fmtShopTime(d, { day: 'numeric' })}</span>
-      <span class="booking__day-month">${closed ? 'Closed' : fmtShopTime(d, { month: 'short' })}</span>
+      <span class="booking__day-weekday">${dateLabelFromIso(iso, { weekday: 'short' })}</span>
+      <span class="booking__day-num">${dateLabelFromIso(iso, { day: 'numeric' })}</span>
+      <span class="booking__day-month">${note || dateLabelFromIso(iso, { month: 'short' })}</span>
     `;
-    if (closed) {
+    if (note) {
       btn.querySelector('.booking__day-month').classList.add('booking__day-closed');
-      btn.title = 'Closed';
+      btn.title = note;
     }
 
-    btn.addEventListener('click', () => selectDate(iso));
+    btn.addEventListener('click', () => { cancelPick(); selectDate(iso); });
     row.appendChild(btn);
   }
 
   // Keep the previously-selected day if this barber also works it;
-  // otherwise pre-select the first open day.
+  // otherwise pre-select the first day with a slot left (closed days and a
+  // finished today are skipped).
   const keep = state.selectedDate &&
     row.querySelector(`.booking__day[data-date="${state.selectedDate}"]:not(.is-closed)`);
   const firstOpen = keep || row.querySelector('.booking__day:not(.is-closed)');
+  const time = keep ? state.selectedTime : null;
   if (firstOpen) selectDate(firstOpen.dataset.date);
+  // A rebuild that keeps the day keeps the customer's time too, if still open.
+  if (time && document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]:not([disabled])`)) {
+    selectTime(time);
+  }
 }
 
 /* ---------- Slot column ---------- */
 
 function selectDate(iso) {
+  if (locked) return;
   state.selectedDate = iso;
   state.selectedTime = null;
+  setSlotsNote('');
 
   // Update day-row aria-selected
   document.querySelectorAll('[data-day-row] .booking__day').forEach(b => {
@@ -153,6 +198,19 @@ function renderSlots() {
     return;
   }
 
+  if (state.availability === 'error') {
+    wrap.innerHTML = '<p class="booking__slots-empty booking__slots-error">Couldn\'t load open times.</p>'
+      + '<button type="button" class="btn btn--mini booking__slots-retry" data-slots-retry>Retry</button>';
+    wrap.querySelector('[data-slots-retry]').addEventListener('click', retry);
+    // Nothing is offered while availability is unknown, so drop a pick too.
+    if (state.selectedTime) {
+      state.selectedTime = null;
+      syncForm();
+    }
+    return;
+  }
+
+  const loading  = state.availability === 'loading';
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
   let selectionStillOpen = false;
@@ -172,7 +230,17 @@ function renderSlots() {
     btn.dataset.time = hms;
     btn.textContent = minutesToLabel(m);
 
-    if (isTaken) {
+    if (loading && !isPast) {
+      // Not read yet: shown, not offered. A pick made before the read (the
+      // next-slot shortcut) stays marked until the read confirms or drops it.
+      btn.classList.add('is-loading');
+      btn.disabled = true;
+      if (state.selectedTime === hms) {
+        btn.setAttribute('aria-checked', 'true');
+        btn.classList.add('is-selected');
+        selectionStillOpen = true;
+      }
+    } else if (isTaken) {
       btn.classList.add('is-taken');
       btn.disabled = true;
       btn.title = 'Already booked';
@@ -181,7 +249,7 @@ function renderSlots() {
       btn.disabled = true;
       btn.title = 'Already passed';
     } else {
-      btn.addEventListener('click', () => selectTime(hms));
+      btn.addEventListener('click', () => { cancelPick(); selectTime(hms); });
       // Re-apply the user's current selection across background re-renders
       // (availability refresh every 5 min / on tab focus rebuilds the pills).
       if (state.selectedTime === hms) {
@@ -202,7 +270,39 @@ function renderSlots() {
   }
 }
 
+/** Retry re-renders the grid, which takes the focused button with it: focus
+ *  holds on the selected day, then goes to the first open time once the read
+ *  lands (the day if there is none, Retry again if the read failed again). */
+async function retry() {
+  const day = () => document.querySelector('[data-day-row] .booking__day[aria-selected="true"]');
+  loadAvailability();
+  const holding = day();
+  holding?.focus({ preventScroll: true });
+  await whenAvailable();
+  if (![holding, document.body].includes(document.activeElement)) return;   // the customer moved on
+  const grid = document.querySelector('[data-slot-grid]');
+  (grid.querySelector('.booking__slot:not([disabled])') || grid.querySelector('[data-slots-retry]') || day())
+    ?.focus({ preventScroll: true });
+}
+
+/** The grid is busy while any read is in flight, including a background
+ *  refresh that leaves the current times on screen. */
+function reading() { return settledSeq !== loadSeq; }
+
+function syncBusy() {
+  const wrap = document.querySelector('[data-slot-grid]');
+  if (!wrap) return;
+  if (reading()) wrap.setAttribute('aria-busy', 'true');   // an empty value isn't exposed as busy
+  else wrap.removeAttribute('aria-busy');
+}
+
+/** Select a time. Only an open pill can be selected: a taken, passed or
+ *  not-yet-read slot is never picked, whoever asks. Returns whether it was. */
 function selectTime(hms) {
+  if (locked) return false;
+  const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${hms}"]`);
+  if (!pill || pill.disabled) return false;
+  setSlotsNote('');
   state.selectedTime = hms;
   document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
     const on = b.dataset.time === hms;
@@ -210,6 +310,13 @@ function selectTime(hms) {
     b.classList.toggle('is-selected', on);
   });
   syncForm();
+  return true;
+}
+
+/** The one-line note under the slots (empty and visually hidden otherwise). */
+function setSlotsNote(text) {
+  const note = document.querySelector('[data-slots-note]');
+  if (note && note.textContent !== text) note.textContent = text;
 }
 
 /* ---------- Form sync ---------- */
@@ -237,50 +344,102 @@ function syncForm() {
 
 /* ---------- Availability load ---------- */
 
-async function loadAvailability() {
+let lastLoad = Promise.resolve();
+function loadAvailability() {
+  if (locked) return lastLoad;         // "Book another" refreshes
+  lastLoad = readAvailability();
+  return lastLoad;
+}
+
+async function readAvailability() {
+  const seq = ++loadSeq;
+  syncBusy();
+  try {
+    await readInto(seq);
+  } finally {
+    if (seq === loadSeq) settle(seq);
+  }
+}
+
+async function readInto(seq) {
   const barberSlug = state.barberSlug;
-  const today = new Date();
-  const end   = new Date(today.getTime() + DAYS_AHEAD * 86400000);
-  const rows  = await fetchAvailability({
-    fromDate: isoDate(today), toDate: isoDate(end), barberSlug,
-  });
-  if (barberSlug !== state.barberSlug) return;   // user switched barber mid-flight
+  const fromDate = isoDate(new Date());
+  if (state.availability === 'error') {      // Retry: back to "not read yet"
+    state.availability = 'loading';
+    renderSlots();
+  }
+  let rows;
+  try {
+    rows = await fetchAvailability({
+      fromDate, toDate: addDaysIso(fromDate, DAYS_AHEAD), barberSlug,
+    });
+  } catch (_) {
+    if (seq !== loadSeq || barberSlug !== state.barberSlug) return;
+    state.availability = 'error';
+    renderSlots();
+    return;
+  }
+  if (seq !== loadSeq || barberSlug !== state.barberSlug) return;   // superseded mid-flight
   state.takenSet = new Set(rows.map(r => `${r.booking_date}|${r.booking_time.slice(0,5)}`));
+  state.availability = 'ok';
   renderSlots();
 }
 
 /* ---------- External pickers (next-available, "Pick this" button) ---------- */
 
 function bindExternalPick() {
-  document.addEventListener('booking:pick', (e) => {
+  // "Reserve it" / "Take it": the advertised slot comes from a separate read,
+  // so it is taken only if this barber's grid, once read, shows it open. A
+  // failed read leaves "Couldn't load open times."; a slot booked or passed
+  // since is said so; either way nothing is selected.
+  document.addEventListener('booking:pick', async (e) => {
     const { date, time, barberSlug } = e.detail || {};
     if (!date || !time) return;
+    if (locked) {                      // the confirmation is the next step
+      document.dispatchEvent(new CustomEvent('booking:focus-next'));
+      return;
+    }
+    const pick = ++pickSeq;            // a newer pick or a choice by hand cancels this one
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
-    // Wait a tick for slot DOM to render
-    requestAnimationFrame(() => selectTime(time));
+    // A read in flight (first load, barber switch or background refresh): go
+    // to the day now, the grid shown busy, and finish the pick when it lands.
+    let waitingOn = null;
+    if (reading()) {
+      waitingOn = document.querySelector(`[data-day-row] .booking__day[data-date="${date}"]`);
+      waitingOn?.focus({ preventScroll: true });
+      waitingOn?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    await whenAvailable();
+    if (pick !== pickSeq) return;      // cancelled while it waited
+    if (state.selectedDate !== date || (barberSlug && state.barberSlug !== barberSlug)) return;   // moved on
+    if (state.availability === 'ok' && !selectTime(time)) {
+      const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]`);
+      if (pill?.classList.contains('is-taken')) setSlotsNote('That time was just booked.');
+      else if (pill?.classList.contains('is-past')) setSlotsNote('That time has passed.');
+    }
+    // Focus moves on unless the customer moved it themselves while waiting.
+    if (waitingOn && ![waitingOn, document.body].includes(document.activeElement)) return;
+    document.dispatchEvent(new CustomEvent('booking:focus-next'));
   });
 
-  document.querySelector('[data-clear-selected]')?.addEventListener('click', () => {
-    state.selectedTime = null;
-    syncForm();
-    document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
-      b.setAttribute('aria-checked', 'false');
-      b.classList.remove('is-selected');
-    });
-  });
+  document.querySelector('[data-clear-selected]')?.addEventListener('click', () => { cancelPick(); clearTime(); });
 }
 
 /* ---------- Auto-refresh: tab visibility + midnight rollover ---------- */
 
 let _cachedToday = null;
 function maybeRolloverDay() {
+  if (locked) return;                  // caught up on unlock
   const today = isoDate(new Date());
+  const todayChip = document.querySelector(`[data-day-row] .booking__day[data-date="${today}"]`);
   if (_cachedToday && _cachedToday !== today) {
     // Day rolled over while the tab was open. Rebuild the picker so yesterday
     // drops off, and re-render the current slots to apply the past-slot filter.
     _cachedToday = today;
     renderDayRow();
+  } else if (todayChip && !todayChip.disabled && !todayHasSlotsLeft(today)) {
+    renderDayRow();                    // today's last slot just started
   } else if (!_cachedToday) {
     _cachedToday = today;
   }
@@ -314,6 +473,9 @@ export async function initBookingGrid() {
   renderDayRow();
   bindExternalPick();
   initAutoRefresh();
+  // The "next open slot" lines (cover.js) lead here: they show from now on.
+  document.documentElement.setAttribute('data-booking-ready', '');
+  document.dispatchEvent(new CustomEvent('booking:ready'));
   await loadAvailability();
 }
 
@@ -322,12 +484,34 @@ export async function refreshAvailability() {
   await loadAvailability();
 }
 
+/** Resolves once the newest availability read has landed (or failed): a
+ *  read it supersedes is never waited for, and a read that starts meanwhile is. */
+let waiters = [];
+export function whenAvailable() {
+  if (settledSeq === loadSeq) return Promise.resolve();
+  return new Promise((resolve) => waiters.push(resolve));
+}
+
+function settle(seq) {
+  settledSeq = seq;
+  syncBusy();
+  const ready = waiters;
+  waiters = [];
+  ready.forEach((resolve) => resolve());
+}
+
 export function getSelection() {
   return { date: state.selectedDate, time: state.selectedTime, barberSlug: state.barberSlug };
 }
 
-export function clearSelection() {
-  state.selectedDate = null;
+/** Drop the chosen time but keep the day: the day chip stays highlighted, so
+ *  the date it stands for has to stay selected too. */
+export function clearTime() {
+  if (locked) return;
   state.selectedTime = null;
   syncForm();
+  document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
+    b.setAttribute('aria-checked', 'false');
+    b.classList.remove('is-selected');
+  });
 }

@@ -18,6 +18,7 @@ import {
   dateLabelFromIso, formatPrice, ERROR_MESSAGES,
 } from './booking-helpers.js';
 import { buildCancelMessage, messagingUrl, SERVICE_LABELS } from './booking-messages.js';
+import { canText } from './booking-submit.js';
 import { BARBERS } from './config.js';
 
 const ARM_TIMEOUT_MS = 5000;   // "tap again to confirm" window
@@ -29,12 +30,27 @@ function el(tag, className, text) {
   return node;
 }
 
+/** The status line is a live region that stays in the page (empty and
+ *  visually hidden when there's nothing to say), so each change is announced. */
 function setStatus(root, text, tone = 'muted') {
   const status = root.querySelector('[data-cancel-status]');
   if (!status) return;
   status.textContent = text || '';
-  status.hidden = !text;
   status.dataset.tone = tone;
+}
+
+/** The phone field as the thing to fix: marked invalid, described by the
+ *  status line, and focused (the same pattern as the booking form). */
+function markPhone(root, invalid) {
+  const input = root.querySelector('[data-cancel-phone]');
+  if (invalid) {
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', 'cancel-status');
+    input.focus();
+  } else {
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  }
 }
 
 /* ---------- Rendering the bookings list ---------- */
@@ -98,12 +114,15 @@ function renderBookings(root, bookings, phoneDigits) {
         btn.textContent = 'Cancel';
         btn.classList.remove('is-arming');
         setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
+        btn.focus();               // it was disabled while focused
         return;
       }
 
-      // Cancelled in the DB — the slot is already freed. Now hand the customer
-      // a prefilled text so the barber hears about the gap immediately.
-      const message = buildCancelMessage({
+      // Cancelled in the DB — the slot is already freed. Offer the prefilled
+      // note to the barber the same way the reservation card does: plain
+      // links, nothing opened on its own. WhatsApp opens in a new tab on a
+      // desktop and in place on a phone; Text only where sms: can work.
+      const message = (useMarkdown) => buildCancelMessage({
         firstName:    b.first_name || 'Customer',
         phone:        formatPhoneDisplay(phoneDigits),
         barberName:   barber,
@@ -111,31 +130,32 @@ function renderBookings(root, bookings, phoneDigits) {
         dateLabel:    dateLabelFromIso(b.booking_date),
         timeLabel:    minutesToLabel(hmsToMinutes(b.booking_time)),
         ref:          b.booking_id,
+        useMarkdown,
       });
-      const smsUrl = messagingUrl('sms', message);
-      const waUrl  = messagingUrl('whatsapp', message);
+      const phone = canText();
 
       row.classList.add('is-cancelled');
       row.removeChild(btn);
       const done = el('div', 'cancel__done');
-      done.appendChild(el('span', 'cancel__done-text t-meta', 'Cancelled. The slot is free again.'));
-      const smsLink = el('a', 'btn btn--mini', 'Text the shop');
-      smsLink.href = smsUrl;
       const waLink = el('a', 'btn btn--mini', 'WhatsApp');
-      waLink.href = waUrl;
-      waLink.target = '_blank';
+      waLink.href = messagingUrl('whatsapp', message(true));
       waLink.rel = 'noopener';
-      done.appendChild(smsLink);
+      if (!phone) waLink.target = '_blank';
       done.appendChild(waLink);
-      row.appendChild(done);
-
-      setStatus(root, 'Your booking is cancelled. Please send the prefilled text so the shop knows right away.', 'ok');
-
-      // Mobile: open the SMS compose sheet automatically.
-      const isMobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
-      if (isMobile) {
-        setTimeout(() => { window.location.href = smsUrl; }, 600);
+      if (phone) {
+        const smsLink = el('a', 'btn btn--mini', 'Text');
+        smsLink.href = messagingUrl('sms', message(false));
+        done.appendChild(smsLink);
       }
+      row.appendChild(done);
+      waLink.focus();              // the Cancel button that had focus is gone
+
+      setStatus(root, `Cancelled. Let ${barber || 'the shop'} know:`, 'ok');
+
+      // The confirmation card may be showing this booking (booking-submit.js).
+      document.dispatchEvent(new CustomEvent('booking:cancelled', { detail: {
+        bookingId: b.booking_id, barberSlug: b.barber_slug, phone: phoneDigits, date: b.booking_date, time: b.booking_time,
+      } }));
 
       // Freed slot should show as open in the grid without a reload.
       gridRefresh();
@@ -156,8 +176,10 @@ async function lookup(root) {
 
   if (digits.length < 10) {
     setStatus(root, 'Enter the 10-digit phone number you booked with.', 'error');
+    markPhone(root, true);
     return;
   }
+  markPhone(root, false);
 
   button.disabled = true;
   button.textContent = 'Looking…';
@@ -170,9 +192,12 @@ async function lookup(root) {
   } catch (err) {
     const code = err instanceof BookingError ? err.code : 'unknown';
     setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
+    if (code === 'bad_phone') markPhone(root, true);
   } finally {
+    const hadFocus = document.activeElement === button || document.activeElement === document.body;
     button.disabled = false;
     button.textContent = 'Find my booking';
+    if (hadFocus) button.focus();  // disabling it mid-lookup dropped focus
   }
 }
 
@@ -184,6 +209,7 @@ export function initBookingCancel() {
 
   const input = root.querySelector('[data-cancel-phone]');
   input.addEventListener('input', (e) => {
+    if (input.getAttribute('aria-invalid') === 'true') markPhone(root, false);
     let digits = e.target.value.replace(/\D/g, '');
     if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
     e.target.value = formatPhoneDisplay(digits.slice(0, 10));
@@ -194,13 +220,59 @@ export function initBookingCancel() {
 
   root.querySelector('[data-cancel-find]').addEventListener('click', () => lookup(root));
 
-  // The "Need to cancel?" toggle in the booking fine print.
+  const openPanel = () => {
+    root.hidden = false;
+    document.querySelectorAll('[data-cancel-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
+    root.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.focus({ preventScroll: true });
+  };
+
+  // "Cancel a booking" under a too-many-bookings error: open the panel with
+  // the phone they just used and list its bookings.
+  document.addEventListener('booking:cancel', (e) => {
+    input.value = formatPhoneDisplay(cleanPhone(e.detail?.phone));
+    openPanel();
+    lookup(root);
+  });
+
+  // The reminder texts link to /#cancel: open the panel there, on load or
+  // when the hash changes to it. (Without JS, #cancel is the fine print.)
+  const fromHash = () => { if (location.hash === '#cancel') openPanel(); };
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+  // The browser's own jump to the fragment during load blurs the field, so
+  // focus it again once the page has loaded. WebKit sometimes finishes that
+  // jump just after load instead: if focus drops to the page within 300 ms
+  // and nothing else took it, the field gets it back once.
+  const afterLoad = () => {
+    fromHash();
+    if (location.hash !== '#cancel') return;
+    const refocus = () => setTimeout(() => {
+      if (document.activeElement === document.body) input.focus({ preventScroll: true });
+    }, 0);
+    input.addEventListener('blur', refocus, { once: true });
+    setTimeout(() => input.removeEventListener('blur', refocus), 300);
+  };
+  if (document.readyState !== 'complete') window.addEventListener('load', afterLoad, { once: true });
+  // A #cancel link followed while the hash is already #cancel changes no
+  // hash, so it opens the panel from the click.
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest?.('a[href*="#cancel"]');
+    if (!link || link.hash !== '#cancel' || link.pathname !== location.pathname || location.hash !== '#cancel') return;
+    e.preventDefault();
+    openPanel();
+  });
+
+  // The "Cancel a booking" disclosure in the booking fine print: opens the
+  // panel and puts the cursor in Phone; a second tap closes it again.
   document.querySelectorAll('[data-cancel-open]').forEach(btn => {
     btn.addEventListener('click', () => {
-      root.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
-      root.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      input.focus({ preventScroll: true });
+      if (!root.hidden) {
+        root.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      openPanel();
     });
   });
 }

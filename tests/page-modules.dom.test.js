@@ -60,13 +60,16 @@ afterEach(() => {
   vi.clearAllMocks();
   document.body.innerHTML = '';
   document.body.style.overflow = '';
+  document.documentElement.removeAttribute('data-booking-ready');
 });
 
 /* ================= cover.js ================= */
 
 describe('cover.js: live status and next open slot', () => {
-  async function bootCover(now) {
+  // bookingReady: the booking modules have started (booking-grid.js sets it).
+  async function bootCover(now, { bookingReady = true } = {}) {
     vi.useFakeTimers({ now, toFake: ['Date', 'setInterval', 'clearInterval'] });
+    document.documentElement.toggleAttribute('data-booking-ready', bookingReady);
     document.body.innerHTML = HEADER + HERO + MENU + MOBILE_CTA + '<section id="book"></section>';
     const rpc = await import('../scripts/booking-rpc.js');
     const { initCover } = await import('../scripts/cover.js');
@@ -121,6 +124,52 @@ describe('cover.js: live status and next open slot', () => {
     expect(picked).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-09-10', time: '10:45:00', barberSlug: 'larry' }));
   });
 
+  it('"Reserve it" in the hero picks the advertised slot exactly like "Take it" (P11)', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    const next = {
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    };
+    rpc.fetchNextAvailable.mockResolvedValue(next);
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+
+    const picked = vi.fn();
+    document.addEventListener('booking:pick', (e) => picked(e.detail));
+    const reserve = $('[data-next-available] a');
+    expect(reserve.textContent).toBe('Reserve it');
+    reserve.click();
+    expect(picked).toHaveBeenCalledWith(next);
+    $('[data-next-available-callout] [data-pick-next]').click();
+    expect(picked).toHaveBeenCalledTimes(2);
+    expect(picked.mock.calls[1][0]).toBe(picked.mock.calls[0][0]);
+  });
+
+  it('shows no next-slot line until the booking modules have started, then shows them', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'), { bookingReady: false });
+    rpc.fetchNextAvailable.mockResolvedValue({
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    });
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.advanceTimersByTimeAsync(10);
+    expect($('[data-next-available]').hidden).toBe(true);           // a failed booking import stops here
+    expect($('[data-next-available-callout]').hidden).toBe(true);
+    expect($('[data-mobile-cta-next]').hidden).toBe(true);
+    expect(rpc.fetchNextAvailable).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5 * 60_000);                  // the refresh doesn't show them either
+    expect($('[data-next-available]').hidden).toBe(true);
+
+    document.documentElement.setAttribute('data-booking-ready', '');  // what booking-grid.js does
+    document.dispatchEvent(new CustomEvent('booking:ready'));
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+    expect($('[data-next-available-callout]').hidden).toBe(false);
+    expect($('[data-mobile-cta-next]').hidden).toBe(false);
+    expect(rpc.fetchNextAvailable).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the next-slot lines hidden when there is nothing free or the lookup fails', async () => {
     const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
     rpc.fetchNextAvailable.mockRejectedValue(new Error('offline'));
@@ -129,6 +178,49 @@ describe('cover.js: live status and next open slot', () => {
     await vi.advanceTimersByTimeAsync(10);
     expect($('[data-next-available]').hidden).toBe(true);
     expect($('[data-mobile-cta-next]').hidden).toBe(true);
+  });
+
+  it('takes the next-slot lines down again when a later read fails (P2)', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    rpc.fetchNextAvailable.mockResolvedValueOnce({
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    });
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+
+    rpc.fetchNextAvailable.mockRejectedValueOnce(new Error('offline'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect($('[data-next-available]').hidden).toBe(true);
+    expect($('[data-next-available-callout]').hidden).toBe(true);
+    expect($('[data-mobile-cta-next]').hidden).toBe(true);
+  });
+
+  it('the sticky bar stays away while any of booking shows or a booking field has focus (P17)', async () => {
+    let observe, options;
+    window.IntersectionObserver = class { constructor(cb, opts) { observe = cb; options = opts; } observe() {} disconnect() {} };
+    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    document.body.querySelector('#book').remove();
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    const cta = $('[data-mobile-cta]');
+
+    // A short viewport only ever shows a small share of the tall section.
+    expect(options.threshold).toBe(0);
+    observe([{ isIntersecting: true, intersectionRatio: 0.12 }]);
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    observe([{ isIntersecting: false, intersectionRatio: 0 }]);
+    expect(cta.classList.contains('is-in-book')).toBe(false);
+
+    $('#book input[name="name"]').focus();
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    $('#book input[name="phone"]').focus();                  // moving between fields keeps it away
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    $('#book input[name="phone"]').blur();
+    expect(cta.classList.contains('is-in-book')).toBe(false);
+    delete window.IntersectionObserver;
   });
 
   it('collapses "Which one do I book?" on phones and keeps it open on desktop', async () => {

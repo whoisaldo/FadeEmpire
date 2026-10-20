@@ -30,6 +30,10 @@
   border-right: 1px solid var(--rule-gold);
 }
 
+/* Every tap target in the booking flow is at least 44px: the small buttons
+   here (Take it, Retry, the error's next step, the cancel-text links) too. */
+.booking .btn--mini { min-height: 44px; }
+
 /* --- Next-available callout pill --- */
 .booking__callout {
   display: inline-flex;
@@ -100,13 +104,14 @@
 }
 .booking__day.is-closed .booking__day-num { opacity: 0.35; }
 
-.booking__day-closed {
+/* Two classes so the phone sizes for the month label don't shrink it */
+.booking__day-month.booking__day-closed {
+  line-height: 1.2;                    /* "No slots left" wraps in a narrow chip */
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.16em;
+  font-size: 0.6875rem;                /* 11px */
+  letter-spacing: 0.04em;              /* "Closed" fits the 64px phone chip */
   text-transform: uppercase;
-  color: var(--status-closed);
-  opacity: 0.85;
+  color: #E5735F;                      /* --status-closed lifted to 6:1 on the chip, as on the nav stamp */
 }
 
 .booking__day-weekday {
@@ -242,6 +247,30 @@
   text-align: center;
 }
 
+/* "That time was just booked." under the slots, after a shortcut */
+.booking__slots-note {
+  margin: 0.75rem 0 0;
+  color: var(--error);
+  font-size: 0.9375rem;
+}
+
+/* Availability not read yet: the pills show the day's shape but take no taps */
+.booking__slot.is-loading {
+  opacity: 0.45;
+  cursor: progress;
+}
+
+/* Availability read failed: a plain message and a retry, no pills */
+.booking__slots-error {
+  font-style: normal;
+  color: var(--bone);
+  padding-bottom: 0.5rem;
+}
+.booking__slots-retry {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
 /* --- Selected slot pill above form --- */
 .booking__selected {
   display: inline-flex;
@@ -256,13 +285,19 @@
 }
 
 .booking__selected-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -0.55rem -0.6rem -0.55rem auto;   /* a 44px target without a taller pill */
   background: transparent;
   border: 0;
   color: var(--gold);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  padding: 0 0.25rem;
+  padding: 0;
 }
 
 /* --- Form fields --- */
@@ -280,13 +315,17 @@
 }
 
 @media (max-width: 600px) {
-  .booking__grid { grid-template-columns: 1fr; }
+  .booking__grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Grid children and the add-ons fieldset default to their content's width
+   (a select is as wide as its longest option); min-width: 0 lets them shrink
+   to the card instead of pushing past it on a 360px phone. */
 .booking__field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .booking__field--full { grid-column: 1 / -1; }
@@ -346,8 +385,9 @@
   padding: 1rem 1.1rem;
   background: var(--ink);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .booking__addons legend {
@@ -360,6 +400,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  min-height: 44px;
   cursor: pointer;
   color: var(--bone-soft);
   font-size: 0.9375rem;
@@ -397,6 +438,11 @@
   color: var(--bone-mute);
 }
 
+/* Included in the chosen service (the VIP's extras): checked, fixed, no price */
+.booking__addon.is-included { cursor: default; }
+.booking__addon.is-included input { cursor: default; opacity: 0.6; }
+.booking__addon.is-included span:nth-of-type(2) { color: var(--gold); }
+
 /* --- Total + submit --- */
 .booking__total {
   display: flex;
@@ -405,6 +451,42 @@
   padding: 1.25rem 0;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
+}
+
+/* Present for screen readers, invisible on screen. Live regions use it so
+   they exist before their text changes; an empty status line uses it so it
+   takes no room until there is something to say. */
+.visually-hidden,
+.booking__overrun:empty,
+.booking__slots-note:empty,
+.cancel__status:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Why Reserve is off while a party runs past closing */
+.booking__overrun {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--error);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+/* Locked under a confirmation: still readable, visibly not for changing */
+.booking [inert] { opacity: 0.55; }
+
+.booking__error-action {
+  display: flex;
+  margin-top: 0.75rem;
+  color: var(--bone);
 }
 
 .booking__error {
@@ -441,19 +523,45 @@
   line-height: 1.45;
 }
 
-.booking__success-actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.booking__success-actions .btn { flex: 1 1 240px; }
-
-.booking__success-fine {
+.booking__success-list {
   margin: 0;
-  color: var(--bone-mute);
-  letter-spacing: 0.08em;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--bone);
+  font-size: 1rem;
+  line-height: 1.4;
 }
+.booking__success-list li {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--rule-gold);
+}
+
+.booking__success-total {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+.booking__success-total .t-mono { color: var(--gold); font-size: 1.125rem; }
+
+.booking__success-next {
+  margin: 0;
+  color: var(--bone);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+/* "Send your details to <barber>:" and the channel links, on both cards */
+.booking__send { display: flex; flex-direction: column; gap: 0.6rem; }
+.booking__send-head { margin: 0; color: var(--bone-soft); font-size: 0.9375rem; }
+.booking__send-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.booking__send-actions .btn { flex: 1 1 160px; }
 
 /* Fallback card: shown when the RPC fails for non-conflict reasons, signaling
    that we'll still ping Hassan even though the slot isn't locked in the DB.
@@ -479,14 +587,6 @@
   line-height: 1.45;
 }
 
-.booking__fallback-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-.booking__fallback-actions .btn { flex: 1 1 240px; }
-
-.booking__fallback-fine {
-  margin: 0;
-  color: var(--bone-mute);
-  letter-spacing: 0.08em;
-}
 
 /* Group timeline overrun state */
 .booking__group-timeline[data-overrun] {
@@ -573,8 +673,9 @@
 }
 
 .booking__guest-remove {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
+  margin: -0.4rem -0.4rem -0.4rem 0;
   border: 1px solid var(--rule-strong);
   background: transparent;
   color: var(--bone-mute);
@@ -592,17 +693,18 @@
 
 .booking__guest-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
 }
 @media (max-width: 600px) {
-  .booking__guest-grid { grid-template-columns: 1fr; }
+  .booking__guest-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .booking__group-add {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 44px;
   align-self: flex-start;
   padding: 0.65rem 0.95rem;
   background: transparent;
@@ -731,9 +833,12 @@
 
 /* --- "Cancel a booking" link in the fine print --- */
 .booking__fine-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   background: none;
   border: none;
-  padding: 0;
+  padding: 0 0.5rem;
   color: var(--gold);
   font: inherit;
   letter-spacing: inherit;
@@ -821,7 +926,6 @@
   flex-wrap: wrap;
 }
 
-.cancel__done-text { color: var(--gold); }
 
 /* Step head inside the form already sits in a flex gap */
 .booking__form > .booking__step-head { margin-bottom: 0; }
