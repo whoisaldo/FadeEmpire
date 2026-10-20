@@ -230,7 +230,7 @@ input, select, textarea, button {
   }
   .booking__selected .t-mono { flex: 1; font-size: 0.875rem; }
 
-  .booking__grid    { grid-template-columns: 1fr; gap: 0.95rem; }
+  .booking__grid    { grid-template-columns: minmax(0, 1fr); gap: 0.95rem; }
   .booking__field input,
   .booking__field select,
   .booking__field textarea {
@@ -240,7 +240,8 @@ input, select, textarea, button {
   }
   .booking__field textarea { min-height: 5.5rem; }
 
-  .booking__addons { padding: 0.9rem; grid-template-columns: 1fr 1fr; gap: 0.6rem 0.85rem; }
+  /* One add-on per row: two columns don't fit "Hot Towel  included" at 360px */
+  .booking__addons { padding: 0.5rem 0.9rem; grid-template-columns: minmax(0, 1fr); gap: 0; }
   .booking__addon  { min-height: 36px; font-size: 0.9375rem; }
   .booking__addon span:first-of-type { white-space: nowrap; }
   .booking__addon .t-mono { font-size: 0.8125rem; }
