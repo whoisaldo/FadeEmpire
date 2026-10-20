@@ -68,6 +68,10 @@
   gap: 1.5rem;
 }
 
+/* Eyebrow, title, dek and CTAs. Phones lay it out as a box over the photo;
+   everywhere else its children sit in .hero__inner as before. */
+.hero__lead { display: contents; }
+
 .hero__eyebrow {
   display: flex;
   align-items: center;

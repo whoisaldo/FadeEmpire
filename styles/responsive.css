@@ -57,18 +57,32 @@ input, select, textarea, button {
   .stamp__text { display: none; }   /* phone: just the coloured dot */
   .stamp .stamp__dot { width: 8px; height: 8px; }
 
-  /* --- Hero: shorter, CTA-forward --- */
+  /* --- Hero: the photo is the first screen under the sticky nav (56px + its
+     1px rule), the head clear in the top half and the text over the cape at
+     the bottom; the status card and the facts follow on the dark page. --- */
   .hero {
-    min-height: 86svh;
-    padding: 5.5rem 0 2.25rem;
+    display: block;
+    min-height: 100svh;
+    padding: 0 0 2.25rem;
   }
+  .hero__bg     { bottom: auto; height: calc(100svh - 57px); }
+  .hero__bg picture { height: calc(100% + 4rem); margin-top: -4rem; }   /* crops the ceiling, lifts his beard clear of the eyebrow */
+  .hero__bg img { object-position: 55% 0; }
   .hero__inner  { gap: 1rem; }
+  .hero__lead {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1rem;
+    min-height: calc(100svh - 57px);
+    padding-bottom: 1.5rem;
+  }
   .hero__title  {
     font-size: clamp(3.5rem, 19vw, 5.75rem);
     line-height: 0.88;
     margin-top: 0.25rem;
   }
-  .hero__dek    { font-size: 1.0625rem; max-width: 30ch; }
+  .hero__dek    { font-size: 1.0625rem; max-width: none; }
   .hero__ctas   { gap: 0.5rem; }
   .hero__ctas .btn { flex: 1 1 auto; min-height: 52px; padding: 0.95rem 1rem; justify-content: center; }
   .hero__ctas .btn--ghost .t-mono { display: none; }   /* "Call" is enough on a narrow CTA */

@@ -41,10 +41,10 @@
 
   <link rel="preload" as="image" media="(min-width: 441px)"
         imagesrcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w, ./assets/img/hero-cut-1600.webp 1600w, ./assets/img/hero-cut-2000.webp 2000w"
-        imagesizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
+        imagesizes="(max-width: 600px) max(100vw, calc(75vh + 5px)), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
   <link rel="preload" as="image" media="(max-width: 440px)"
         imagesrcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w"
-        imagesizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
+        imagesizes="(max-width: 600px) max(100vw, calc(75vh + 5px)), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
 
   <script type="application/ld+json">
   {
@@ -145,39 +145,41 @@
     <picture>
       <source media="(max-width: 440px)" type="image/webp"
               srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w"
-              sizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw">
+              sizes="(max-width: 600px) max(100vw, calc(75vh + 5px)), (max-width: 767px) max(100vw, 69vh), 100vw">
       <source type="image/webp"
               srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w, ./assets/img/hero-cut-1600.webp 1600w, ./assets/img/hero-cut-2000.webp 2000w"
-              sizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw">
+              sizes="(max-width: 600px) max(100vw, calc(75vh + 5px)), (max-width: 767px) max(100vw, 69vh), 100vw">
       <img src="./assets/img/hero-cut-1200.jpg"
            srcset="./assets/img/hero-cut-480.jpg 480w, ./assets/img/hero-cut-800.jpg 800w, ./assets/img/hero-cut-1200.jpg 1200w, ./assets/img/hero-cut-1600.jpg 1600w, ./assets/img/hero-cut-2000.jpg 2000w"
-           sizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw" width="1200" height="1600" alt="" fetchpriority="high" decoding="async">
+           sizes="(max-width: 600px) max(100vw, calc(75vh + 5px)), (max-width: 767px) max(100vw, 69vh), 100vw" width="1200" height="1600" alt="" fetchpriority="high" decoding="async">
     </picture>
     <div class="hero__scrim"></div>
   </div>
 
   <div class="hero__inner container">
-    <p class="hero__eyebrow t-eyebrow">
-      <span>Barbershop</span>
-      <span class="hero__eyebrow-rule" aria-hidden="true"></span>
-      <span>Chicopee, MA</span>
-    </p>
+    <div class="hero__lead">
+      <p class="hero__eyebrow t-eyebrow">
+        <span>Barbershop</span>
+        <span class="hero__eyebrow-rule" aria-hidden="true"></span>
+        <span>Chicopee, MA</span>
+      </p>
 
-    <h1 class="hero__title t-display">
-      <span class="hero__title-line">Fade</span>
-      <span class="hero__title-line hero__title-line--accent">Empire<span class="hero__title-rule" aria-hidden="true"></span></span>
-    </h1>
+      <h1 class="hero__title t-display">
+        <span class="hero__title-line">Fade</span>
+        <span class="hero__title-line hero__title-line--accent">Empire<span class="hero__title-rule" aria-hidden="true"></span></span>
+      </h1>
 
-    <p class="hero__dek t-italic">
-      Two chairs on Memorial Drive. Fades, beards, and line-ups by Hassan and Larry, 10 to 6, six days a week.
-    </p>
+      <p class="hero__dek t-italic">
+        Two chairs on Memorial Drive. Fades, beards, and line-ups by Hassan and Larry, 10 to 6, six days a week.
+      </p>
 
-    <div class="hero__ctas">
-      <a href="#book" class="btn btn--gold btn--lg">Book a chair</a>
-      <a href="tel:+14138854440" class="btn btn--ghost btn--lg">
-        <span>Call</span>
-        <span class="t-mono">413·885·4440</span>
-      </a>
+      <div class="hero__ctas">
+        <a href="#book" class="btn btn--gold btn--lg">Book a chair</a>
+        <a href="tel:+14138854440" class="btn btn--ghost btn--lg">
+          <span>Call</span>
+          <span class="t-mono">413·885·4440</span>
+        </a>
+      </div>
     </div>
 
     <div class="hero__status">
