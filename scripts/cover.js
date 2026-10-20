@@ -1,7 +1,8 @@
-// cover.js — the parts of the nav and hero that touch booking:
-//   * the "next open slot" line (hero, booking callout, sticky bar), which
-//     reads the database
-//   * the sticky CTA bar
+// cover.js — the parts of the page outside #book that lead into booking:
+//   * the "next open slot" lines (hero, booking callout, sticky bar), which
+//     read the database and show only once the booking modules have started
+//     (booking:ready / data-booking-ready), with Reserve it and Take it
+//   * the sticky CTA bar, kept away while the booking section shows
 // Everything else on the page that needs no database lives in page.js and
 // nav.js, so it keeps working when the database client fails to load.
 
