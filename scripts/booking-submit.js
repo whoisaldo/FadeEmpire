@@ -629,7 +629,14 @@ function startOver(form) {
   updateTotal(form);
   updateTimeline(form);
   gridRefresh();
-  form.closest('.booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // The card that had focus is gone: start again at step 01, the barber.
+  const start = document.querySelector('[data-barber-option][aria-checked="true"]')
+    || document.querySelector('[data-barber-option]')
+    || document.querySelector('[data-day-row] .booking__day:not([disabled])');
+  if (start) {
+    start.focus({ preventScroll: true });
+    start.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 /* ---------- Phone formatting + custom toggle ---------- */

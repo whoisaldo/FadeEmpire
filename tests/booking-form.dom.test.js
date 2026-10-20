@@ -430,6 +430,22 @@ describe('booking submit — success', () => {
     expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('Book another puts keyboard focus on step 01, the selected barber, and scrolls there (R3)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r3', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    Element.prototype.scrollIntoView.mockClear();
+    $('[data-book-another]').focus();
+    $('[data-book-another]').click();
+    const larry = $('[data-barber-option="larry"]');
+    expect(document.activeElement).toBe(larry);
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(larry);
+  });
+
   it('one Reserve button books first; the card then offers the message by WhatsApp only on a desktop (D18, D3)', async () => {
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'd1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     expect($$('[data-booking-form] [type="submit"]')).toHaveLength(1);
