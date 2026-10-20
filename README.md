@@ -88,7 +88,7 @@ FadeEmpire/
 │   ├── page.js                   Nav stamp, hero status, sticky nav, compare collapse, footer year, #fragment landing (no database)
 │   ├── cover.js                  Next-open-slot lines, sticky CTA
 │   ├── shop-video.js             Lazy, muted, visibility-paused video + the sound toggle
-│   ├── gallery.js                Lightbox (keys, swipe, focus return) + filmstrip counter
+│   ├── gallery.js                Lightbox (keys, swipe, focus return)
 │   ├── visit.js                  Today's row + live status in the hours card
 │   └── reveals.js                IntersectionObserver scroll reveals
 ├── tools/
@@ -263,7 +263,7 @@ npm run test:watch # watch mode while developing
 | `booking-messages.test.js` | The WhatsApp/SMS texts and deep links |
 | `booking-calendar.test.js` | The .ics read back by a small parser (`ics-parse.js`): required properties, UTC times in EDT and EST, groups, escaping, CRLF |
 | `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
-| `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse, landing on a #fragment), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return, filmstrip counter) |
+| `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse, landing on a #fragment), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return) |
 | `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the barbers match `BARBERS`, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
 
 ### Database tests (pgTAP)

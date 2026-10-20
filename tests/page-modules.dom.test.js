@@ -9,7 +9,7 @@
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 no caption track) and the pause buttons on both clips
-//   * gallery.js  the lightbox (with Back) and the filmstrip counter
+//   * gallery.js  the lightbox (with Back)
 //   * reveals.js  scroll reveals, and the CSS that skips them
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
 // those are stubbed just enough to drive the code paths.
@@ -738,7 +738,7 @@ describe('shop-video.js: pause buttons and the sound toggle', () => {
 
 /* ================= gallery.js ================= */
 
-describe('gallery.js: lightbox and filmstrip', () => {
+describe('gallery.js: lightbox', () => {
   let api, hist;
 
   /** A session history the test can see: entry 0 is the page we came from,
@@ -841,7 +841,7 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect(dialogOpen()).toBe(false);
     expect(hist.at).toBe(1);
     // Focus lands on the plate of the photo that was on screen.
-    const shown = $$('[data-plate]').find((f) => f.querySelector('.plate__cap')?.textContent.trim() === seen);
+    const shown = $$('[data-plate]').find((f) => f.dataset.caption === seen);
     expect(document.activeElement).toBe(shown.querySelector('[data-lightbox-open]'));
     history.back();
     expect(hist.at).toBe(0);                           // and the next Back leaves the page
@@ -944,21 +944,6 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect($('[data-lightbox-count]').textContent).toBe('01 / 14');
     touch('touchstart', 100); touch('touchend', 120);      // a tap-sized wobble does nothing
     expect($('[data-lightbox-count]').textContent).toBe('01 / 14');
-  });
-
-  it('the filmstrip counter reports the plate under the middle of the strip', async () => {
-    await bootGallery();
-    const strip = $('[data-gallery]');
-    const plates = $$('.plate');
-    expect($('[data-filmstrip-total]').textContent).toBe(String(plates.length).padStart(2, '0'));
-    // Lay the plates out 300px apart in a 390px viewport (jsdom has no layout).
-    plates.forEach((p, i) => Object.defineProperty(p, 'offsetLeft', { value: i * 300 }));
-    Object.defineProperty(strip, 'clientWidth', { value: 390 });
-    strip.scrollLeft = 900;
-    strip.dispatchEvent(new Event('scroll'));
-    await new Promise((r) => setTimeout(r, 5));
-    expect($('[data-filmstrip-index]').textContent).toBe('04');
-    expect($('[data-filmstrip-bar]').style.transform).toBe('translateX(300%)');
   });
 });
 
