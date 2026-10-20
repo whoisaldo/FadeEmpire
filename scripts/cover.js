@@ -37,6 +37,13 @@ function updateStatus() {
 const NEXT_SLOT_LINES = ['[data-next-available]', '[data-next-available-callout]', '[data-mobile-cta-next]'];
 
 async function updateNextAvailable() {
+  // The lines lead into the booking form, so none until its modules are up
+  // (booking-grid.js says so); if they never load, the lines never show.
+  if (!document.documentElement.hasAttribute('data-booking-ready')) {
+    NEXT_SLOT_LINES.forEach(sel => { const el = document.querySelector(sel); if (el) el.hidden = true; });
+    document.addEventListener('booking:ready', updateNextAvailable, { once: true });
+    return;
+  }
   let next;
   try {
     next = await fetchNextAvailable();

@@ -446,6 +446,9 @@ export async function initBookingGrid() {
   renderDayRow();
   bindExternalPick();
   initAutoRefresh();
+  // The "next open slot" lines (cover.js) lead here: they show from now on.
+  document.documentElement.setAttribute('data-booking-ready', '');
+  document.dispatchEvent(new CustomEvent('booking:ready'));
   await loadAvailability();
 }
 

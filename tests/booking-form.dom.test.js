@@ -297,6 +297,17 @@ describe('booking grid', () => {
     expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(false);
   });
 
+  it('says it has started, for the next-slot lines in the hero and the callout', async () => {
+    expect(document.documentElement.hasAttribute('data-booking-ready')).toBe(true);
+    const ready = vi.fn();
+    realAddListener('booking:ready', ready);           // outlives reboot()'s listener sweep
+    document.documentElement.removeAttribute('data-booking-ready');
+    await reboot();
+    document.removeEventListener('booking:ready', ready);
+    expect(document.documentElement.hasAttribute('data-booking-ready')).toBe(true);
+    expect(ready).toHaveBeenCalledTimes(1);
+  });
+
   it('selection pill shows day, time, and barber', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');

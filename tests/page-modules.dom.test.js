@@ -60,13 +60,16 @@ afterEach(() => {
   vi.clearAllMocks();
   document.body.innerHTML = '';
   document.body.style.overflow = '';
+  document.documentElement.removeAttribute('data-booking-ready');
 });
 
 /* ================= cover.js ================= */
 
 describe('cover.js: live status and next open slot', () => {
-  async function bootCover(now) {
+  // bookingReady: the booking modules have started (booking-grid.js sets it).
+  async function bootCover(now, { bookingReady = true } = {}) {
     vi.useFakeTimers({ now, toFake: ['Date', 'setInterval', 'clearInterval'] });
+    document.documentElement.toggleAttribute('data-booking-ready', bookingReady);
     document.body.innerHTML = HEADER + HERO + MENU + MOBILE_CTA + '<section id="book"></section>';
     const rpc = await import('../scripts/booking-rpc.js');
     const { initCover } = await import('../scripts/cover.js');
@@ -141,6 +144,30 @@ describe('cover.js: live status and next open slot', () => {
     $('[data-next-available-callout] [data-pick-next]').click();
     expect(picked).toHaveBeenCalledTimes(2);
     expect(picked.mock.calls[1][0]).toBe(picked.mock.calls[0][0]);
+  });
+
+  it('shows no next-slot line until the booking modules have started, then shows them', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'), { bookingReady: false });
+    rpc.fetchNextAvailable.mockResolvedValue({
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    });
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.advanceTimersByTimeAsync(10);
+    expect($('[data-next-available]').hidden).toBe(true);           // a failed booking import stops here
+    expect($('[data-next-available-callout]').hidden).toBe(true);
+    expect($('[data-mobile-cta-next]').hidden).toBe(true);
+    expect(rpc.fetchNextAvailable).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5 * 60_000);                  // the refresh doesn't show them either
+    expect($('[data-next-available]').hidden).toBe(true);
+
+    document.documentElement.setAttribute('data-booking-ready', '');  // what booking-grid.js does
+    document.dispatchEvent(new CustomEvent('booking:ready'));
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+    expect($('[data-next-available-callout]').hidden).toBe(false);
+    expect($('[data-mobile-cta-next]').hidden).toBe(false);
+    expect(rpc.fetchNextAvailable).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the next-slot lines hidden when there is nothing free or the lookup fails', async () => {
