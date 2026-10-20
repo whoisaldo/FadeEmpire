@@ -15,6 +15,7 @@ capture those sections by selector instead.
 """
 
 import json
+import os
 import sys
 
 from playwright.sync_api import sync_playwright
@@ -45,13 +46,15 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     mode, out = args[0], args[1]
     target = args[2] if len(args) > 2 else 'full'
-    url = 'http://localhost:8010/index.html'
+    url = os.environ.get('SITE_URL', 'http://localhost:8010') + '/index.html'
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
         ctx = browser.new_context(**PROFILES[mode],
                                   reduced_motion='reduce' if '--reduced' in sys.argv else 'no-preference')
         page = ctx.new_page()
+        # Videos are skipped: an open media stream never lets the page reach network idle.
+        page.route('**/*.mp4', lambda route: route.abort())
         errors = []
         page.on('console', lambda m: errors.append(f'{m.type}: {m.text}') if m.type in ('error', 'warning') else None)
         page.on('pageerror', lambda e: errors.append(f'pageerror: {e}'))
