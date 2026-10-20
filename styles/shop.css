@@ -88,52 +88,23 @@
 }
 .shop__room:hover img { transform: scale(1.025); }
 
-/* --- Sound toggle: off by default, one tap to hear the tour --- */
-.shop__sound {
+/* --- Sound and pause, over the bottom of the tour (.video-btn in components.css) --- */
+.shop__controls {
   position: absolute;
   left: 1.1rem;
+  right: 1.1rem;
   bottom: 1.1rem;
   z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-height: 44px;
-  padding: 0.6rem 0.95rem 0.6rem 0.8rem;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-pill);
-  background: rgba(10, 9, 8, 0.72);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  color: var(--bone);
-  font-family: 'General Sans', sans-serif;
-  font-weight: 600;
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
-.shop__sound:hover { border-color: var(--gold); color: var(--gold); }
-.shop__sound:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-.shop__sound svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 .shop__sound-body { fill: currentColor; stroke: none; }
 
 .shop__sound-wave { opacity: 0; transition: opacity var(--t-fast); }
 .shop__sound[aria-pressed="true"] .shop__sound-wave { opacity: 1; }
 .shop__sound[aria-pressed="true"] .shop__sound-off  { display: none; }
-.shop__sound[aria-pressed="true"] {
-  border-color: var(--gold);
-  color: var(--gold);
-}
 
 /* Reduced motion or no autoplay: the poster stays and a play affordance shows */
 .shop__video.is-paused .shop__player { cursor: pointer; }

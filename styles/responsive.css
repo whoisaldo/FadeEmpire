@@ -98,7 +98,9 @@ input, select, textarea, button {
   .shop__video { aspect-ratio: 2 / 3; }
   .shop__room  { aspect-ratio: 4 / 3; }
   .shop__room img { object-position: 50% 100%; }   /* the room, not the ceiling: the car's wheels sit on the bottom edge */
-  .shop__sound { left: 0.85rem; bottom: 0.85rem; padding: 0.55rem 0.85rem 0.55rem 0.7rem; font-size: 0.6875rem; }
+  .shop__controls { left: 0.85rem; right: 0.85rem; bottom: 0.85rem; }
+  .plate__pause   { left: 0.85rem; bottom: 0.85rem; }
+  .video-btn      { padding: 0.55rem 0.85rem 0.55rem 0.7rem; font-size: 0.6875rem; }
 
   /* --- Services --- */
   .menu { gap: 2rem; }

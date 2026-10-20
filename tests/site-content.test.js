@@ -235,6 +235,9 @@ describe('the page before (or without) its scripts', () => {
     expect(stamp[2]).toMatch(/<span class="stamp__text">10–6 · Closed Tue$/);
   });
 
+  it('the tour carries English captions', () => {
+    expect(html).toMatch(/<track kind="captions" src="\.\/assets\/video\/shop-tour\.vtt" srclang="en" label="English">/);
+  });
 });
 
 describe('the copy is free of the old placeholders', () => {

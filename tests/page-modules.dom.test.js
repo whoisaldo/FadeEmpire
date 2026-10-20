@@ -5,7 +5,8 @@
 //   * cover.js    the nav stamp, the hero status line, the "next open slot"
 //                 lines, the phone-only compare collapse
 //   * visit.js    today's row and the status in the hours card
-//   * shop-video.js  the tour video (lazy file, muted default, sound toggle)
+//   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
+//                 captions) and the pause buttons on both clips
 //   * gallery.js  the lightbox and the filmstrip counter
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
 // those are stubbed just enough to drive the code paths.
@@ -278,6 +279,97 @@ describe('shop-video.js: the tour', () => {
     const plate = $('.plate__video');
     expect(plate.muted).toBe(true);
     expect(plate.getAttribute('src')).toContain('mirror-check.mp4');
+  });
+});
+
+describe('shop-video.js: pause buttons and captions', () => {
+  const pausedDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'paused');
+  let play, observers, captions;
+
+  beforeEach(() => {
+    // Playback that reports itself: play/pause flip `paused` and fire events.
+    const playing = new WeakSet();
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', { configurable: true, get() { return !playing.has(this); } });
+    play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function () {
+      playing.add(this); this.dispatchEvent(new Event('play')); return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function () {
+      playing.delete(this); this.dispatchEvent(new Event('pause'));
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+    observers = [];
+    window.IntersectionObserver = class {
+      constructor(cb) { this.cb = cb; observers.push(this); }
+      observe(el) { this.el = el; }
+      unobserve() {}
+    };
+  });
+  afterEach(() => {
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', pausedDescriptor);
+    delete window.IntersectionObserver;
+    vi.restoreAllMocks();
+  });
+
+  async function boot() {
+    document.body.innerHTML = SHOP + GALLERY;
+    captions = { mode: 'disabled' };                 // jsdom has no TextTrack; the module only sets .mode
+    Object.defineProperty($('[data-shop-video] video'), 'textTracks', { value: [captions] });
+    const { initShopVideo } = await import('../scripts/shop-video.js');
+    initShopVideo();
+  }
+  const scroll = (video, inView) => observers.find((o) => o.el === video).cb([{ isIntersecting: inView, target: video }]);
+
+  for (const [name, figureSel] of [['tour', '[data-shop-video]'], ['gallery clip', '.plate--video']]) {
+    it(`the ${name} pauses from its own button, reads as pressed, and stays paused when it scrolls back`, async () => {
+      await boot();
+      const video  = $(`${figureSel} video`);
+      const button = $(`${figureSel} [data-video-pause]`);
+      expect(button.tagName).toBe('BUTTON');            // Space and Enter come with the element
+      expect(button.getAttribute('type')).toBe('button');
+      scroll(video, true);
+      expect(video.paused).toBe(false);
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+
+      button.click();
+      expect(video.paused).toBe(true);
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+
+      play.mockClear();
+      scroll(video, false);
+      scroll(video, true);
+      expect(play).not.toHaveBeenCalled();             // the visitor's pause wins over autoplay
+
+      button.click();
+      expect(video.paused).toBe(false);
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+      scroll(video, false);                            // offscreen pause still happens
+      expect(video.paused).toBe(true);
+      scroll(video, true);
+      expect(video.paused).toBe(false);
+    });
+  }
+
+  it('with reduced motion both pause buttons start pressed, because nothing plays', async () => {
+    matchMediaMatches = (q) => q.includes('prefers-reduced-motion');
+    await boot();
+    for (const video of $$('video')) scroll(video, true);
+    expect(play).not.toHaveBeenCalled();
+    for (const button of $$('[data-video-pause]')) expect(button.getAttribute('aria-pressed')).toBe('true');
+    $('.plate--video [data-video-pause]').click();     // a deliberate press still plays
+    expect($('.plate__video').paused).toBe(false);
+  });
+
+  it('shows the tour captions while the sound is on and hides them when muted', async () => {
+    await boot();
+    expect($('[data-shop-video] track').getAttribute('kind')).toBe('captions');
+    expect(captions.mode).toBe('hidden');
+    $('[data-video-sound]').click();
+    expect(captions.mode).toBe('showing');
+    $('[data-video-sound]').click();
+    expect(captions.mode).toBe('hidden');
+    $('[data-video-sound]').click();
+    $('[data-shop-video] video').dispatchEvent(new Event('pause'));   // scrolled away: muted again
+    expect(captions.mode).toBe('hidden');
   });
 });
 

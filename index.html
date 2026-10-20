@@ -212,16 +212,24 @@
                poster="./assets/img/shop-tour-540-poster.jpg"
                data-src-mobile="./assets/video/shop-tour-540.mp4"
                data-src-desktop="./assets/video/shop-tour-720.mp4"
-               aria-label="A short tour of Fade Empire"></video>
-        <button type="button" class="shop__sound" data-video-sound aria-pressed="false" aria-label="Turn sound on">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path class="shop__sound-body" d="M4 9v6h4l5 4V5L8 9H4z"/>
-            <path class="shop__sound-wave" d="M16 8.5a4.5 4.5 0 0 1 0 7"/>
-            <path class="shop__sound-wave shop__sound-wave--far" d="M18.5 5.5a8 8 0 0 1 0 13"/>
-            <path class="shop__sound-off" d="M16 9l5 6M21 9l-5 6"/>
-          </svg>
-          <span class="shop__sound-text" data-video-sound-text>Sound off</span>
-        </button>
+               aria-label="A short tour of Fade Empire">
+          <track kind="captions" src="./assets/video/shop-tour.vtt" srclang="en" label="English">
+        </video>
+        <div class="shop__controls">
+          <button type="button" class="video-btn shop__sound" data-video-sound aria-pressed="false" aria-label="Turn sound on">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="shop__sound-body" d="M4 9v6h4l5 4V5L8 9H4z"/>
+              <path class="shop__sound-wave" d="M16 8.5a4.5 4.5 0 0 1 0 7"/>
+              <path class="shop__sound-wave shop__sound-wave--far" d="M18.5 5.5a8 8 0 0 1 0 13"/>
+              <path class="shop__sound-off" d="M16 9l5 6M21 9l-5 6"/>
+            </svg>
+            <span class="shop__sound-text" data-video-sound-text>Sound off</span>
+          </button>
+          <button type="button" class="video-btn" data-video-pause aria-pressed="false" aria-label="Pause tour video">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="video-btn__fill" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+            <span>Pause</span>
+          </button>
+        </div>
       </figure>
 
       <figure class="shop__room reveal" data-reveal-delay="120">
@@ -510,6 +518,10 @@
                poster="./assets/img/mirror-check-poster.jpg"
                data-src="./assets/video/mirror-check.mp4"
                aria-label="A customer checking his fresh fade in the mirror"></video>
+        <button type="button" class="video-btn plate__pause" data-video-pause aria-pressed="false" aria-label="Pause gallery video">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="video-btn__fill" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+          <span>Pause</span>
+        </button>
       </figure>
 
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-beard-recline">

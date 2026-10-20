@@ -251,6 +251,44 @@
 }
 
 /* =====================================================
+   Video buttons (tour sound + pause, gallery pause): a pill over the clip.
+   aria-pressed="true" turns them gold: sound on, or paused.
+===================================================== */
+.video-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.6rem 0.95rem 0.6rem 0.8rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-pill);
+  background: rgba(10, 9, 8, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--bone);
+  font-family: 'General Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
+}
+.video-btn:hover { border-color: var(--gold); color: var(--gold); }
+.video-btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+.video-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.video-btn__fill { fill: currentColor; stroke: none; }
+
+/* =====================================================
    OPEN / CLOSED stamp
 ===================================================== */
 .stamp {
