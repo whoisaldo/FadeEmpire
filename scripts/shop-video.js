@@ -5,8 +5,8 @@
 // muted and looped, pause when they scroll out again (battery, data), and
 // never autoplay for people who asked the OS for reduced motion. Each clip
 // has a pause button; a clip the visitor paused stays paused when it scrolls
-// back into view. The tour also gets a sound toggle (off by default) and
-// shows its captions whenever the sound is on.
+// back into view. The tour also gets a sound toggle (off by default); its
+// voice-over is captioned in the video itself, so there is no caption track.
 
 const NEAR = '200px 0px';
 
@@ -94,9 +94,6 @@ function bindSoundToggle(figure, video, clip) {
     button.setAttribute('aria-pressed', on ? 'true' : 'false');
     button.setAttribute('aria-label', on ? 'Turn sound off' : 'Turn sound on');
     if (text) text.textContent = on ? 'Sound on' : 'Sound off';
-    // Captions follow the sound: shown while the voice-over plays.
-    const captions = video.textTracks?.[0];
-    if (captions) captions.mode = on ? 'showing' : 'hidden';
   };
 
   button.addEventListener('click', () => {

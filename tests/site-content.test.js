@@ -242,8 +242,9 @@ describe('the page before (or without) its scripts', () => {
     expect(html).toMatch(/<section[^>]*id="book"/);
   });
 
-  it('the tour carries English captions', () => {
-    expect(html).toMatch(/<track kind="captions" src="\.\/assets\/video\/shop-tour\.vtt" srclang="en" label="English">/);
+  it('no caption track on the tour: its voice-over is captioned in the video itself', () => {
+    expect(html).not.toMatch(/<track\b/);
+    expect(html).not.toContain('shop-tour.vtt');
   });
 });
 

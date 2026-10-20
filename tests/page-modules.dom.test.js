@@ -6,7 +6,7 @@
 //                 lines, the phone-only compare collapse, the mobile menu
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
-//                 captions) and the pause buttons on both clips
+//                 no caption track) and the pause buttons on both clips
 //   * gallery.js  the lightbox (with Back) and the filmstrip counter
 //   * reveals.js  scroll reveals, and the CSS that skips them
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
@@ -371,9 +371,9 @@ describe('shop-video.js: the tour', () => {
   });
 });
 
-describe('shop-video.js: pause buttons and captions', () => {
+describe('shop-video.js: pause buttons and the sound toggle', () => {
   const pausedDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'paused');
-  let play, observers, captions;
+  let play, observers;
 
   beforeEach(() => {
     // Playback that reports itself: play/pause flip `paused` and fire events.
@@ -401,8 +401,6 @@ describe('shop-video.js: pause buttons and captions', () => {
 
   async function boot() {
     document.body.innerHTML = SHOP + GALLERY;
-    captions = { mode: 'disabled' };                 // jsdom has no TextTrack; the module only sets .mode
-    Object.defineProperty($('[data-shop-video] video'), 'textTracks', { value: [captions] });
     const { initShopVideo } = await import('../scripts/shop-video.js');
     initShopVideo();
   }
@@ -448,17 +446,24 @@ describe('shop-video.js: pause buttons and captions', () => {
     expect($('.plate__video').paused).toBe(false);
   });
 
-  it('shows the tour captions while the sound is on and hides them when muted', async () => {
+  it('the tour has no caption track (the voice-over is captioned in the video), and sound on and off still work', async () => {
     await boot();
-    expect($('[data-shop-video] track').getAttribute('kind')).toBe('captions');
-    expect(captions.mode).toBe('hidden');
-    $('[data-video-sound]').click();
-    expect(captions.mode).toBe('showing');
-    $('[data-video-sound]').click();
-    expect(captions.mode).toBe('hidden');
-    $('[data-video-sound]').click();
-    $('[data-shop-video] video').dispatchEvent(new Event('pause'));   // scrolled away: muted again
-    expect(captions.mode).toBe('hidden');
+    const video = $('[data-shop-video] video');
+    const sound = $('[data-video-sound]');
+    expect(video.querySelector('track')).toBeNull();
+    expect(video.muted).toBe(true);
+    sound.click();
+    expect(video.muted).toBe(false);
+    expect(video.paused).toBe(false);
+    expect(sound.getAttribute('aria-pressed')).toBe('true');
+    expect(sound.textContent.trim()).toBe('Sound on');
+    sound.click();
+    expect(video.muted).toBe(true);
+    expect(sound.getAttribute('aria-pressed')).toBe('false');
+    expect(sound.textContent.trim()).toBe('Sound off');
+    sound.click();
+    video.dispatchEvent(new Event('pause'));          // scrolled away: muted again
+    expect(video.muted).toBe(true);
   });
 });
 
