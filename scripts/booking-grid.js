@@ -306,14 +306,7 @@ function bindExternalPick() {
     requestAnimationFrame(() => selectTime(time));
   });
 
-  document.querySelector('[data-clear-selected]')?.addEventListener('click', () => {
-    state.selectedTime = null;
-    syncForm();
-    document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
-      b.setAttribute('aria-checked', 'false');
-      b.classList.remove('is-selected');
-    });
-  });
+  document.querySelector('[data-clear-selected]')?.addEventListener('click', clearTime);
 }
 
 /* ---------- Auto-refresh: tab visibility + midnight rollover ---------- */
@@ -371,8 +364,13 @@ export function getSelection() {
   return { date: state.selectedDate, time: state.selectedTime, barberSlug: state.barberSlug };
 }
 
-export function clearSelection() {
-  state.selectedDate = null;
+/** Drop the chosen time but keep the day: the day chip stays highlighted, so
+ *  the date it stands for has to stay selected too. */
+export function clearTime() {
   state.selectedTime = null;
   syncForm();
+  document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
+    b.setAttribute('aria-checked', 'false');
+    b.classList.remove('is-selected');
+  });
 }

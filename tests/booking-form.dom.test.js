@@ -390,6 +390,30 @@ describe('booking submit — validation and failures', () => {
     expect($('[data-form-time]').value).toBe('');
   });
 
+  it('after slot_taken, tapping another time on the same day is enough to book (P1)', async () => {
+    rpc.bookSlot.mockRejectedValueOnce(new rpc.BookingError('slot_taken'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    rpc.fetchAvailability.mockResolvedValue([   // the refresh after the conflict shows the stolen slot
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '11:30:00', status: 'confirmed' },
+    ]);
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot[data-time="11:30:00"]').disabled).toBe(true));
+
+    expect($('[data-form-date]').value).toBe('2026-07-08');   // day kept, matching the highlighted chip
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-day-row] .booking__day[data-date="2026-07-08"]').getAttribute('aria-selected')).toBe('true');
+    expect($$('[data-slot-grid] .booking__slot.is-selected')).toHaveLength(0);
+
+    rpc.bookSlot.mockResolvedValueOnce([{ booking_id: 'b2', slot_index: 0, booking_time: '12:15:00', total_price_cents: 3000 }]);
+    clickSlot('12:15:00');
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ date: '2026-07-08', time: '12:15:00' }));
+  });
+
   it('soft-fails on other errors: logs it and still routes to messaging', async () => {
     rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
 

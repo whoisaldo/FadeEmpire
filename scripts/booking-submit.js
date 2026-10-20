@@ -12,7 +12,7 @@
 //      and redirect anyway. We don't lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearSelection } from './booking-grid.js';
+import { getSelection, refreshAvailability as gridRefresh, clearTime } from './booking-grid.js';
 import {
   totalCents, formatPrice, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
@@ -337,8 +337,8 @@ async function submit(form, mode) {
     if (HARD_FAIL_CODES.has(code)) {
       if (placeholder) placeholder.close();
       showError(form, code);
+      clearTime();             // keep the day so the next tap on a time is enough
       await gridRefresh();
-      clearSelection();
       submitBtns.forEach(b => (b.disabled = false));
       return;
     }
@@ -442,7 +442,7 @@ async function submit(form, mode) {
   // Refresh availability so booked slots disappear; reset form for back-button safety.
   await gridRefresh();
   form.reset();
-  clearSelection();
+  clearTime();
   // remove any dynamically-added guest rows
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
