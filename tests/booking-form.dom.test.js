@@ -327,6 +327,14 @@ describe('booking grid', () => {
 /* ================= Submit: success path ================= */
 
 describe('booking submit — success', () => {
+  it('under "Bringing someone?" the form says guests get one service and where add-ons go (X7)', () => {
+    expect($$('.booking__group-head, .booking__group-dek').map(p => p.textContent)).toEqual([
+      'Bringing someone?',
+      'Each person gets the next slot with the same barber. Up to six of you.',
+      'One service per guest. Put add-ons or special requests in Notes.',
+    ]);
+  });
+
   it('books a single cut with the selected barber and shows the success card', async () => {
     rpc.bookSlot.mockResolvedValue([{
       booking_id: 'b1', slot_index: 0, booking_time: '11:30:00',
