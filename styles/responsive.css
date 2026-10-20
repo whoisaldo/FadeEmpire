@@ -311,6 +311,19 @@ input, select, textarea, button {
 }
 
 /* =====================================================
+   Short phones (iPhone SE and smaller): a smaller title and a two-line dek
+   keep the text off his head
+===================================================== */
+@media (max-width: 600px) and (max-height: 700px) {
+  .hero__title { font-size: calc(0.8 * clamp(3.5rem, 19vw, 5.75rem)); }
+  .hero__dek   { font-size: 0.925rem; }   /* the largest size that sets it in two lines at 375 */
+}
+@media (max-width: 360px) and (max-height: 700px) {
+  .hero__title { font-size: calc(0.8 * 3.1rem); }
+  .hero__dek   { font-size: 0.875rem; }    /* two lines at 360 */
+}
+
+/* =====================================================
    601-899  ·  tablet portrait
 ===================================================== */
 @media (min-width: 601px) and (max-width: 899px) {
