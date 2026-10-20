@@ -446,6 +446,32 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* Present for screen readers, invisible on screen. Live regions use it so
+   they exist before their text changes; an empty status line uses it so it
+   takes no room until there is something to say. */
+.visually-hidden,
+.booking__overrun:empty,
+.cancel__status:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Why Reserve is off while a party runs past closing */
+.booking__overrun {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--error);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
 .booking__error-action {
   display: flex;
   margin-top: 0.75rem;

@@ -29,11 +29,12 @@ function el(tag, className, text) {
   return node;
 }
 
+/** The status line is a live region that stays in the page (empty and
+ *  visually hidden when there's nothing to say), so each change is announced. */
 function setStatus(root, text, tone = 'muted') {
   const status = root.querySelector('[data-cancel-status]');
   if (!status) return;
   status.textContent = text || '';
-  status.hidden = !text;
   status.dataset.tone = tone;
 }
 
@@ -98,6 +99,7 @@ function renderBookings(root, bookings, phoneDigits) {
         btn.textContent = 'Cancel';
         btn.classList.remove('is-arming');
         setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
+        btn.focus();               // it was disabled while focused
         return;
       }
 
@@ -128,6 +130,8 @@ function renderBookings(root, bookings, phoneDigits) {
       done.appendChild(smsLink);
       done.appendChild(waLink);
       row.appendChild(done);
+      done.tabIndex = -1;
+      done.focus();                // the Cancel button that had focus is gone
 
       setStatus(root, 'Your booking is cancelled. Please send the prefilled text so the shop knows right away.', 'ok');
 
@@ -171,8 +175,10 @@ async function lookup(root) {
     const code = err instanceof BookingError ? err.code : 'unknown';
     setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
   } finally {
+    const hadFocus = document.activeElement === button || document.activeElement === document.body;
     button.disabled = false;
     button.textContent = 'Find my booking';
+    if (hadFocus) button.focus();  // disabling it mid-lookup dropped focus
   }
 }
 
@@ -201,6 +207,7 @@ export function initBookingCancel() {
     document.querySelectorAll('[data-cancel-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
     input.value = formatPhoneDisplay(cleanPhone(e.detail?.phone));
     root.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.focus({ preventScroll: true });
     lookup(root);
   });
 

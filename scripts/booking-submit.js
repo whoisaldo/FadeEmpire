@@ -146,9 +146,14 @@ function updateTimelineAndCheckOverrun(form) {
   return offenderSet.size === 0;
 }
 
-/** Side-effect-y wrapper that also turns Reserve off while the party overruns. */
+/** Side-effect-y wrapper that also turns Reserve off while the party
+ *  overruns, and says why next to it. */
 function updateTimeline(form) {
-  setFlag(form, 'overrun', !updateTimelineAndCheckOverrun(form));
+  const overrun = !updateTimelineAndCheckOverrun(form);
+  setFlag(form, 'overrun', overrun);
+  const note = form.querySelector('[data-overrun-note]');
+  const text = overrun ? 'The last person would start after closing. Pick an earlier time or fewer people.' : '';
+  if (note && note.textContent !== text) note.textContent = text;
 }
 
 /* ---------- Guest add/remove ---------- */
@@ -171,6 +176,7 @@ function addGuest(form) {
     updateTotal(form);
     updateTimeline(form);
     addBtn.disabled = false;
+    addBtn.focus();            // the removed row took focus with it
   });
   node.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('input',  () => { updateTotal(form); updateTimeline(form); });
@@ -200,9 +206,46 @@ function hideMessages(form) {
   if (fb) fb.hidden = true;
 }
 
-/** Inline error. `action` is an optional { label, run } button under it. */
+/** Say something through one of the always-present live regions. Emptied
+ *  first, so the same message twice is announced twice. */
+function announce(form, kind, text) {
+  const region = form.querySelector(kind === 'alert' ? '[data-live-alert]' : '[data-live-status]');
+  if (!region) return;
+  region.textContent = '';
+  setTimeout(() => { region.textContent = text; }, 50);
+}
+
+/** Field errors: the control that needs fixing is marked invalid, described
+ *  by the inline error, and focused. */
+function clearInvalid(form) {
+  const book = form.closest('#book') || document;
+  book.querySelectorAll('[aria-invalid="true"]').forEach(el => {
+    el.removeAttribute('aria-invalid');
+    if (el.getAttribute('aria-describedby') === 'booking-error') el.removeAttribute('aria-describedby');
+  });
+}
+
+function markInvalid(form, control, focusTarget = control) {
+  clearInvalid(form);
+  control.setAttribute('aria-invalid', 'true');
+  control.setAttribute('aria-describedby', 'booking-error');
+  focusTarget.focus();
+}
+
+/** The slot grid as the control to fix: marked as a group, focus on its first open time. */
+function markSlotsInvalid(form) {
+  const grid = document.querySelector('[data-slot-grid]');
+  if (!grid) return;
+  const first = grid.querySelector('.booking__slot:not([disabled])')
+    || document.querySelector('[data-day-row] .booking__day[aria-selected="true"]');
+  markInvalid(form, grid, first || form.querySelector('[data-form-error]'));
+}
+
+/** Inline error. `action` is an optional { label, run } button under it.
+ *  Focus goes to the error itself unless the caller marks a field. */
 function showError(form, code, override, action = null) {
   hideMessages(form);
+  clearInvalid(form);
   const el   = form.querySelector('[data-form-error]');
   const text = el.querySelector('[data-form-error-text]') || el;
   text.textContent = override || ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown;
@@ -213,6 +256,22 @@ function showError(form, code, override, action = null) {
     btn.onclick = action ? action.run : null;
   }
   el.hidden = false;
+  announce(form, 'alert', text.textContent);
+  (action && btn ? btn : el).focus({ preventScroll: true });
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** The control a client-side refusal is about. */
+function controlForCheck(form, code) {
+  switch (code) {
+    case 'bad_name':   return form.querySelector('input[name="name"]');
+    case 'bad_phone':  return form.querySelector('input[name="phone"]');
+    case 'no_service': return form.querySelector('[data-service-select]');
+    case 'no_barber':  return document.querySelector('[data-barber-option]');
+    case 'incomplete_guests':
+      return [...form.querySelectorAll('[data-guest-name], [data-guest-service]')].find(el => !el.value.trim());
+    default:           return null;
+  }
 }
 
 // Known DB answers that are about the chosen time: the fix is another slot.
@@ -239,10 +298,11 @@ async function showKnownError(form, code, phone) {
   if (PICK_ANOTHER_TIME.has(code)) {
     clearTime();             // keep the day so the next tap on a time is enough
     await gridRefresh();
+    markSlotsInvalid(form);
     return;
   }
   const field = FIELD_FOR_CODE[code] && form.querySelector(FIELD_FOR_CODE[code]);
-  if (field) field.focus();
+  if (field) markInvalid(form, field);
 }
 
 /** Where an sms: link can open something: phones and tablets. */
@@ -280,8 +340,7 @@ function showSuccess(form, { text, people, total, next, send }) {
   card.querySelector('[data-success-total]').textContent = total;
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
-  card.hidden = false;
-  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  revealCard(form, card, `Chair reserved. ${next}`);
 }
 
 function showFallback(form, { text, send }) {
@@ -289,8 +348,16 @@ function showFallback(form, { text, send }) {
   const card = form.querySelector('[data-form-fallback]');
   card.querySelector('[data-fallback-text]').textContent = text;
   fillSend(card, send);
+  revealCard(form, card, `Not reserved yet. ${text}`);
+}
+
+/** Show a result card, put keyboard focus on it, and announce it. */
+function revealCard(form, card, announcement) {
+  clearInvalid(form);
   card.hidden = false;
+  card.focus({ preventScroll: true });
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  announce(form, 'status', announcement);
 }
 
 /* ---------- Reserve button state ---------- */
@@ -308,13 +375,8 @@ function setFlag(form, key, on) {
 async function submit(form) {
   if (form.dataset.busy === 'true' || form.dataset.booked === 'true') return;
 
-  // 1. Pre-flight HTML5 validation — surface required-field errors cleanly
-  //    before we hit the RPC.
-  if (!form.checkValidity()) {
-    form.reportValidity();
-    return;
-  }
-
+  // 1. Validation below covers every required field and names it inline
+  //    (the form is novalidate, so no browser bubble competes with it).
   hideMessages(form);
 
   // 2. Disable Reserve immediately to slam the double-tap window shut.
@@ -338,14 +400,21 @@ async function submit(form) {
     guests: guestsRaw,
   });
   if (!check.ok) {
-    showError(form, check.code, check.message);
     setFlag(form, 'busy', false);
+    showError(form, check.code, check.message);
+    if (check.code === 'no_slot') {
+      markSlotsInvalid(form);
+    } else {
+      const control = controlForCheck(form, check.code);
+      if (control) markInvalid(form, control);
+    }
     return;
   }
   // Recheck guest overrun — UI should have prevented this already, but verify.
   if (!updateTimelineAndCheckOverrun(form)) {
-    showError(form, 'outside_hours', 'One of your party runs past closing time. Pick an earlier start.');
     setFlag(form, 'busy', false);
+    showError(form, 'outside_hours', 'One of your party runs past closing time. Pick an earlier start.');
+    markSlotsInvalid(form);
     return;
   }
 
@@ -452,8 +521,8 @@ async function submit(form) {
     //     a messaging fallback (for slot_taken that would double-book).
     if (!FALLBACK_CODES.has(code)) {
       if (code !== 'slot_taken') logError();
-      await showKnownError(form, code, phone);
       setFlag(form, 'busy', false);
+      await showKnownError(form, code, phone);
       return;
     }
 
@@ -588,7 +657,18 @@ export function initBookingSubmit() {
     select.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
-  document.addEventListener('booking:selected', () => updateTimeline(form));
+  document.addEventListener('booking:selected', (e) => {
+    updateTimeline(form);
+    const grid = document.querySelector('[data-slot-grid]');
+    if (e.detail?.time && grid?.getAttribute('aria-invalid') === 'true') clearInvalid(form);
+  });
+  // Editing a field marked invalid clears the mark.
+  form.addEventListener('input', (e) => {
+    if (e.target.getAttribute?.('aria-invalid') === 'true') {
+      e.target.removeAttribute('aria-invalid');
+      e.target.removeAttribute('aria-describedby');
+    }
+  });
 
   updateTotal(form);
   updateTimeline(form);

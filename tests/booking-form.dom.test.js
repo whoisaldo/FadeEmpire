@@ -287,6 +287,90 @@ describe('booking submit — success', () => {
     expect(decodeURIComponent(link.href)).toContain('Barber:  Larry');
   });
 
+  it('after a booking, focus lands on the confirmation and the always-present status region announces it (D8)', async () => {
+    const live = $('[data-live-status]');
+    expect(live).toBeTruthy();
+    expect(live.getAttribute('role')).toBe('status');
+    expect(live.hidden).toBe(false);
+    expect(live.textContent).toBe('');
+    expect($('[data-live-alert]').getAttribute('role')).toBe('alert');
+
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'f1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').focus();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(document.activeElement).toBe($('[data-form-success]'));
+    expect($('[data-form-success]').getAttribute('tabindex')).toBe('-1');
+    await vi.waitFor(() => expect(live.textContent).toContain('Chair reserved.'));
+  });
+
+  it('an error is announced through the alert region and takes focus (D8)', async () => {
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError('barber_not_found'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect(document.activeElement).toBe($('[data-form-error]'));
+    await vi.waitFor(() => expect($('[data-live-alert]').textContent).toContain('not accepting online bookings'));
+  });
+
+  it('submitting without a time marks the slot grid invalid and focuses the first open time (D9)', async () => {
+    clickDay('2026-07-08');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    const grid = $('[data-slot-grid]');
+    expect(grid.getAttribute('aria-invalid')).toBe('true');
+    expect(grid.getAttribute('aria-describedby')).toBe('booking-error');
+    expect($('#booking-error').textContent).toContain('Pick a day and a time');
+    expect(document.activeElement).toBe($('[data-slot-grid] .booking__slot:not([disabled])'));
+    clickSlot('11:30:00');                                      // fixing it clears the mark
+    expect(grid.hasAttribute('aria-invalid')).toBe(false);
+  });
+
+  it('a short phone is marked, described by the error, focused, and cleared on edit (D9)', async () => {
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ phone: '55501' });
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    const phone = $('input[name="phone"]');
+    expect(phone.getAttribute('aria-invalid')).toBe('true');
+    expect(phone.getAttribute('aria-describedby')).toBe('booking-error');
+    expect(document.activeElement).toBe(phone);
+    fill('input[name="phone"]', '4135550123');
+    expect(phone.hasAttribute('aria-invalid')).toBe(false);
+  });
+
+  it('a party past closing says why Reserve is off, next to it, in a live region (D9)', () => {
+    const note = $('[data-overrun-note]');
+    expect(note.getAttribute('role')).toBe('status');
+    expect(note.textContent).toBe('');
+    expect($('[data-submit]').getAttribute('aria-describedby')).toBe(note.id);
+    clickDay('2026-07-08');
+    clickSlot('17:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    fill('[data-guest-list] [data-guest-name]', 'Friend');
+    fill('[data-guest-list] [data-guest-service]', 'hair-cut');
+    expect($('[data-submit]').disabled).toBe(true);
+    expect(note.textContent).toBe('The last person would start after closing. Pick an earlier time or fewer people.');
+    clickSlot('14:30:00');
+    expect($('[data-submit]').disabled).toBe(false);
+    expect(note.textContent).toBe('');
+  });
+
+  it('removing a guest moves focus to Add, not the top of the page (D8)', () => {
+    $('[data-add-guest]').click();
+    $('[data-add-guest]').click();
+    $$('[data-guest-list] [data-remove-guest]')[0].click();
+    expect(document.activeElement).toBe($('[data-add-guest]'));
+  });
+
   it('one Reserve button books first; the card then offers the message by WhatsApp only on a desktop (D18, D3)', async () => {
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'd1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     expect($$('[data-booking-form] [type="submit"]')).toHaveLength(1);
@@ -702,6 +786,26 @@ describe('cancellation flow', () => {
     expect($('[data-cancel-status]').textContent).toContain('cancelled');
   });
 
+  it('keeps focus after lookup and after cancelling, and the status region is there from the start (D8)', async () => {
+    expect($('[data-cancel-status]').hidden).toBe(false);
+    expect($('[data-cancel-status]').getAttribute('role')).toBe('status');
+    rpc.findBookingsByPhone.mockResolvedValue([bookingRow]);
+    $('[data-cancel-open]').click();
+    fill('[data-cancel-phone]', '4135550123');
+    $('[data-cancel-find]').focus();
+    $('[data-cancel-find]').click();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(1));
+    expect(document.activeElement).toBe($('[data-cancel-find]'));
+
+    const btn = $('.cancel__btn');
+    btn.focus();
+    btn.click();
+    btn.click();
+    await vi.waitFor(() => expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true));
+    expect(document.activeElement).toBe($('.cancel__done'));
+    expect($('[data-cancel-status]').textContent).toContain('cancelled');
+  });
+
   it('surfaces cannot_cancel from the DB without breaking the row', async () => {
     rpc.findBookingsByPhone.mockResolvedValue([bookingRow]);
     rpc.cancelBooking.mockRejectedValue(new rpc.BookingError('cannot_cancel'));
@@ -810,18 +914,19 @@ describe('booking edge cases', () => {
       .toEqual(['Friend / Kid', 'Friend / Kid #2', 'Friend / Kid #3', 'Friend / Kid #4']);
   });
 
-  it('a half-filled guest row is stopped by the native required check, before any RPC', async () => {
+  it('a half-filled guest row is refused before any RPC, with the empty field marked and focused (D9)', async () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary();
     $('[data-add-guest]').click();
-    $('[data-guest-list] [data-guest-name]').value = 'Kid';       // no service picked
-    const form = $('[data-booking-form]');
-    const report = vi.spyOn(form, 'reportValidity');
-    expect(form.checkValidity()).toBe(false);
+    fill('[data-guest-list] [data-guest-name]', 'Kid');           // no service picked
     $('[data-submit]').click();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(report).toHaveBeenCalled();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect($('[data-form-error]').textContent).toContain('complete or remove the guest rows');
+    const svc = $('[data-guest-list] [data-guest-service]');
+    expect(svc.getAttribute('aria-invalid')).toBe('true');
+    expect(svc.getAttribute('aria-describedby')).toBe('booking-error');
+    expect(document.activeElement).toBe(svc);
     expect(rpc.bookSlot).not.toHaveBeenCalled();
     expect(rpc.bookSlotGroup).not.toHaveBeenCalled();
     expect($('[data-submit]').disabled).toBe(false);     // nothing left disabled

@@ -886,12 +886,17 @@
           <span class="t-price--lg t-mono" data-total-display>$0</span>
         </div>
 
-        <div class="booking__error" data-form-error hidden role="alert">
-          <span data-form-error-text></span>
+        <!-- Announcements: present and empty from page load, so screen readers
+             hear the result when its text is written. -->
+        <p class="visually-hidden" role="status" data-live-status></p>
+        <p class="visually-hidden" role="alert" data-live-alert></p>
+
+        <div class="booking__error" data-form-error hidden tabindex="-1">
+          <span id="booking-error" data-form-error-text></span>
           <button type="button" class="btn btn--mini booking__error-action" data-form-error-action hidden></button>
         </div>
 
-        <div class="booking__success-card" data-form-success hidden role="status">
+        <div class="booking__success-card" data-form-success hidden tabindex="-1">
           <p class="t-eyebrow tone-gold">Chair reserved</p>
           <p class="booking__success-text" data-success-text></p>
           <ul class="booking__success-list" data-success-list></ul>
@@ -910,7 +915,7 @@
           <button type="button" class="btn btn--ghost btn--block" data-book-another>Book another</button>
         </div>
 
-        <div class="booking__fallback-card" data-form-fallback hidden role="status">
+        <div class="booking__fallback-card" data-form-fallback hidden tabindex="-1">
           <p class="t-eyebrow">Not reserved yet</p>
           <p class="booking__fallback-text" data-fallback-text></p>
           <div class="booking__send">
@@ -923,7 +928,8 @@
         </div>
 
         <div class="booking__submit">
-          <button type="submit" class="btn btn--gold btn--lg" data-submit>Reserve</button>
+          <button type="submit" class="btn btn--gold btn--lg" data-submit aria-describedby="booking-overrun">Reserve</button>
+          <p class="booking__overrun" id="booking-overrun" role="status" data-overrun-note></p>
         </div>
 
         <p class="booking__fine t-meta">
@@ -949,7 +955,7 @@
           </label>
           <button type="button" class="btn btn--ghost cancel__find" data-cancel-find>Find my booking</button>
         </div>
-        <p class="cancel__status t-meta" data-cancel-status hidden role="status"></p>
+        <p class="cancel__status t-meta" data-cancel-status role="status"></p>
         <div class="cancel__results" data-cancel-results></div>
       </div>
     </div>
