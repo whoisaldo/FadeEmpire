@@ -243,6 +243,14 @@ export function initBookingCancel() {
   // The browser's own jump to the fragment during load blurs the field, so
   // focus it again once the page has loaded.
   if (document.readyState !== 'complete') window.addEventListener('load', fromHash, { once: true });
+  // A #cancel link followed while the hash is already #cancel changes no
+  // hash, so it opens the panel from the click.
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest?.('a[href*="#cancel"]');
+    if (!link || link.hash !== '#cancel' || link.pathname !== location.pathname || location.hash !== '#cancel') return;
+    e.preventDefault();
+    openPanel();
+  });
 
   // The "Cancel a booking" disclosure in the booking fine print: opens the
   // panel and puts the cursor in Phone; a second tap closes it again.

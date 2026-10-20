@@ -913,6 +913,21 @@ describe('cancellation flow', () => {
     window.location.hash = '';
   });
 
+  it('a #cancel link followed while the hash is already #cancel opens the panel again (R13d)', async () => {
+    window.location.hash = '#cancel';
+    await reboot('<a href="#cancel" data-test-link>Cancel</a>');
+    const root = $('[data-cancel-root]');
+    $('[data-cancel-open]').click();                            // closed, the hash stays #cancel
+    expect(root.hidden).toBe(true);
+    $('[data-cancel-open]').focus();
+
+    $('[data-test-link]').click();
+    expect(root.hidden).toBe(false);
+    expect($('[data-cancel-open]').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+    window.location.hash = '';
+  });
+
   it('#cancel on a page still loading focuses Phone again after load, past the browser\'s fragment jump (R7)', async () => {
     window.location.hash = '#cancel';
     Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
