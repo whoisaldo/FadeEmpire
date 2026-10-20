@@ -25,7 +25,7 @@ import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS } from './
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
 import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
 
-const MAX_GUESTS = 4;          // primary + up to 4 guests = 5 people total
+const MAX_GUESTS = 5;          // primary + 5 guests = 6, book_slot_group's limit (too_many_people)
 
 /* ---------- Reading the form ---------- */
 

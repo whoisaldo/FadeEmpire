@@ -723,20 +723,21 @@ describe('booking edge cases', () => {
     expect(first[1].disabled).toBe(false);
   });
 
-  it('caps the party at four guests and re-enables the button when one leaves', () => {
+  it('caps the party at six people, the server\'s group limit, and re-enables the button when one leaves', () => {
+    expect($('.booking__group-dek').textContent).toContain('Up to six of you.');
     const add = $('[data-add-guest]');
-    for (let i = 0; i < 4; i++) add.click();
-    expect($$('[data-guest-list] [data-guest]')).toHaveLength(4);
+    for (let i = 0; i < 5; i++) add.click();
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(5);
     expect(add.disabled).toBe(true);
     add.click();                                          // ignored
-    expect($$('[data-guest-list] [data-guest]')).toHaveLength(4);
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(5);
 
     $$('[data-guest-list] [data-remove-guest]')[1].click();
-    expect($$('[data-guest-list] [data-guest]')).toHaveLength(3);
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(4);
     expect(add.disabled).toBe(false);
     // Labels re-number after a removal.
     expect($$('[data-guest-list] .booking__guest-label').map(l => l.textContent))
-      .toEqual(['Friend / Kid', 'Friend / Kid #2', 'Friend / Kid #3']);
+      .toEqual(['Friend / Kid', 'Friend / Kid #2', 'Friend / Kid #3', 'Friend / Kid #4']);
   });
 
   it('a half-filled guest row is stopped by the native required check, before any RPC', async () => {

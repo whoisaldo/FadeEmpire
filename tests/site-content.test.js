@@ -227,6 +227,14 @@ describe('every asset the page references exists', () => {
   });
 });
 
+describe('the group size in the copy matches the server (D19)', () => {
+  it('book_slot_group allows six people, and the form says six', () => {
+    const sql = readFileSync(join(ROOT, 'supabase', 'migrations', '0016_45_minute_slots.sql'), 'utf8');
+    expect(sql).toMatch(/v_count > 6 then raise exception 'too_many_people'/);
+    expect(html).toContain('Up to six of you.');
+  });
+});
+
 describe('the booking section is never hidden behind a scroll reveal (D1)', () => {
   it('nothing in #book carries the reveal class, so a jump to #book lands on a visible form', () => {
     const open = html.match(/<section[^>]*\sid="book"[^>]*>/);
