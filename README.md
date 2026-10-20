@@ -174,11 +174,13 @@ Opt-in flags live on each booking row: `remind_sms` (default on) and `rebook_sms
 Deploy (from a checkout of `main` with 0019 on it):
 
 ```bash
-tools/deploy-reminders.sh --dry-run          # prints every command; runs nothing
+tools/deploy-reminders.sh --dry-run          # prints every command; writes nothing
 SUPABASE_SERVICE_ROLE_KEY=eyJ... \
 TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... TWILIO_FROM=+1413... \
-CONFIRM_PROD=1 tools/deploy-reminders.sh     # db push, functions deploy, secrets set, Vault, cron.schedule
+CONFIRM_PROD=1 tools/deploy-reminders.sh     # migration list, db push, functions deploy, secrets set, Vault, cron.schedule
 ```
+
+The script reads `tools/.env.local` first; any variable already set in the environment (as in the command above) wins over the file. `CONFIRM_PROD` counts only from the environment. Before `db push` it prints `supabase migration list --linked` (pending migrations have an empty Remote column) and pushes only when `CONFIRM_PROD=1` and that list was shown in the same run; the dry run prints the list as well when the checkout is already linked. Twilio secrets reach `supabase secrets set` through a mode-600 temp file (`--env-file`) that is deleted afterwards, never as command-line arguments. `SUPABASE_SERVICE_ROLE_KEY` must be the legacy service_role JWT (three dot-separated parts, `eyJ...`); other key formats are rejected.
 
 The cron job does not contain the service role key. The script stores it in Supabase Vault as `send-reminders-service-key` (created on the first run, updated on later runs), and the job's command reads it from `vault.decrypted_secrets` each time it runs, so neither `cron.job` nor `cron.job_run_details` holds the key. To rotate the key, re-run the script with the new one.
 
