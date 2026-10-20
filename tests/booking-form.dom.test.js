@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { parseIcs, icsUnescape } from './ics-parse.js';
 
 // ---- Mock the RPC layer (this also keeps the esm.sh supabase import out) ----
 vi.mock('../scripts/booking-rpc.js', () => {
@@ -718,6 +719,67 @@ describe('text consent (C3)', () => {
     $('[data-book-another]').click();
     expect($('input[name="remind_sms"]').checked).toBe(true);
     expect($('input[name="rebook_sms"]').checked).toBe(false);
+  });
+});
+
+/* ================= Add to calendar (C2) ================= */
+
+describe('add to calendar (C2)', () => {
+  const fileOf = (link) => {
+    expect(link.href.startsWith('data:text/calendar;charset=utf-8,')).toBe(true);
+    return parseIcs(decodeURIComponent(link.href.slice(link.href.indexOf(',') + 1)))[0].children[0].props;
+  };
+
+  it('the confirmation offers the booking as fade-empire-<date>.ics', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'cal-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 4000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('input[name="addons"][value="beard"]').click();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    const link = $('[data-form-success] [data-add-calendar]');
+    expect(link.hidden).toBe(false);
+    expect(link.textContent).toBe('Add to calendar');
+    expect(link.getAttribute('download')).toBe('fade-empire-2026-07-08.ics');
+    const ev = fileOf(link);
+    expect(ev.UID).toBe('cal-1@chicopeefadeempire.com');
+    expect(ev.SUMMARY).toBe('Fade Empire: Hair Cut with Larry');
+    expect(ev.DTSTART).toBe('20260708T153000Z');
+    expect(ev.DTEND).toBe('20260708T161500Z');
+    expect(icsUnescape(ev.DESCRIPTION)).toContain('Test Customer · Hair Cut + Beard · 11:30 AM');
+  });
+
+  it('a group gets one event for the party; cancelling one person updates it, cancelling all hides it', async () => {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'cg-1', person_index: 0, person_name: 'Test Customer', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
+      { booking_id: 'cg-2', person_index: 1, person_name: 'Kid', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Kid');
+    fill('[data-guest-service]', 'kids-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    const link = $('[data-add-calendar]');
+    let ev = fileOf(link);
+    expect(ev.SUMMARY).toBe('Fade Empire: 2 appointments with Hassan');
+    expect(ev.DTSTART).toBe('20260708T153000Z');
+    expect(ev.DTEND).toBe('20260708T170000Z');                 // 12:15 + 45 = 1:00 PM EDT
+
+    const cancelled = (id, time) => document.dispatchEvent(new CustomEvent('booking:cancelled', { detail: {
+      bookingId: id, barberSlug: 'hassan', phone: '4135550123', date: '2026-07-08', time,
+    } }));
+    cancelled('cg-2', '12:15:00');
+    ev = fileOf(link);
+    expect(ev.SUMMARY).toBe('Fade Empire: Hair Cut with Hassan');
+    expect(ev.DTEND).toBe('20260708T161500Z');
+    cancelled('cg-1', '11:30:00');
+    expect(link.hidden).toBe(true);
   });
 });
 

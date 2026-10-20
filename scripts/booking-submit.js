@@ -22,7 +22,8 @@ import {
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
   includedAddons, isUnpricedService,
 } from './booking-helpers.js';
-import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS } from './booking-messages.js';
+import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS, SERVICE_LABELS } from './booking-messages.js';
+import { buildIcs, icsDataUrl } from './booking-calendar.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
 import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
 
@@ -328,9 +329,20 @@ function fillSend(card, { barberName, whatsapp, sms }) {
   text.hidden = !phone;
 }
 
+/** "Add to calendar": the .ics for what the card shows, `file` being
+ *  { name, href } (or null once nothing is left on it). */
+function fillCalendar(card, file) {
+  const link = card.querySelector('[data-add-calendar]');
+  if (!link) return;
+  link.hidden = !file;
+  if (!file) return;
+  link.href = file.href;
+  link.download = file.name;
+}
+
 /** The confirmation: who is booked, for what, at what time, the total, and
  *  how the barber gets the details. `people` is [{ name, service, time }]. */
-function showSuccess(form, { text, people, total, next, send }) {
+function showSuccess(form, { text, people, total, next, send, calendar }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
   setCardCancelled(card, false);
@@ -344,6 +356,7 @@ function showSuccess(form, { text, people, total, next, send }) {
   card.querySelector('[data-success-total]').textContent = total;
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
+  fillCalendar(card, calendar);
   revealCard(form, card, next);
 }
 
@@ -353,12 +366,13 @@ function setCardCancelled(card, on) {
   const head = card.querySelector('[data-success-head]');
   head.textContent = on ? 'Cancelled.' : 'Chair reserved';
   head.classList.toggle('tone-gold', !on);
-  card.querySelectorAll('.booking__success-total, [data-success-next], .booking__send')
+  card.querySelectorAll('.booking__success-total, [data-success-next], .booking__send, [data-add-calendar]')
     .forEach(el => { el.hidden = on; });
 }
 
 // The booking the confirmation card shows, so a cancel from the panel below
-// can update it: { barberSlug, phone, date, rows, cancelled: Set of ids, send(rows) }.
+// can update it: { barberSlug, phone, date, rows, cancelled: Set of ids,
+// send(rows), calendar(rows) }.
 let shown = null;
 
 /** A booking was cancelled in the panel. If the card shows it, that person
@@ -387,6 +401,7 @@ function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   card.querySelector('[data-success-total]').textContent = formatTotal(
     left.reduce((sum, b) => sum + b.total_price_cents, 0), left.some(b => isUnpricedService(b.service_slug)));
   fillSend(card, shown.send(left));
+  fillCalendar(card, shown.calendar(left));
 }
 
 function showFallback(form, { text, send }) {
@@ -622,14 +637,31 @@ async function submit(form) {
   /* ===== SUCCESS PATH ===== */
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
+  const detail = (b) => serviceLine(b.service_slug, custom)
+    + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : '');
   // One line per person; a multi-slot service's continuation rows have no id.
   const people = bookings.filter(b => b.booking_id).map(b => ({
     id:      b.booking_id,
     name:    b.person_name,
-    service: serviceLine(b.service_slug, custom)
-      + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : ''),
+    service: detail(b),
     time:    minutesToLabel(hmsToMinutes(b.booking_time)),
   }));
+  // The calendar event runs from the first start to one slot after the last.
+  const calendar = (rows) => {
+    const booked = rows.filter(b => b.booking_id);
+    if (!booked.length) return null;
+    return {
+      name: `fade-empire-${sel.date}.ics`,
+      href: icsDataUrl(buildIcs({
+        uid: booked[0].booking_id, date: sel.date, barberName,
+        people: booked.map(b => ({
+          name: b.person_name, service: SERVICE_LABELS[b.service_slug] || b.service_slug,
+          detail: detail(b), time: b.booking_time,
+        })),
+        lastStart: rows.map(b => b.booking_time).sort().pop(),
+      })),
+    };
+  };
 
   // The booking already exists; the message is how the barber gets the details.
   showSuccess(form, {
@@ -638,10 +670,11 @@ async function submit(form) {
     total: formatTotal(total, unpriced),
     next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details; he'll reply to confirm.`,
     send: sendLinks(bookings),
+    calendar: calendar(bookings),
   });
   shown = {
     barberSlug: sel.barberSlug, phone: phone.replace(/\D/g, '').slice(-10), date: sel.date,
-    rows: bookings, cancelled: new Set(), send: sendLinks,
+    rows: bookings, cancelled: new Set(), send: sendLinks, calendar,
   };
 
   // The form stays as submitted next to the confirmation, and Reserve stays
