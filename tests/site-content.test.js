@@ -203,6 +203,14 @@ describe('every asset the page references exists', () => {
     expect(missing).toEqual([]);
   });
 
+  it('every path the service worker precaches is on disk (a missing one fails the whole install)', () => {
+    const list = readFileSync(join(ROOT, 'sw.js'), 'utf8').match(/const PRECACHE = \[([\s\S]*?)\];/)[1];
+    const paths = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(paths.length).toBeGreaterThan(5);
+    const missing = paths.filter((p) => p !== '/' && !existsSync(join(ROOT, p.slice(1).split('?')[0])));
+    expect(missing).toEqual([]);
+  });
+
   // The lightbox <img> is filled by scripts/gallery.js and sized by CSS.
   const pageImgs = () => [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => !t.includes('data-lightbox-img'));
 

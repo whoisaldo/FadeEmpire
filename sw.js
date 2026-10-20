@@ -12,7 +12,7 @@
 // claims open tabs; scripts/main.js reloads a tab that was already controlled
 // by an older worker. Caches from any other version are deleted on activate.
 
-const VERSION = 'fe-12';
+const VERSION = 'fe-13';
 const STATIC_CACHE = `fe-static-${VERSION}`;
 const HTML_CACHE   = `fe-html-${VERSION}`;
 
@@ -22,6 +22,20 @@ const PRECACHE = [
   '/404.html',
   '/manifest.webmanifest',
   '/scripts/vendor/postgrest-js-1.16.3.mjs',
+  '/scripts/nav.js',
+  '/scripts/page.js',
+  '/scripts/booking-return.js',
+  '/scripts/booking-calendar.js',
+  '/assets/img/hassan-face-160.webp',
+  '/assets/img/hassan-face-160.jpg',
+  '/assets/img/larry-face-160.webp',
+  '/assets/img/larry-face-160.jpg',
+  '/assets/img/interior-480.webp',
+  '/assets/img/interior-480.jpg',
+  '/assets/brand/logo-full-240.png',
+  '/assets/brand/logo-full-480.png',
+  '/assets/img/shop-tour-540-poster.jpg',
+  '/assets/img/shop-tour-720-poster.jpg',
 ];
 
 self.addEventListener('install', (event) => {
