@@ -79,8 +79,10 @@ input, select, textarea, button {
   }
   /* His beard tip sits at about 52% of the screen height and the text grows up
      from the bottom, so on shorter screens the title shrinks with the height
-     and the dek keeps to two lines until three fit; tuned so the text clears
-     the beard by 10px or more from 600 to 900px tall. */
+     and the dek keeps to two lines (14px) until three at 17px fit. Where three
+     fit depends on the width too (the title grows with it), so the dek steps
+     at 375 and 414px wide below; together they keep the text 10px or more
+     under the beard from 600 to 900px tall. */
   .hero__title  {
     font-size: max(2.25rem, min(clamp(3.5rem, 19vw, 5.75rem), 27svh - 124px));
     line-height: 0.88;
@@ -300,6 +302,15 @@ input, select, textarea, button {
 
   /* --- Reveal: shorter travel on small screens --- */
   .reveal { transform: translate3d(0, 16px, 0); }
+}
+
+/* The 17px dek from 812px tall at 375-413 wide (375x812) and from 820px at
+   414 and wider (414x820, 428x820); narrower than 375 it waits for 830px. */
+@media (min-width: 375px) and (max-width: 600px) {
+  .hero__dek { font-size: clamp(0.875rem, 100svh - 795px, 1.0625rem); }
+}
+@media (min-width: 414px) and (max-width: 600px) {
+  .hero__dek { font-size: clamp(0.875rem, 100svh - 803px, 1.0625rem); }
 }
 
 /* =====================================================
