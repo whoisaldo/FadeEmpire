@@ -1257,6 +1257,39 @@ describe('cancellation flow', () => {
     window.location.hash = '';
   });
 
+  async function bootLoadingAtCancelThen(customer) {
+    window.location.hash = '#cancel';
+    Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
+    try {
+      await reboot();
+    } finally {
+      delete document.readyState;
+    }
+    $('[data-cancel-phone]').blur();                            // the browser's fragment jump
+    customer();
+    Element.prototype.scrollIntoView.mockClear();
+    window.dispatchEvent(new Event('load'));
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  it('a customer who focused a field before a #cancel load keeps it, and the page does not jump (review A)', async () => {
+    await bootLoadingAtCancelThen(() => $('input[name="name"]').focus());
+    expect(document.activeElement).toBe($('input[name="name"]'));
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    window.location.hash = '';
+  });
+
+  it('a customer who scrolled before a #cancel load is not pulled back to the panel (review A)', async () => {
+    for (const scroll of [new Event('wheel'), new Event('touchmove'), new KeyboardEvent('keydown', { key: 'PageDown' })]) {
+      await bootLoadingAtCancelThen(() => window.dispatchEvent(scroll));
+      expect(document.activeElement).toBe(document.body);
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    }
+    await bootLoadingAtCancelThen(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' })));
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));   // a key that scrolls nothing changes nothing
+    window.location.hash = '';
+  });
+
   it('a #cancel link followed while the hash is already #cancel opens the panel again (R13d)', async () => {
     window.location.hash = '#cancel';
     await reboot('<a href="#cancel" data-test-link>Cancel</a>');
@@ -2070,6 +2103,24 @@ describe('booking edge cases', () => {
     await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
     expect(document.activeElement.disabled).toBe(false);
     expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('Book with Larry leaves focus where the customer put it while his read was slow (review A)', async () => {
+    const bookWith = indexHtml.match(/<button[^>]*data-book-barber="larry"[^>]*>[^<]*<\/button>/)[0];
+    await reboot(bookWith);
+    let land;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
+    $('button[data-book-barber="larry"]').focus();
+    $('button[data-book-barber="larry"]').click();
+    Element.prototype.scrollIntoView.mockClear();
+    fill('input[name="name"]', 'Jo');
+    $('input[name="name"]').focus();
+    land([]);
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot:not([disabled])')).toBeTruthy());
+    await new Promise(r => setTimeout(r, 10));
+    expect(document.activeElement).toBe($('input[name="name"]'));
+    expect($('[data-form-time]').value).toBe('');
+    expect(Element.prototype.scrollIntoView.mock.contexts.some((el) => el.classList?.contains('booking__slot'))).toBe(false);
   });
 
   it('Book the VIP: focus moves to the first open time when none is picked yet (D12)', async () => {

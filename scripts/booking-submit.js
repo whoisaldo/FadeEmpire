@@ -701,7 +701,8 @@ async function submit(form) {
 
 /** After a shortcut has filled part of the booking (Book with Hassan, Book
  *  the VIP, Reserve it, Take it): focus the next step still to do, so Tab
- *  carries on from there. Times take focus only once availability is read. */
+ *  carries on from there. Times take focus only once availability is read,
+ *  and not at all if the customer has focused something else meanwhile. */
 async function focusNextStep(form) {
   if (form.dataset.booked === 'true') {          // locked: the confirmation is the next step
     const card = form.querySelector('[data-form-success]');
@@ -709,7 +710,9 @@ async function focusNextStep(form) {
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  const tapped = document.activeElement;
   await whenAvailable();
+  if (![tapped, document.body].includes(document.activeElement)) return;   // the customer moved on
   const sel = getSelection();
   const target = !sel.time
     ? document.querySelector('[data-slot-grid] .booking__slot:not([disabled])')

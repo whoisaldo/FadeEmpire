@@ -274,8 +274,11 @@ export function initBookingCancel() {
   // The browser's own jump to the fragment during load blurs the field, so
   // focus it again once the page has loaded. WebKit sometimes finishes that
   // jump just after load instead: if focus drops to the page within 300 ms
-  // and nothing else took it, the field gets it back once.
+  // and nothing else took it, the field gets it back once. A customer who
+  // focused something else or scrolled before load keeps their place.
+  let movedOn = false;
   const afterLoad = () => {
+    if (movedOn) return;
     fromHash();
     if (location.hash !== '#cancel') return;
     const refocus = () => setTimeout(() => {
@@ -284,7 +287,16 @@ export function initBookingCancel() {
     input.addEventListener('blur', refocus, { once: true });
     setTimeout(() => input.removeEventListener('blur', refocus), 300);
   };
-  if (document.readyState !== 'complete') window.addEventListener('load', afterLoad, { once: true });
+  if (document.readyState !== 'complete') {
+    const watch = new AbortController();
+    const moved = () => { movedOn = true; watch.abort(); };
+    document.addEventListener('focusin', (e) => { if (e.target !== input) moved(); }, { signal: watch.signal });
+    for (const type of ['wheel', 'touchmove']) window.addEventListener(type, moved, { passive: true, signal: watch.signal });
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) moved();
+    }, { signal: watch.signal });
+    window.addEventListener('load', () => { watch.abort(); afterLoad(); }, { once: true });
+  }
   // A #cancel link followed while the hash is already #cancel changes no
   // hash, so it opens the panel from the click.
   document.addEventListener('click', (e) => {
