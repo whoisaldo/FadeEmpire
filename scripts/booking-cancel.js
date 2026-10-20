@@ -241,8 +241,19 @@ export function initBookingCancel() {
   window.addEventListener('hashchange', fromHash);
   fromHash();
   // The browser's own jump to the fragment during load blurs the field, so
-  // focus it again once the page has loaded.
-  if (document.readyState !== 'complete') window.addEventListener('load', fromHash, { once: true });
+  // focus it again once the page has loaded. WebKit sometimes finishes that
+  // jump just after load instead: if focus drops to the page within 300 ms
+  // and nothing else took it, the field gets it back once.
+  const afterLoad = () => {
+    fromHash();
+    if (location.hash !== '#cancel') return;
+    const refocus = () => setTimeout(() => {
+      if (document.activeElement === document.body) input.focus({ preventScroll: true });
+    }, 0);
+    input.addEventListener('blur', refocus, { once: true });
+    setTimeout(() => input.removeEventListener('blur', refocus), 300);
+  };
+  if (document.readyState !== 'complete') window.addEventListener('load', afterLoad, { once: true });
   // A #cancel link followed while the hash is already #cancel changes no
   // hash, so it opens the panel from the click.
   document.addEventListener('click', (e) => {

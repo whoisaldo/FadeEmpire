@@ -924,6 +924,43 @@ describe('cancellation flow', () => {
     window.location.hash = '';
   });
 
+  async function bootLoadingAtCancel() {
+    window.location.hash = '#cancel';
+    Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
+    try {
+      await reboot();
+    } finally {
+      delete document.readyState;
+    }
+    window.dispatchEvent(new Event('load'));
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+  }
+
+  it('a blur to the page just after a #cancel load puts the cursor back in Phone once (R19)', async () => {
+    await bootLoadingAtCancel();
+    $('[data-cancel-phone]').blur();                            // WebKit, ~50 ms after load
+    await new Promise(r => setTimeout(r, 10));
+    expect(document.activeElement).toBe($('[data-cancel-phone]'));
+    $('[data-cancel-phone]').blur();                            // only once
+    await new Promise(r => setTimeout(r, 10));
+    expect(document.activeElement).toBe(document.body);
+    window.location.hash = '';
+  });
+
+  it('after a #cancel load, focus the customer moves elsewhere stays there, and a late blur is left alone (R19)', async () => {
+    await bootLoadingAtCancel();
+    $('[data-cancel-find]').focus();                            // the customer moved on
+    await new Promise(r => setTimeout(r, 10));
+    expect(document.activeElement).toBe($('[data-cancel-find]'));
+
+    await bootLoadingAtCancel();
+    await new Promise(r => setTimeout(r, 320));                 // past the 300 ms window
+    $('[data-cancel-phone]').blur();
+    await new Promise(r => setTimeout(r, 10));
+    expect(document.activeElement).toBe(document.body);
+    window.location.hash = '';
+  });
+
   it('a #cancel link followed while the hash is already #cancel opens the panel again (R13d)', async () => {
     window.location.hash = '#cancel';
     await reboot('<a href="#cancel" data-test-link>Cancel</a>');
