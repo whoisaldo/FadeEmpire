@@ -48,28 +48,6 @@
   }
 }
 
-.shop__facts {
-  display: flex;
-  gap: clamp(1.5rem, 3vw, 2.5rem);
-  margin: 1rem 0 0;
-  padding: 1.25rem 0 0;
-  border-top: 1px solid var(--rule);
-  list-style: none;
-}
-
-.shop__facts li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.shop__facts .t-mono {
-  font-size: 1.375rem;
-  font-weight: 500;
-  color: var(--gold);
-  letter-spacing: 0.02em;
-}
-
 /* --- Plates: video and photo share the same frame --- */
 .shop__video,
 .shop__room {
@@ -107,24 +85,6 @@
   transition: transform 1.4s var(--ease-curtain);
 }
 .shop__room:hover img { transform: scale(1.025); }
-
-.shop__cap {
-  position: absolute;
-  right: 1.1rem;
-  bottom: 1.1rem;
-  z-index: 3;
-  padding: 0.4rem 0.7rem;
-  background: rgba(10, 9, 8, 0.72);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border-right: 2px solid var(--gold);
-  color: var(--bone-soft);
-  letter-spacing: 0.08em;
-  text-align: right;
-}
-
-/* The tour's caption sits top-right so it never collides with the sound toggle */
-.shop__video .shop__cap { top: 1.1rem; bottom: auto; }
 
 /* --- Sound toggle: off by default, one tap to hear the tour --- */
 .shop__sound {

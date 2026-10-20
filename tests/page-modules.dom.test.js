@@ -348,7 +348,7 @@ describe('reveals.js: scroll reveals', () => {
   });
 
   it('watches masked section headlines through their parent, since a fully clipped element never intersects', async () => {
-    document.body.innerHTML = MENU;
+    document.body.innerHTML = GALLERY;
     const observed = [];
     let callback;
     window.IntersectionObserver = class {
@@ -359,14 +359,14 @@ describe('reveals.js: scroll reveals', () => {
     const { initReveals } = await import('../scripts/reveals.js');
     initReveals();
 
-    const h2 = $('#menu .section__head h2');
+    const h2 = $('#gallery .section__head h2');
     expect(observed).not.toContain(h2);
     expect(observed).toContain(h2.parentElement);
 
     callback([{ isIntersecting: true, target: h2.parentElement }]);
     expect(h2.classList.contains('is-visible')).toBe(true);
     // Siblings of the headline are watched on their own, not through the head.
-    const dek = $('#menu .section__dek');
+    const dek = $('#gallery .section__dek');
     expect(observed).toContain(dek);
     expect(dek.classList.contains('is-visible')).toBe(false);
     callback([{ isIntersecting: true, target: dek }]);

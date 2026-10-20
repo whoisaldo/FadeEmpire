@@ -89,23 +89,6 @@
   pointer-events: none;
 }
 
-/* Motion plate: a small "live" mark in the corner */
-.plate--video .plate__cap::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 0.5rem;
-  border-radius: 50%;
-  background: var(--gold);
-  vertical-align: middle;
-  animation: platePulse 1.8s ease-in-out infinite;
-}
-@keyframes platePulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.35; }
-}
-
 /* Filmstrip counter is a phone-only thing */
 .plates__count { display: none; }
 

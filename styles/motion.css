@@ -59,6 +59,5 @@
   .feature__portrait:hover img,
   .visit__photo:hover img,
   .menu__photo:hover img { transform: none; }
-  .plate--video .plate__cap::before { animation: none; }
   .lightbox__img { animation: none; }
 }

@@ -95,13 +95,9 @@ input, select, textarea, button {
   /* --- Inside the shop --- */
   .shop__grid { gap: 1.25rem; }
   .shop__head { margin-bottom: 0.25rem; }
-  .shop__facts { gap: 1.5rem; padding-top: 1rem; }
-  .shop__facts .t-mono { font-size: 1.125rem; }
   .shop__video { aspect-ratio: 2 / 3; }
   .shop__room  { aspect-ratio: 4 / 3; }
   .shop__room img { object-position: 50% 72%; }
-  .shop__cap { right: 0.85rem; bottom: 0.85rem; padding: 0.35rem 0.55rem; font-size: 0.625rem; }
-  .shop__video .shop__cap { top: 0.85rem; bottom: auto; }
   .shop__sound { left: 0.85rem; bottom: 0.85rem; padding: 0.55rem 0.85rem 0.55rem 0.7rem; font-size: 0.6875rem; }
 
   /* --- Services --- */
