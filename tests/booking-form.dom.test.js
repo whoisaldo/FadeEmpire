@@ -1059,8 +1059,9 @@ describe('cancellation flow', () => {
     expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
   });
 
-  async function bookAndCancel({ id, cancelRow }) {
+  async function bookAndCancel({ id, cancelRow, barber = 'hassan' }) {
     rpc.bookSlot.mockResolvedValue([{ booking_id: id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 3000 }]);
+    if (barber !== 'hassan') await pickBarber(barber);
     clickDay('2026-07-08');
     clickSlot('10:00:00');
     fillPrimary();
@@ -1109,7 +1110,22 @@ describe('cancellation flow', () => {
     expect(card.querySelector('.booking__send').hidden).toBe(false);
   });
 
-  it('a cancel matches the card by phone, date and time when the ids differ (R9)', async () => {
+  it('cancelling another barber\'s booking at the same phone, day and time leaves the card alone (R16)', async () => {
+    const hassans = { ...bookingRow, booking_id: 'hassan-id', booking_date: '2026-07-08', booking_time: '10:00:00' };
+    await bookAndCancel({ id: 'larry-id', cancelRow: hassans, barber: 'larry' });
+    expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
+    expect($('[data-success-head]').textContent).toBe('Chair reserved');
+    expect($('[data-form-success] .booking__send').hidden).toBe(false);
+    expect($('[data-slot-grid]').hasAttribute('inert')).toBe(true);
+  });
+
+  it('the booking id matches the card even when the barber on the cancel row is missing (R16)', async () => {
+    const shown = { ...bookingRow, booking_id: 'r16', barber_slug: undefined, booking_date: '2026-07-08', booking_time: '10:00:00' };
+    await bookAndCancel({ id: 'r16', cancelRow: shown, barber: 'larry' });
+    expect($('[data-success-head]').textContent).toBe('Cancelled.');
+  });
+
+  it('a cancel matches the card by barber, phone, date and time when the ids differ (R9, R16)', async () => {
     const shown = { ...bookingRow, booking_id: 'other-id', booking_date: '2026-07-08', booking_time: '10:00:00' };
     await bookAndCancel({ id: 'r9c', cancelRow: shown });
     expect($('[data-success-head]').textContent).toBe('Cancelled.');

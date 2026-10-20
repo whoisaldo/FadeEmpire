@@ -358,18 +358,21 @@ function setCardCancelled(card, on) {
 }
 
 // The booking the confirmation card shows, so a cancel from the panel below
-// can update it: { phone, date, rows, cancelled: Set of ids, send(rows) }.
+// can update it: { barberSlug, phone, date, rows, cancelled: Set of ids, send(rows) }.
 let shown = null;
 
 /** A booking was cancelled in the panel. If the card shows it, that person
  *  is struck off the card, the total and the message to the barber; once
  *  nobody is left the card says "Cancelled." and the form opens again as
  *  after "Book another", leaving focus and the cancel status where they are. */
-function onCancelled(form, { bookingId, phone, date, time } = {}) {
+function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   if (form.dataset.booked !== 'true' || !shown) return;
-  const hit = shown.rows.find(b => b.booking_id && !shown.cancelled.has(b.booking_id)
-    && (b.booking_id === bookingId
-      || (phone === shown.phone && date === shown.date && b.booking_time === time)));
+  // The booking id first; otherwise the same barber, phone, day and time (one
+  // barber's slot holds one booking, so that is the same booking too).
+  const open = shown.rows.filter(b => b.booking_id && !shown.cancelled.has(b.booking_id));
+  const hit = (bookingId && open.find(b => b.booking_id === bookingId))
+    || open.find(b => barberSlug === shown.barberSlug && phone === shown.phone
+      && date === shown.date && b.booking_time === time);
   if (!hit) return;
   shown.cancelled.add(hit.booking_id);
   const card = form.querySelector('[data-form-success]');
@@ -631,7 +634,7 @@ async function submit(form) {
     send: sendLinks(bookings),
   });
   shown = {
-    phone: phone.replace(/\D/g, '').slice(-10), date: sel.date,
+    barberSlug: sel.barberSlug, phone: phone.replace(/\D/g, '').slice(-10), date: sel.date,
     rows: bookings, cancelled: new Set(), send: sendLinks,
   };
 
