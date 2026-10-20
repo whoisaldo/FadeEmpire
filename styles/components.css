@@ -35,15 +35,9 @@
 .btn:hover,
 .btn:focus-visible {
   transform: translateY(-1px);
-  outline: none;
 }
 
 .btn:active { transform: translateY(0); }
-
-.btn:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
 
 .btn--gold {
   --btn-bg: var(--gold);
@@ -428,3 +422,11 @@
    Misc
 ===================================================== */
 [hidden] { display: none !important; }
+
+/* One focus ring for everything the keyboard reaches: links, buttons,
+   fields, summaries. Plates draw theirs inset (gallery.css) because the
+   frame clips anything outside it. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

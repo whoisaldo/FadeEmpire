@@ -178,8 +178,6 @@
 }
 .lightbox__close:hover,
 .lightbox__nav:hover { border-color: var(--gold); color: var(--gold); }
-.lightbox__close:focus-visible,
-.lightbox__nav:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .lightbox__close { top: max(1rem, var(--safe-top, 0px)); right: 1rem; }
 .lightbox__nav--prev { left: 1rem; top: 50%; transform: translateY(-50%); }

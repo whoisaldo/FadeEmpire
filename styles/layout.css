@@ -77,6 +77,4 @@
 }
 .skip-link:focus-visible {
   top: 0.75rem;
-  outline: 2px solid var(--bone);
-  outline-offset: 2px;
 }
