@@ -20,7 +20,12 @@ let state = {
   selectedDate: null,      // 'YYYY-MM-DD'
   selectedTime: null,      // 'HH:MM:SS'
   takenSet:     new Set(), // 'YYYY-MM-DD|HH:MM' keys for the CURRENT barber's taken slots
+  // Availability read for the current barber: 'loading' (nothing read yet),
+  // 'ok' (takenSet is real, possibly empty), or 'error' (the read failed, so
+  // no slot is offered until a retry succeeds).
+  availability: 'loading',
 };
+let loadSeq = 0;           // drops stale responses when reads overlap
 
 /* ---------- Barber picker ---------- */
 
@@ -40,6 +45,7 @@ function selectBarber(slug, { keepDate = false } = {}) {
     state.selectedTime = null;
     if (!keepDate) state.selectedDate = null;
     state.takenSet = new Set();
+    state.availability = 'loading';
     renderDayRow();
     syncForm();
     loadAvailability();
@@ -153,6 +159,21 @@ function renderSlots() {
     return;
   }
 
+  if (state.availability === 'error') {
+    wrap.removeAttribute('aria-busy');
+    wrap.innerHTML = '<p class="booking__slots-empty booking__slots-error">Couldn\'t load open times.</p>'
+      + '<button type="button" class="btn btn--mini booking__slots-retry" data-slots-retry>Retry</button>';
+    wrap.querySelector('[data-slots-retry]').addEventListener('click', () => loadAvailability());
+    // Nothing is offered while availability is unknown, so drop a pick too.
+    if (state.selectedTime) {
+      state.selectedTime = null;
+      syncForm();
+    }
+    return;
+  }
+
+  const loading  = state.availability === 'loading';
+  wrap.toggleAttribute('aria-busy', loading);
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
   let selectionStillOpen = false;
@@ -172,7 +193,17 @@ function renderSlots() {
     btn.dataset.time = hms;
     btn.textContent = minutesToLabel(m);
 
-    if (isTaken) {
+    if (loading && !isPast) {
+      // Not read yet: shown, not offered. A pick made before the read (the
+      // next-slot shortcut) stays marked until the read confirms or drops it.
+      btn.classList.add('is-loading');
+      btn.disabled = true;
+      if (state.selectedTime === hms) {
+        btn.setAttribute('aria-checked', 'true');
+        btn.classList.add('is-selected');
+        selectionStillOpen = true;
+      }
+    } else if (isTaken) {
       btn.classList.add('is-taken');
       btn.disabled = true;
       btn.title = 'Already booked';
@@ -238,14 +269,28 @@ function syncForm() {
 /* ---------- Availability load ---------- */
 
 async function loadAvailability() {
+  const seq = ++loadSeq;
   const barberSlug = state.barberSlug;
   const today = new Date();
   const end   = new Date(today.getTime() + DAYS_AHEAD * 86400000);
-  const rows  = await fetchAvailability({
-    fromDate: isoDate(today), toDate: isoDate(end), barberSlug,
-  });
-  if (barberSlug !== state.barberSlug) return;   // user switched barber mid-flight
+  if (state.availability === 'error') {      // Retry: back to "not read yet"
+    state.availability = 'loading';
+    renderSlots();
+  }
+  let rows;
+  try {
+    rows = await fetchAvailability({
+      fromDate: isoDate(today), toDate: isoDate(end), barberSlug,
+    });
+  } catch (_) {
+    if (seq !== loadSeq || barberSlug !== state.barberSlug) return;
+    state.availability = 'error';
+    renderSlots();
+    return;
+  }
+  if (seq !== loadSeq || barberSlug !== state.barberSlug) return;   // superseded mid-flight
   state.takenSet = new Set(rows.map(r => `${r.booking_date}|${r.booking_time.slice(0,5)}`));
+  state.availability = 'ok';
   renderSlots();
 }
 

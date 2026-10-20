@@ -80,6 +80,12 @@ function clickSlot(hms) {
   pill.click();
 }
 
+/** Switch barber and let his availability read land (slots take no taps before it). */
+async function pickBarber(slug) {
+  $(`[data-barber-option="${slug}"]`).click();
+  await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+}
+
 function fillPrimary({ name = 'Test Customer', phone = '4135550123', service = 'hair-cut' } = {}) {
   fill('input[name="name"]', name);
   fill('input[name="phone"]', phone);
@@ -198,6 +204,44 @@ describe('booking grid', () => {
     expect($('[data-form-time]').value).toBe('');
   });
 
+  it('a failed availability read offers no slot, says so, and Retry recovers (P2)', async () => {
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    await grid.refreshAvailability();
+
+    const slots = $('[data-slot-grid]');
+    expect(slots.textContent).toContain("Couldn't load open times.");
+    expect($$('[data-slot-grid] .booking__slot')).toHaveLength(0);
+    expect($('[data-form-time]').value).toBe('');            // nothing selectable, nothing kept
+    expect($('[data-form-date]').value).toBe('2026-07-08');  // the day stays
+
+    rpc.fetchAvailability.mockResolvedValueOnce([
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '10:45:00', status: 'confirmed' },
+    ]);
+    $('[data-slots-retry]').click();
+    await vi.waitFor(() => expect($$('[data-slot-grid] .booking__slot')).toHaveLength(11));
+    expect($('[data-slot-grid] .booking__slot[data-time="10:45:00"]').classList.contains('is-taken')).toBe(true);
+    expect($('[data-slot-grid] .booking__slot[data-time="11:30:00"]').disabled).toBe(false);
+  });
+
+  it('pills take no taps until the first read lands: loading is not "all open" (P2)', async () => {
+    let resolve;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+    $('[data-barber-option="larry"]').click();
+    clickDay('2026-07-08');
+    const pills = $$('[data-slot-grid] .booking__slot');
+    expect(pills.length).toBe(11);
+    expect(pills.every(p => p.disabled && p.classList.contains('is-loading'))).toBe(true);
+    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(true);
+
+    resolve([]);   // an empty successful read: every slot is open
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot').disabled).toBe(false));
+    expect($$('[data-slot-grid] .booking__slot.is-loading')).toHaveLength(0);
+    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(false);
+  });
+
   it('selection pill shows day, time, and barber', () => {
     clickDay('2026-07-08');
     clickSlot('11:30:00');
@@ -215,7 +259,7 @@ describe('booking submit — success', () => {
       booking_status: 'confirmed', hold_expires_at: null, total_price_cents: 4000,
     }]);
 
-    $('[data-barber-option="larry"]').click();
+    await pickBarber('larry');
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary();

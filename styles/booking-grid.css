@@ -242,6 +242,23 @@
   text-align: center;
 }
 
+/* Availability not read yet: the pills show the day's shape but take no taps */
+.booking__slot.is-loading {
+  opacity: 0.45;
+  cursor: progress;
+}
+
+/* Availability read failed: a plain message and a retry, no pills */
+.booking__slots-error {
+  font-style: normal;
+  color: var(--bone);
+  padding-bottom: 0.5rem;
+}
+.booking__slots-retry {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
 /* --- Selected slot pill above form --- */
 .booking__selected {
   display: inline-flex;

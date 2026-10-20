@@ -131,6 +131,24 @@ describe('cover.js: live status and next open slot', () => {
     expect($('[data-mobile-cta-next]').hidden).toBe(true);
   });
 
+  it('takes the next-slot lines down again when a later read fails (P2)', async () => {
+    const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    rpc.fetchNextAvailable.mockResolvedValueOnce({
+      date: '2026-09-10', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+      label: 'THU, SEP 10 · 10:45 AM · LARRY', shortLabel: 'Thu 10:45 AM',
+    });
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+
+    rpc.fetchNextAvailable.mockRejectedValueOnce(new Error('offline'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect($('[data-next-available]').hidden).toBe(true);
+    expect($('[data-next-available-callout]').hidden).toBe(true);
+    expect($('[data-mobile-cta-next]').hidden).toBe(true);
+  });
+
   it('collapses "Which one do I book?" on phones and keeps it open on desktop', async () => {
     let { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
     matchMediaMatches = (q) => q.includes('max-width: 600px');

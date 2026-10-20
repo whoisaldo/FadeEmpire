@@ -134,7 +134,9 @@ export async function logBookingError(payload) {
  * Fetch all active (pending/confirmed) bookings between [fromDate, toDate].
  * Pass `barberSlug` to scope to one barber, or null for every barber.
  * Returns array of { barber_slug, booking_date, booking_time, status }.
- * Driven by the PII-free v_slot_availability view.
+ * Driven by the PII-free v_slot_availability view. Throws BookingError when
+ * the read fails: an empty list means "nothing booked", so a failed read must
+ * never look like one.
  */
 export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT_BARBER_SLUG }) {
   let query = sb
@@ -147,7 +149,7 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
   const { data, error } = await query;
   if (error) {
     console.warn('[booking] fetchAvailability failed', error);
-    return [];
+    throw new BookingError(mapBookingErrorCode(error), error);
   }
   return data || [];
 }
@@ -155,6 +157,7 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
 /**
  * Find the next available 45-minute slot across ALL barbers, looking up to
  * 14 days ahead. Returns { date, time, label, barberSlug, barberName } or null.
+ * Throws when availability can't be read.
  */
 export async function fetchNextAvailable() {
   const today = new Date();

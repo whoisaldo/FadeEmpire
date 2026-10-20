@@ -34,15 +34,20 @@ function updateStatus() {
 
 /* ---------- Next open slot ---------- */
 
+const NEXT_SLOT_LINES = ['[data-next-available]', '[data-next-available-callout]', '[data-mobile-cta-next]'];
+
 async function updateNextAvailable() {
   let next;
   try {
     next = await fetchNextAvailable();
   } catch (err) {
-    console.warn('[cover] next available lookup failed', err);   // network trouble: leave the lines hidden
+    console.warn('[cover] next available lookup failed', err);
+  }
+  // No claim about a free slot without a successful read that found one.
+  if (!next) {
+    NEXT_SLOT_LINES.forEach(sel => { const el = document.querySelector(sel); if (el) el.hidden = true; });
     return;
   }
-  if (!next) return;
 
   const fill = (textSel, showSel, label) => {
     const text = document.querySelector(textSel);
