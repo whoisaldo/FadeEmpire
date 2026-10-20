@@ -45,6 +45,11 @@ create function tap_rebook_due(p_phone text) returns boolean language sql as $$
 $$;
 
 -- ---------- Schema ----------
+select is(
+  (select n.nspname::text from pg_extension e join pg_namespace n on n.oid = e.extnamespace
+    where e.extname = 'pg_net'),
+  'extensions', 'pg_net is installed in the extensions schema'
+);
 select has_column('public', 'bookings', 'remind_sms',       'bookings.remind_sms exists');
 select has_column('public', 'bookings', 'rebook_sms',       'bookings.rebook_sms exists');
 select has_column('public', 'bookings', 'reminder_sent_at', 'bookings.reminder_sent_at exists');

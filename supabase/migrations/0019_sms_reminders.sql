@@ -36,7 +36,7 @@
 do $$
 begin
   if not exists (select 1 from pg_extension where extname = 'pg_net') then
-    create extension pg_net;
+    create extension pg_net with schema extensions;
   end if;
 end
 $$;
