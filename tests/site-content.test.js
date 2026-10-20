@@ -235,6 +235,13 @@ describe('the page before (or without) its scripts', () => {
     expect(stamp[2]).toMatch(/<span class="stamp__text">10–6 · Closed Tue$/);
   });
 
+  it('the first two links are "Skip to main content" then "Skip to booking", both to real targets', () => {
+    const links = [...html.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].slice(0, 2).map((m) => [m[1], m[2]]);
+    expect(links).toEqual([['#main', 'Skip to main content'], ['#book', 'Skip to booking']]);
+    expect(html).toMatch(/<main id="main">/);
+    expect(html).toMatch(/<section[^>]*id="book"/);
+  });
+
   it('the tour carries English captions', () => {
     expect(html).toMatch(/<track kind="captions" src="\.\/assets\/video\/shop-tour\.vtt" srclang="en" label="English">/);
   });
