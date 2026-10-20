@@ -3,8 +3,9 @@
 // The non-booking page modules against the real index.html markup:
 //   * main.js     booking loads apart from the rest of the page
 //   * nav.js      the mobile menu
-//   * cover.js    the nav stamp, the hero status line, the "next open slot"
-//                 lines, the phone-only compare collapse
+//   * page.js     the nav stamp, the hero status line, the sticky nav, the
+//                 phone-only compare collapse
+//   * cover.js    the "next open slot" lines
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 no caption track) and the pause buttons on both clips
@@ -68,18 +69,17 @@ afterEach(() => {
 
 /* ================= cover.js ================= */
 
-describe('cover.js: live status and next open slot', () => {
-  async function bootCover(now) {
+describe('page.js: live status, sticky nav, and the compare table', () => {
+  async function bootPage(now) {
     vi.useFakeTimers({ now, toFake: ['Date', 'setInterval', 'clearInterval'] });
     document.body.innerHTML = HEADER + HERO + MENU + MOBILE_CTA + '<section id="book"></section>';
-    const rpc = await import('../scripts/booking-rpc.js');
-    const { initCover } = await import('../scripts/cover.js');
-    return { rpc, initCover };
+    const { initPage } = await import('../scripts/page.js');
+    return { initPage };
   }
 
   it('shows OPEN in the nav and "Closes 6 PM" in the hero during open hours', async () => {
-    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));   // Wed 1 PM EDT
-    initCover();
+    const { initPage } = await bootPage(new Date('2026-09-09T17:00:00Z'));   // Wed 1 PM EDT
+    initPage();
     expect($('[data-open-stamp]').classList.contains('stamp--open')).toBe(true);
     expect($('[data-open-stamp] .stamp__text').textContent).toBe('Open now');
     expect($('[data-hero-status]').dataset.state).toBe('open');
@@ -88,21 +88,77 @@ describe('cover.js: live status and next open slot', () => {
   });
 
   it('shows CLOSED with the next opening on the closed Tuesday', async () => {
-    const { initCover } = await bootCover(new Date('2026-09-08T16:00:00Z'));   // Tue noon EDT
-    initCover();
+    const { initPage } = await bootPage(new Date('2026-09-08T16:00:00Z'));   // Tue noon EDT
+    initPage();
     expect($('[data-open-stamp]').classList.contains('stamp--closed')).toBe(true);
     expect($('[data-hero-status-detail]').textContent).toBe('Opens tomorrow 10 AM');
   });
 
   it('re-evaluates every minute so a tab left open flips at closing time', async () => {
-    const { initCover } = await bootCover(new Date('2026-09-09T21:59:30Z'));   // Wed 5:59:30 PM
-    initCover();
+    const { initPage } = await bootPage(new Date('2026-09-09T21:59:30Z'));   // Wed 5:59:30 PM
+    initPage();
     expect($('[data-open-stamp]').classList.contains('stamp--soon')).toBe(true);
     vi.setSystemTime(new Date('2026-09-09T22:00:30Z'));                          // 6:00:30 PM
     vi.advanceTimersByTime(60_000);
     expect($('[data-open-stamp]').classList.contains('stamp--closed')).toBe(true);
     expect($('[data-hero-status-detail]').textContent).toBe('Opens tomorrow 10 AM');
   });
+
+  it('solidifies the nav once the page scrolls past the top', async () => {
+    const { initPage } = await bootPage(new Date('2026-09-09T17:00:00Z'));
+    initPage();
+    expect($('[data-nav]').classList.contains('is-solid')).toBe(false);
+    window.scrollY = 200;
+    window.dispatchEvent(new Event('scroll'));
+    expect($('[data-nav]').classList.contains('is-solid')).toBe(true);
+    window.scrollY = 0;
+    window.dispatchEvent(new Event('scroll'));
+    expect($('[data-nav]').classList.contains('is-solid')).toBe(false);
+  });
+
+  it('collapses "Which one do I book?" on phones and keeps it open on desktop', async () => {
+    let { initPage } = await bootPage(new Date('2026-09-09T17:00:00Z'));
+    matchMediaMatches = (q) => q.includes('max-width: 600px');
+    initPage();
+    expect($('[data-compare]').open).toBe(false);
+
+    vi.resetModules();
+    ({ initPage } = await bootPage(new Date('2026-09-09T17:00:00Z')));
+    matchMediaMatches = () => false;
+    initPage();
+    expect($('[data-compare]').open).toBe(true);
+  });
+
+  it('on desktop the table cannot be folded away: the summary click (also Enter and Space) is cancelled', async () => {
+    const { initPage } = await bootPage(new Date('2026-09-09T17:00:00Z'));
+    matchMediaMatches = () => false;
+    initPage();
+    const summary = $('[data-compare] summary');
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    expect(summary.dispatchEvent(click)).toBe(false);
+    expect($('[data-compare]').open).toBe(true);
+    expect(summary.getAttribute('tabindex')).toBe('-1');      // a summary that does nothing is not a Tab stop
+  });
+
+  it('on phones the summary still toggles the cards', async () => {
+    const { initPage } = await bootPage(new Date('2026-09-09T17:00:00Z'));
+    matchMediaMatches = (q) => q.includes('max-width: 600px');
+    initPage();
+    const summary = $('[data-compare] summary');
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    expect(summary.dispatchEvent(click)).toBe(true);
+    expect(summary.hasAttribute('tabindex')).toBe(false);
+  });
+});
+
+describe('cover.js: next open slot', () => {
+  async function bootCover(now) {
+    vi.useFakeTimers({ now, toFake: ['Date', 'setInterval', 'clearInterval'] });
+    document.body.innerHTML = HEADER + HERO + MENU + MOBILE_CTA + '<section id="book"></section>';
+    const rpc = await import('../scripts/booking-rpc.js');
+    const { initCover } = await import('../scripts/cover.js');
+    return { rpc, initCover };
+  }
 
   it('fills the hero, the booking callout, and the sticky bar with the next slot', async () => {
     const { rpc, initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
@@ -133,40 +189,6 @@ describe('cover.js: live status and next open slot', () => {
     await vi.advanceTimersByTimeAsync(10);
     expect($('[data-next-available]').hidden).toBe(true);
     expect($('[data-mobile-cta-next]').hidden).toBe(true);
-  });
-
-  it('collapses "Which one do I book?" on phones and keeps it open on desktop', async () => {
-    let { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
-    matchMediaMatches = (q) => q.includes('max-width: 600px');
-    initCover();
-    expect($('[data-compare]').open).toBe(false);
-
-    vi.resetModules();
-    ({ initCover } = await bootCover(new Date('2026-09-09T17:00:00Z')));
-    matchMediaMatches = () => false;
-    initCover();
-    expect($('[data-compare]').open).toBe(true);
-  });
-
-  it('on desktop the table cannot be folded away: the summary click (also Enter and Space) is cancelled', async () => {
-    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
-    matchMediaMatches = () => false;
-    initCover();
-    const summary = $('[data-compare] summary');
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    expect(summary.dispatchEvent(click)).toBe(false);
-    expect($('[data-compare]').open).toBe(true);
-    expect(summary.getAttribute('tabindex')).toBe('-1');      // a summary that does nothing is not a Tab stop
-  });
-
-  it('on phones the summary still toggles the cards', async () => {
-    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
-    matchMediaMatches = (q) => q.includes('max-width: 600px');
-    initCover();
-    const summary = $('[data-compare] summary');
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    expect(summary.dispatchEvent(click)).toBe(true);
-    expect(summary.hasAttribute('tabindex')).toBe(false);
   });
 });
 
@@ -240,7 +262,7 @@ describe('nav.js: the mobile menu', () => {
 /* ================= main.js ================= */
 
 describe('main.js: booking loads apart from the rest of the page', () => {
-  it('if the booking modules fail to load, the nav still starts and #book says how to book', async () => {
+  it('if the booking modules fail to load, the page still starts and #book says how to book', async () => {
     vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
     vi.doMock('../scripts/booking-grid.js', () => { throw new Error('offline'); });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -253,20 +275,30 @@ describe('main.js: booking loads apart from the rest of the page', () => {
     expect(note.querySelector('a').getAttribute('href')).toBe('tel:+14138854440');
     expect($('#book .container').firstElementChild).toBe(note);
     expect(warn).toHaveBeenCalledWith('[main] booking failed to start', expect.any(Error));
-    // cover.js still ran: the stamp shows the live state, not the shipped text.
+    // page.js still ran: the stamp shows the live state, not the shipped text.
     expect($('[data-open-stamp]').classList.contains('stamp--open')).toBe(true);
     vi.doUnmock('../scripts/booking-grid.js');
   });
 
-  it('if the database client fails to load, the menu still opens, traps focus and closes', async () => {
+  it('if the database client fails to load, the menu, live status, sticky nav and desktop compare table all still work', async () => {
+    vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
     vi.doMock('../scripts/supabase.js', () => { throw new Error('vendor file blocked'); });
     vi.doUnmock('../scripts/booking-rpc.js');          // the real one, which imports the client
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    document.body.innerHTML = HEADER + HERO + MOBILE_CTA + section('book');
+    matchMediaMatches = () => false;                   // 1280 wide: no phone query matches
+    document.body.innerHTML = HEADER + HERO + MENU + MOBILE_CTA + section('book');
     await import('../scripts/main.js');
     await vi.waitFor(() => expect($('[data-booking-offline]')).toBeTruthy());
-    expect(warn).toHaveBeenCalledWith('[main] nav and live status failed to start', expect.any(Error));
-    expect($('[data-open-stamp] .stamp__text').textContent).toBe('10–6 · Closed Tue');   // cover.js never ran
+    expect(warn).toHaveBeenCalledWith('[main] next open slot and sticky bar failed to start', expect.any(Error));
+
+    expect($('[data-open-stamp] .stamp__text').textContent).toBe('Open now');
+    const compare = $('[data-compare]');
+    expect(compare.open).toBe(true);
+    expect(compare.querySelector('summary').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).toBe(false);
+    window.scrollY = 200;
+    window.dispatchEvent(new Event('scroll'));
+    expect($('[data-nav]').classList.contains('is-solid')).toBe(true);
+    window.scrollY = 0;
 
     const toggle = $('[data-nav-toggle]');
     const links = $$('.nav__link');
