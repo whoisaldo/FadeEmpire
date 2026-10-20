@@ -873,18 +873,42 @@ describe('cancellation flow', () => {
       phone: '4135550123',
     });
 
-    // Prefilled cancellation text for the shop, both channels.
+    // On a desktop: WhatsApp only, in a new tab, with the cancellation note.
     const links = $$('.cancel__done a');
-    expect(links).toHaveLength(2);
-    const smsHref = decodeURIComponent(links[0].href);
-    expect(smsHref).toContain('CANCELLATION');
-    expect(smsHref).toContain('Hair Cut');
-    expect(smsHref).toContain('2:00 PM');
-    expect(links[1].href).toContain('wa.me');
+    expect(links.map(l => l.textContent)).toEqual(['WhatsApp']);
+    expect(links[0].href).toContain('wa.me');
+    expect(links[0].target).toBe('_blank');
+    const waHref = decodeURIComponent(links[0].href);
+    expect(waHref).toContain('CANCELLATION');
+    expect(waHref).toContain('Hair Cut');
+    expect(waHref).toContain('2:00 PM');
 
     // Grid refreshed so the freed slot shows as open.
     expect(rpc.fetchAvailability.mock.calls.length).toBeGreaterThan(gridCallsBefore);
-    expect($('[data-cancel-status]').textContent).toContain('cancelled');
+    expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
+  });
+
+  it('on a phone a cancel offers WhatsApp and Text and opens nothing by itself (R6)', async () => {
+    window.matchMedia.mockReturnValue({
+      matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+    });
+    const start = window.location.href;
+    rpc.findBookingsByPhone.mockResolvedValue([{ ...bookingRow, barber_slug: 'larry', barber_name: 'Larry' }]);
+    openPanelAndFind();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(1));
+    $('.cancel__btn').click();
+    $('.cancel__btn').click();
+    await vi.waitFor(() => expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true));
+
+    expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Larry know:');
+    const [wa, text] = $$('.cancel__done a');
+    expect([wa.textContent, text.textContent]).toEqual(['WhatsApp', 'Text']);
+    expect(wa.hasAttribute('target')).toBe(false);
+    expect(text.href).toMatch(/^sms:\+14138854440\?&body=/);
+    expect(decodeURIComponent(text.href)).toContain('CANCELLATION');
+    expect(document.activeElement).toBe(wa);
+    await new Promise((r) => setTimeout(r, 800));                 // the old auto-open fired at 600 ms
+    expect(window.location.href).toBe(start);
   });
 
   it('keeps focus after lookup and after cancelling, and the status region is there from the start (D8)', async () => {
@@ -903,8 +927,8 @@ describe('cancellation flow', () => {
     btn.click();
     btn.click();
     await vi.waitFor(() => expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true));
-    expect(document.activeElement).toBe($('.cancel__done'));
-    expect($('[data-cancel-status]').textContent).toContain('cancelled');
+    expect(document.activeElement).toBe($('.cancel__done a'));
+    expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
   });
 
   it('surfaces cannot_cancel from the DB without breaking the row', async () => {

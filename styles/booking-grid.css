@@ -926,7 +926,6 @@
   flex-wrap: wrap;
 }
 
-.cancel__done-text { color: var(--gold); }
 
 /* Step head inside the form already sits in a flex gap */
 .booking__form > .booking__step-head { margin-bottom: 0; }

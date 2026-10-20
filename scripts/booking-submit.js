@@ -306,7 +306,7 @@ async function showKnownError(form, code, phone) {
 }
 
 /** Where an sms: link can open something: phones and tablets. */
-function canText() {
+export function canText() {
   return window.matchMedia('(pointer: coarse)').matches
     || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }

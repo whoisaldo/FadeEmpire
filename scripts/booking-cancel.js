@@ -18,6 +18,7 @@ import {
   dateLabelFromIso, formatPrice, ERROR_MESSAGES,
 } from './booking-helpers.js';
 import { buildCancelMessage, messagingUrl, SERVICE_LABELS } from './booking-messages.js';
+import { canText } from './booking-submit.js';
 import { BARBERS } from './config.js';
 
 const ARM_TIMEOUT_MS = 5000;   // "tap again to confirm" window
@@ -117,9 +118,11 @@ function renderBookings(root, bookings, phoneDigits) {
         return;
       }
 
-      // Cancelled in the DB — the slot is already freed. Now hand the customer
-      // a prefilled text so the barber hears about the gap immediately.
-      const message = buildCancelMessage({
+      // Cancelled in the DB — the slot is already freed. Offer the prefilled
+      // note to the barber the same way the reservation card does: plain
+      // links, nothing opened on its own. WhatsApp opens in a new tab on a
+      // desktop and in place on a phone; Text only where sms: can work.
+      const message = (useMarkdown) => buildCancelMessage({
         firstName:    b.first_name || 'Customer',
         phone:        formatPhoneDisplay(phoneDigits),
         barberName:   barber,
@@ -127,33 +130,27 @@ function renderBookings(root, bookings, phoneDigits) {
         dateLabel:    dateLabelFromIso(b.booking_date),
         timeLabel:    minutesToLabel(hmsToMinutes(b.booking_time)),
         ref:          b.booking_id,
+        useMarkdown,
       });
-      const smsUrl = messagingUrl('sms', message);
-      const waUrl  = messagingUrl('whatsapp', message);
+      const phone = canText();
 
       row.classList.add('is-cancelled');
       row.removeChild(btn);
       const done = el('div', 'cancel__done');
-      done.appendChild(el('span', 'cancel__done-text t-meta', 'Cancelled. The slot is free again.'));
-      const smsLink = el('a', 'btn btn--mini', 'Text the shop');
-      smsLink.href = smsUrl;
       const waLink = el('a', 'btn btn--mini', 'WhatsApp');
-      waLink.href = waUrl;
-      waLink.target = '_blank';
+      waLink.href = messagingUrl('whatsapp', message(true));
       waLink.rel = 'noopener';
-      done.appendChild(smsLink);
+      if (!phone) waLink.target = '_blank';
       done.appendChild(waLink);
-      row.appendChild(done);
-      done.tabIndex = -1;
-      done.focus();                // the Cancel button that had focus is gone
-
-      setStatus(root, 'Your booking is cancelled. Please send the prefilled text so the shop knows right away.', 'ok');
-
-      // Mobile: open the SMS compose sheet automatically.
-      const isMobile = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
-      if (isMobile) {
-        setTimeout(() => { window.location.href = smsUrl; }, 600);
+      if (phone) {
+        const smsLink = el('a', 'btn btn--mini', 'Text');
+        smsLink.href = messagingUrl('sms', message(false));
+        done.appendChild(smsLink);
       }
+      row.appendChild(done);
+      waLink.focus();              // the Cancel button that had focus is gone
+
+      setStatus(root, `Cancelled. Let ${barber || 'the shop'} know:`, 'ok');
 
       // Freed slot should show as open in the grid without a reload.
       gridRefresh();
