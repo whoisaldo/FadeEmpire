@@ -21,11 +21,21 @@
 -- '4135551234' are the same customer (same rule as 0011).
 
 -- =============================================================================
--- 1. Extensions for the schedule
+-- 1. pg_net for the schedule (pg_cron is installed by 0001)
+--
+-- Guarded with a catalog check instead of `create extension if not exists`:
+-- Supabase's after-create scripts run even when the extension already exists
+-- and are skipped, and pg_cron's script revokes cron.job from postgres, which fails
+-- with "dependent privileges exist" once postgres has granted on cron.job.
 -- =============================================================================
 
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
+do $$
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_net') then
+    create extension pg_net;
+  end if;
+end
+$$;
 
 -- =============================================================================
 -- 2. Columns
