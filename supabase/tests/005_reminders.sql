@@ -49,6 +49,7 @@ select has_column('public', 'bookings', 'remind_sms',       'bookings.remind_sms
 select has_column('public', 'bookings', 'rebook_sms',       'bookings.rebook_sms exists');
 select has_column('public', 'bookings', 'reminder_sent_at', 'bookings.reminder_sent_at exists');
 select has_column('public', 'bookings', 'rebook_sent_at',   'bookings.rebook_sent_at exists');
+select has_column('public', 'bookings', 'sms_last_error',   'bookings.sms_last_error exists');
 select col_not_null('public', 'bookings', 'remind_sms', 'remind_sms is not null');
 select col_not_null('public', 'bookings', 'rebook_sms', 'rebook_sms is not null');
 select col_default_is('public', 'bookings', 'remind_sms', 'true',  'remind_sms defaults to true');
@@ -263,6 +264,33 @@ select is(
                        where customer_phone = '5554440010' and status = 'confirmed'), 'reminder'),
   0, 'marking again changes nothing'
 );
+select is(
+  (select sms_last_error from bookings where customer_phone = '5554440010' and status = 'confirmed' limit 1),
+  null, 'a plain mark leaves sms_last_error null'
+);
+
+-- A permanent Twilio rejection marks the row and keeps the reason.
+select tap_book('5554440015', 'Unsubscribed', now() + interval '24 hours 50 minutes');
+select is(
+  mark_reminder_sent(tap_reminder_ids('5554440015'), 'reminder',
+                     '21610: Attempt to send to unsubscribed recipient'),
+  1, 'marking with an error sets one row'
+);
+select is(tap_reminder_ids('5554440015'), null, 'a row marked with an error is no longer due');
+select results_eq(
+  $$ select reminder_sent_at is not null, sms_last_error from bookings where customer_phone = '5554440015' $$,
+  $$ values (true, '21610: Attempt to send to unsubscribed recipient') $$,
+  'reminder_sent_at and sms_last_error are both set'
+);
+select is(
+  mark_reminder_sent((select array_agg(id) from bookings where customer_phone = '5554440015'), 'reminder'),
+  0, 'a later mark without an error changes nothing on that row'
+);
+select is(
+  (select sms_last_error from bookings where customer_phone = '5554440015'),
+  '21610: Attempt to send to unsubscribed recipient', 'and the reason is kept'
+);
+
 select throws_ok(
   $$ select mark_reminder_sent(array[gen_random_uuid()], 'other') $$,
   '22023', 'invalid_kind',
@@ -336,6 +364,24 @@ select is(
   null, 'rebook marking leaves reminder_sent_at alone'
 );
 
+select is(
+  mark_reminder_sent((select booking_ids from rebook_due() where phone = '5554441002'), 'rebook',
+                     '21211: Invalid ''To'' Phone Number'),
+  1, 'a rebook marked with an error sets one row'
+);
+select results_eq(
+  $$ select rebook_sent_at is not null, reminder_sent_at is null, sms_last_error
+       from bookings where customer_phone = '5554441002' $$,
+  $$ values (true, true, '21211: Invalid ''To'' Phone Number') $$,
+  'rebook_sent_at and sms_last_error are set, reminder_sent_at is not'
+);
+select is(tap_rebook_due('5554441002'), false, 'that rebook is no longer due');
+
+select is(
+  (select count(*)::int from pg_proc where proname = 'mark_reminder_sent' and pronamespace = 'public'::regnamespace),
+  1, 'exactly one mark_reminder_sent overload'
+);
+
 -- ---------- Ownership and grants ----------
 select is(
   (select bool_and(prosecdef) from pg_proc
@@ -352,13 +398,13 @@ select is(
 
 select is(has_function_privilege('anon', 'reminders_due()', 'execute'), false, 'anon has no execute on reminders_due');
 select is(has_function_privilege('anon', 'rebook_due()', 'execute'), false, 'anon has no execute on rebook_due');
-select is(has_function_privilege('anon', 'mark_reminder_sent(uuid[], text)', 'execute'), false, 'anon has no execute on mark_reminder_sent');
+select is(has_function_privilege('anon', 'mark_reminder_sent(uuid[], text, text)', 'execute'), false, 'anon has no execute on mark_reminder_sent');
 select is(has_function_privilege('authenticated', 'reminders_due()', 'execute'), false, 'authenticated has no execute on reminders_due');
 select is(has_function_privilege('authenticated', 'rebook_due()', 'execute'), false, 'authenticated has no execute on rebook_due');
-select is(has_function_privilege('authenticated', 'mark_reminder_sent(uuid[], text)', 'execute'), false, 'authenticated has no execute on mark_reminder_sent');
+select is(has_function_privilege('authenticated', 'mark_reminder_sent(uuid[], text, text)', 'execute'), false, 'authenticated has no execute on mark_reminder_sent');
 select is(has_function_privilege('service_role', 'reminders_due()', 'execute'), true, 'service_role can execute reminders_due');
 select is(has_function_privilege('service_role', 'rebook_due()', 'execute'), true, 'service_role can execute rebook_due');
-select is(has_function_privilege('service_role', 'mark_reminder_sent(uuid[], text)', 'execute'), true, 'service_role can execute mark_reminder_sent');
+select is(has_function_privilege('service_role', 'mark_reminder_sent(uuid[], text, text)', 'execute'), true, 'service_role can execute mark_reminder_sent');
 
 set local role anon;
 select throws_ok($$ select * from reminders_due() $$, '42501', null, 'anon cannot call reminders_due');

@@ -4,14 +4,17 @@
 -- pg_net; the schedule itself is created by tools/deploy-reminders.sh).
 --
 --   1. bookings: remind_sms (default true), rebook_sms (default false),
---      reminder_sent_at, rebook_sent_at. Rows that exist when this runs are
---      set to remind_sms = false: those customers never saw the opt-in.
+--      reminder_sent_at, rebook_sent_at, sms_last_error. Rows that exist when
+--      this runs are set to remind_sms = false: those customers never saw the
+--      opt-in.
 --   2. book_slot / book_slot_group take p_remind_sms and p_rebook_sms as
 --      trailing parameters with defaults. The old signatures are dropped so
 --      PostgREST resolves the current client's named-argument calls to the
 --      new functions unambiguously. Bodies are 0016 verbatim plus the two
 --      columns, stored on every row the call inserts.
 --   3. reminders_due(), rebook_due(), mark_reminder_sent(): service_role only.
+--      mark_reminder_sent also records a permanent Twilio rejection, so a
+--      number Twilio will never accept is not retried every hour.
 --
 -- Phone numbers are grouped by their 10-digit form, so '14135551234' and
 -- '4135551234' are the same customer (same rule as 0011).
@@ -31,6 +34,7 @@ alter table bookings add column if not exists remind_sms       boolean not null 
 alter table bookings add column if not exists rebook_sms       boolean not null default false;
 alter table bookings add column if not exists reminder_sent_at timestamptz;
 alter table bookings add column if not exists rebook_sent_at   timestamptz;
+alter table bookings add column if not exists sms_last_error   text;
 
 -- Bookings made before the opt-in existed are not texted.
 update bookings set remind_sms = false;
@@ -595,10 +599,16 @@ grant execute on function rebook_due() to service_role;
 -- 7. mark_reminder_sent — p_kind is 'reminder' or 'rebook'
 --
 -- Sets the matching sent_at on rows where it is still null and returns the
--- number of rows changed.
+-- number of rows changed. p_error is set when Twilio rejected the number for
+-- good: the row is marked so it is not retried, and sms_last_error keeps the
+-- reason.
 -- =============================================================================
 
-create or replace function mark_reminder_sent(p_booking_ids uuid[], p_kind text)
+create or replace function mark_reminder_sent(
+  p_booking_ids uuid[],
+  p_kind        text,
+  p_error       text default null
+)
 returns int
 language plpgsql
 security definer
@@ -609,12 +619,14 @@ declare
 begin
   if p_kind = 'reminder' then
     update bookings
-       set reminder_sent_at = now()
+       set reminder_sent_at = now(),
+           sms_last_error   = coalesce(p_error, sms_last_error)
      where id = any(p_booking_ids)
        and reminder_sent_at is null;
   elsif p_kind = 'rebook' then
     update bookings
-       set rebook_sent_at = now()
+       set rebook_sent_at = now(),
+           sms_last_error = coalesce(p_error, sms_last_error)
      where id = any(p_booking_ids)
        and rebook_sent_at is null;
   else
@@ -626,5 +638,5 @@ begin
 end;
 $$;
 
-revoke all on function mark_reminder_sent(uuid[], text) from public, anon, authenticated;
-grant execute on function mark_reminder_sent(uuid[], text) to service_role;
+revoke all on function mark_reminder_sent(uuid[], text, text) from public, anon, authenticated;
+grant execute on function mark_reminder_sent(uuid[], text, text) to service_role;

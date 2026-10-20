@@ -1,6 +1,6 @@
 // deno test supabase/functions/send-reminders/
 // fetch is stubbed: a fake PostgREST holds the due rows, a fake Twilio
-// answers with a configurable status.
+// answers with a configurable status and body, or throws.
 
 import { assertEquals } from 'jsr:@std/assert@1';
 import {
@@ -8,6 +8,7 @@ import {
   formatDate,
   formatTime,
   handle,
+  PERMANENT_ERRORS,
   readEnv,
   type RebookRow,
   rebookText,
@@ -49,8 +50,10 @@ type Fake = {
   reminders: ReminderRow[];
   rebooks: RebookRow[];
   twilioStatus: number;
+  twilioBody?: unknown;
+  twilioThrows?: boolean;
   sms: URLSearchParams[];
-  marks: { p_booking_ids: string[]; p_kind: string }[];
+  marks: { p_booking_ids: string[]; p_kind: string; p_error?: string }[];
 };
 
 // Installs the stub and returns its state; marking a row removes it from the
@@ -69,7 +72,9 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     const url = String(input);
     if (url.startsWith('https://api.twilio.com/')) {
       state.sms.push(new URLSearchParams(String(init?.body)));
-      return new Response(JSON.stringify({ status: state.twilioStatus }), { status: state.twilioStatus });
+      if (state.twilioThrows) throw new TypeError('network down');
+      const body = state.twilioBody ?? { status: state.twilioStatus };
+      return new Response(JSON.stringify(body), { status: state.twilioStatus });
     }
     if (url === `${SUPABASE_URL}/rest/v1/rpc/reminders_due`) return Response.json(state.reminders);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/rebook_due`) return Response.json(state.rebooks);
@@ -171,8 +176,8 @@ Deno.test('dry run sends nothing and marks nothing', async () => {
     const summary = await run(dryEnv);
     assertEquals(summary, {
       dry_run: true,
-      reminders: { due: 1, sent: 0, failed: 0 },
-      rebooks: { due: 1, sent: 0, failed: 0 },
+      reminders: { due: 1, sent: 0, failed: 0, rejected: 0 },
+      rebooks: { due: 1, sent: 0, failed: 0, rejected: 0 },
     });
     assertEquals(fake.sms.length, 0);
     assertEquals(fake.marks.length, 0);
@@ -193,8 +198,8 @@ Deno.test('Twilio 2xx sends E.164 and marks the rows sent', async () => {
     const summary = await run(liveEnv);
     assertEquals(summary, {
       dry_run: false,
-      reminders: { due: 1, sent: 1, failed: 0 },
-      rebooks: { due: 1, sent: 1, failed: 0 },
+      reminders: { due: 1, sent: 1, failed: 0, rejected: 0 },
+      rebooks: { due: 1, sent: 1, failed: 0, rejected: 0 },
     });
     assertEquals(fake.sms.map((f) => f.get('To')), ['+14135551234', '+14135559876']);
     assertEquals(fake.sms[0].get('From'), '+14135550000');
@@ -208,15 +213,78 @@ Deno.test('Twilio 2xx sends E.164 and marks the rows sent', async () => {
   }
 });
 
-Deno.test('Twilio 4xx leaves the row unmarked', async () => {
-  const fake = stubFetch({ reminders: [reminderRow()], twilioStatus: 400 });
+const twilioError = (code: number, message: string) => ({ code, message, status: 400 });
+
+Deno.test('the permanent error list', () => {
+  assertEquals([...PERMANENT_ERRORS].sort(), [21211, 21408, 21610, 21614]);
+});
+
+Deno.test('a permanent Twilio 4xx marks the row and records the code', async () => {
+  for (const code of PERMANENT_ERRORS) {
+    const fake = stubFetch({
+      reminders: [reminderRow()],
+      rebooks: [rebookRow()],
+      twilioStatus: 400,
+      twilioBody: twilioError(code, 'Rejected'),
+    });
+    const restoreConsole = quiet();
+    try {
+      const summary = await run(liveEnv);
+      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 0, rejected: 1 });
+      assertEquals(summary.rebooks, { due: 1, sent: 0, failed: 0, rejected: 1 });
+      assertEquals(fake.marks, [
+        { p_booking_ids: ['b1'], p_kind: 'reminder', p_error: `${code}: Rejected` },
+        { p_booking_ids: ['b9'], p_kind: 'rebook', p_error: `${code}: Rejected` },
+      ]);
+      assertEquals(fake.reminders.length, 0);
+      assertEquals(fake.rebooks.length, 0);
+    } finally {
+      restoreConsole();
+      fake.restore();
+    }
+  }
+});
+
+Deno.test('transient failures leave the row unmarked', async () => {
+  const cases: Partial<Fake>[] = [
+    { twilioStatus: 500 },
+    { twilioStatus: 503 },
+    { twilioStatus: 429, twilioBody: { code: 20429, message: 'Too Many Requests', status: 429 } },
+    { twilioStatus: 401, twilioBody: { code: 20003, message: 'Authenticate', status: 401 } },
+    { twilioStatus: 400, twilioBody: { status: 400 } },
+    { twilioStatus: 500, twilioBody: { code: 21610, message: 'not a 4xx', status: 500 } },
+    { twilioThrows: true },
+  ];
+  for (const c of cases) {
+    const fake = stubFetch({ reminders: [reminderRow()], ...c });
+    const restoreConsole = quiet();
+    try {
+      const summary = await run(liveEnv);
+      assertEquals(summary.reminders, { due: 1, sent: 0, failed: 1, rejected: 0 }, JSON.stringify(c));
+      assertEquals(fake.sms.length, 1);
+      assertEquals(fake.marks.length, 0);
+      assertEquals(fake.reminders.length, 1);
+    } finally {
+      restoreConsole();
+      fake.restore();
+    }
+  }
+});
+
+Deno.test('a second run after a permanent error sends nothing for that row', async () => {
+  const fake = stubFetch({
+    reminders: [reminderRow()],
+    twilioStatus: 400,
+    twilioBody: twilioError(21610, 'Attempt to send to unsubscribed recipient'),
+  });
   const restoreConsole = quiet();
   try {
-    const summary = await run(liveEnv);
-    assertEquals(summary.reminders, { due: 1, sent: 0, failed: 1 });
+    await run(liveEnv);
     assertEquals(fake.sms.length, 1);
-    assertEquals(fake.marks.length, 0);
-    assertEquals(fake.reminders.length, 1);
+    const second = await run(liveEnv);
+    assertEquals(second.reminders, { due: 0, sent: 0, failed: 0, rejected: 0 });
+    assertEquals(fake.sms.length, 1);
+    assertEquals(fake.marks.length, 1);
   } finally {
     restoreConsole();
     fake.restore();
@@ -231,8 +299,8 @@ Deno.test('second run is a no-op', async () => {
     const second = await run(liveEnv);
     assertEquals(second, {
       dry_run: false,
-      reminders: { due: 0, sent: 0, failed: 0 },
-      rebooks: { due: 0, sent: 0, failed: 0 },
+      reminders: { due: 0, sent: 0, failed: 0, rejected: 0 },
+      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0 },
     });
     assertEquals(fake.sms.length, 2);
     assertEquals(fake.marks.length, 2);
@@ -280,8 +348,8 @@ Deno.test('handler returns the JSON summary', async () => {
     assertEquals(res.status, 200);
     assertEquals(await res.json(), {
       dry_run: true,
-      reminders: { due: 1, sent: 0, failed: 0 },
-      rebooks: { due: 0, sent: 0, failed: 0 },
+      reminders: { due: 1, sent: 0, failed: 0, rejected: 0 },
+      rebooks: { due: 0, sent: 0, failed: 0, rejected: 0 },
     });
   } finally {
     restoreConsole();

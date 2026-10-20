@@ -1,6 +1,7 @@
 // send-reminders logic: reads the due rows from Postgres, texts each one
-// through Twilio, and marks a row sent only after Twilio returns 2xx.
-// Without Twilio credentials it runs dry: logs each message, marks nothing.
+// through Twilio, and marks a row sent only after Twilio returns 2xx or
+// rejects the number for good (PERMANENT_ERRORS). Without Twilio credentials
+// it runs dry: logs each message, marks nothing.
 
 export type Twilio = {
   accountSid: string;
@@ -30,13 +31,28 @@ export type RebookRow = {
   booking_ids: string[];
 };
 
-type Counts = { due: number; sent: number; failed: number };
+// failed: retried next run. rejected: marked with the error, never retried.
+type Counts = { due: number; sent: number; failed: number; rejected: number };
 export type Summary = { dry_run: boolean; reminders: Counts; rebooks: Counts };
 
 const DEFAULT_SITE_URL = 'https://chicopeefadeempire.com';
 const ADDRESS = '1193 Memorial Dr, Chicopee';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Twilio error codes, returned with a 4xx by the send request, that mean this
+// number will not take a text from us. The row is marked so the hourly run
+// stops retrying it, and the code and message go to bookings.sms_last_error.
+//   21211  the 'To' number is invalid
+//   21408  the account has no permission to send to the number's region
+//   21610  the recipient replied STOP
+//   21614  the 'To' number is not a mobile number
+// 30006 (landline or unreachable carrier) and 30007 (carrier filtering) are
+// not listed: Twilio reports them in delivery status callbacks after it has
+// accepted the message, never in the send response this function reads.
+// Every other failure (5xx, 429, other 4xx such as bad credentials, network
+// errors) leaves the row unmarked for the next run.
+export const PERMANENT_ERRORS = new Set([21211, 21408, 21610, 21614]);
 
 export function readEnv(get: (name: string) => string | undefined): Env {
   const accountSid = get('TWILIO_ACCOUNT_SID');
@@ -129,14 +145,38 @@ async function sendSms(twilio: Twilio, to: string, body: string): Promise<Respon
   );
 }
 
+// 'CODE: message' when a Twilio error response is permanent, else null.
+function permanentError(status: number, body: string): string | null {
+  if (status < 400 || status >= 500) return null;
+  let err: { code?: unknown; message?: unknown };
+  try {
+    err = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (typeof err?.code !== 'number' || !PERMANENT_ERRORS.has(err.code)) return null;
+  return `${err.code}: ${err.message ?? ''}`;
+}
+
 async function deliver(
   env: Env,
   kind: 'reminder' | 'rebook',
   messages: { phone: string; ids: string[]; body: string }[],
 ): Promise<Counts> {
-  const counts: Counts = { due: messages.length, sent: 0, failed: 0 };
+  const counts: Counts = { due: messages.length, sent: 0, failed: 0, rejected: 0 };
   for (const m of messages) {
     const to = toE164(m.phone);
+    const mark = async (error?: string) => {
+      try {
+        await rpc<number>(env, 'mark_reminder_sent', {
+          p_booking_ids: m.ids,
+          p_kind: kind,
+          ...(error ? { p_error: error } : {}),
+        });
+      } catch (err) {
+        console.error(`${kind} to ${maskPhone(to)} not marked: ${err}`);
+      }
+    };
     if (!env.twilio) {
       console.log(`[dry-run] ${kind} to ${maskPhone(to)}: ${m.body}`);
       continue;
@@ -150,17 +190,21 @@ async function deliver(
       continue;
     }
     if (!res.ok) {
-      counts.failed++;
-      console.error(`${kind} to ${maskPhone(to)} failed: Twilio ${res.status} ${await res.text()}`);
+      const body = await res.text();
+      const error = permanentError(res.status, body);
+      if (error) {
+        counts.rejected++;
+        console.error(`${kind} to ${maskPhone(to)} rejected, not retrying: ${error}`);
+        await mark(error);
+      } else {
+        counts.failed++;
+        console.error(`${kind} to ${maskPhone(to)} failed: Twilio ${res.status} ${body}`);
+      }
       continue;
     }
     await res.body?.cancel();
     counts.sent++;
-    try {
-      await rpc<number>(env, 'mark_reminder_sent', { p_booking_ids: m.ids, p_kind: kind });
-    } catch (err) {
-      console.error(`${kind} to ${maskPhone(to)} sent but not marked: ${err}`);
-    }
+    await mark();
   }
   return counts;
 }
