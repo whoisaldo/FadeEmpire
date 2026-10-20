@@ -654,6 +654,66 @@ describe('booking submit — success', () => {
 
 /* ================= Submit: validation + failure paths ================= */
 
+describe('text consent (C3)', () => {
+  it('the reminder box starts checked and the next-cut box unchecked, after the notes', () => {
+    const remind = $('input[name="remind_sms"]');
+    const rebook = $('input[name="rebook_sms"]');
+    expect(remind.checked).toBe(true);
+    expect(rebook.checked).toBe(false);
+    expect(remind.closest('label').textContent).toBe('Text me a reminder the day before');
+    expect(rebook.closest('label').textContent).toBe("Text me when it's time for my next cut, about every 3 weeks");
+    const notes = $('textarea[name="notes"]');
+    expect(notes.compareDocumentPosition(remind) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a booking sends the boxes as they are, in all four combinations', async () => {
+    for (const [remind, rebook] of [[true, false], [false, false], [true, true], [false, true]]) {
+      await reboot();
+      rpc.bookSlot.mockResolvedValue([{ booking_id: 'c1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+      clickDay('2026-07-08');
+      clickSlot('11:30:00');
+      fillPrimary();
+      if ($('input[name="remind_sms"]').checked !== remind) $('input[name="remind_sms"]').click();
+      if ($('input[name="rebook_sms"]').checked !== rebook) $('input[name="rebook_sms"]').click();
+      $('[data-submit]').click();
+      await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+      expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ remindSms: remind, rebookSms: rebook }));
+    }
+  });
+
+  it('a group booking carries the boxes too', async () => {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'g1', person_index: 0, person_name: 'Test Customer', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
+      { booking_id: 'g2', person_index: 1, person_name: 'Kid', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Kid');
+    fill('[data-guest-service]', 'kids-cut');
+    $('input[name="remind_sms"]').click();                      // off
+    $('input[name="rebook_sms"]').click();                      // on
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlotGroup).toHaveBeenCalledWith(expect.objectContaining({ remindSms: false, rebookSms: true }));
+  });
+
+  it('"Book another" puts the boxes back to their defaults', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'c2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('input[name="remind_sms"]').click();
+    $('input[name="rebook_sms"]').click();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    $('[data-book-another]').click();
+    expect($('input[name="remind_sms"]').checked).toBe(true);
+    expect($('input[name="rebook_sms"]').checked).toBe(false);
+  });
+});
+
 describe('booking submit — validation and failures', () => {
   it('blocks submit without a slot selection', async () => {
     fillPrimary();

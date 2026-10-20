@@ -443,6 +443,13 @@
 .booking__addon.is-included input { cursor: default; opacity: 0.6; }
 .booking__addon.is-included span:nth-of-type(2) { color: var(--gold); }
 
+/* --- Text consent: the add-on checkbox, one per row, text that wraps --- */
+.booking__consent {
+  display: grid;
+  min-width: 0;
+}
+.booking__consent .booking__addon span:first-of-type { white-space: normal; }
+
 /* --- Total + submit --- */
 .booking__total {
   display: flex;

@@ -447,6 +447,8 @@ async function submit(form) {
   const addons  = readAddons(form);
   const guests  = readGuests(form);
   const guestsRaw = readGuestsRaw(form);
+  const remindSms = form.querySelector('input[name="remind_sms"]').checked;
+  const rebookSms = form.querySelector('input[name="rebook_sms"]').checked;
 
   const check = validateBookingInput({
     name, phone, serviceSlug: service,
@@ -495,6 +497,8 @@ async function submit(form) {
         customRequest: service === 'custom' ? custom : null,
         source: 'web',
         holdMinutes: 15,
+        remindSms,
+        rebookSms,
       });
       // book_slot returns N rows; row 0 is primary, rows 1+ are linked continuation slots.
       const primary = rows[0] || {};
@@ -527,6 +531,8 @@ async function submit(form) {
         people,
         source: 'web',
         holdMinutes: 15,
+        remindSms,
+        rebookSms,
       });
       bookings = rows.map(r => {
         const b = {

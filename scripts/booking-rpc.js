@@ -38,6 +38,8 @@ export async function bookSlot({
   customRequest,
   source = 'web',
   holdMinutes = 15,
+  remindSms = true,      // "Text me a reminder the day before"
+  rebookSms = false,     // "Text me when it's time for my next cut"
 }) {
   const { data, error, status } = await sb.rpc('book_slot', {
     p_barber_slug:    barberSlug,
@@ -51,6 +53,8 @@ export async function bookSlot({
     p_custom_request: customRequest || null,
     p_source:         source,
     p_hold_minutes:   holdMinutes,
+    p_remind_sms:     remindSms,
+    p_rebook_sms:     rebookSms,
   });
 
   if (error) throw toBookingError(error, 'book_slot', status);
@@ -72,6 +76,8 @@ export async function bookSlotGroup({
   people,
   source = 'web',
   holdMinutes = 15,
+  remindSms = true,
+  rebookSms = false,
 }) {
   const { data, error, status } = await sb.rpc('book_slot_group', {
     p_barber_slug:    barberSlug,
@@ -87,6 +93,8 @@ export async function bookSlotGroup({
     })),
     p_hold_minutes:   holdMinutes,
     p_source:         source,
+    p_remind_sms:     remindSms,
+    p_rebook_sms:     rebookSms,
   });
   if (error) throw toBookingError(error, 'book_slot_group', status);
   return data || [];

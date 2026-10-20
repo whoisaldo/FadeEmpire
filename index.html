@@ -851,6 +851,12 @@
             <span class="t-eyebrow">Notes <span class="tone-mute">(optional)</span></span>
             <textarea name="notes" rows="2" maxlength="300" placeholder="Anything the barber should know first?"></textarea>
           </label>
+
+          <!-- Text consent: sent with the booking as p_remind_sms / p_rebook_sms -->
+          <div class="booking__consent booking__field--full">
+            <label class="booking__addon"><input type="checkbox" name="remind_sms" checked><span>Text me a reminder the day before</span></label>
+            <label class="booking__addon"><input type="checkbox" name="rebook_sms"><span>Text me when it's time for my next cut, about every 3 weeks</span></label>
+          </div>
         </div>
 
         <!-- Guest row, cloned by booking-submit.js -->

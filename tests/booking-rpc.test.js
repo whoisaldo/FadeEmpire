@@ -12,7 +12,7 @@ vi.mock('../scripts/supabase.js', () => {
   return { sb: { from: () => query, rpc: vi.fn() } };
 });
 
-const { fetchAvailability, fetchNextAvailable, bookSlot, BookingError } = await import('../scripts/booking-rpc.js');
+const { fetchAvailability, fetchNextAvailable, bookSlot, bookSlotGroup, BookingError } = await import('../scripts/booking-rpc.js');
 const { sb } = await import('../scripts/supabase.js');
 
 beforeEach(() => {
@@ -39,5 +39,40 @@ describe('availability reads (P2)', () => {
   it('a successful empty read is an empty list', async () => {
     result = { data: [], error: null };
     await expect(fetchAvailability({ fromDate: '2026-07-06', toDate: '2026-07-20' })).resolves.toEqual([]);
+  });
+});
+
+describe('text consent (C3)', () => {
+  const single = { serviceSlug: 'hair-cut', date: '2026-07-08', time: '11:30:00', name: 'A Customer', phone: '4135550123' };
+
+  it('book_slot carries p_remind_sms and p_rebook_sms in all four combinations', async () => {
+    for (const remindSms of [true, false]) {
+      for (const rebookSms of [true, false]) {
+        sb.rpc.mockResolvedValueOnce({ data: [], error: null });
+        await bookSlot({ ...single, remindSms, rebookSms });
+        const [name, args] = sb.rpc.mock.calls.at(-1);
+        expect(name).toBe('book_slot');
+        expect(args).toMatchObject({ p_remind_sms: remindSms, p_rebook_sms: rebookSms });
+      }
+    }
+  });
+
+  it('defaults to the DB defaults: reminder on, next-cut texts off', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: [], error: null });
+    await bookSlot(single);
+    expect(sb.rpc.mock.calls.at(-1)[1]).toMatchObject({ p_remind_sms: true, p_rebook_sms: false });
+  });
+
+  it('book_slot_group carries both flags', async () => {
+    for (const [remindSms, rebookSms] of [[true, true], [false, false], [false, true], [true, false]]) {
+      sb.rpc.mockResolvedValueOnce({ data: [], error: null });
+      await bookSlotGroup({
+        date: '2026-07-08', startTime: '11:30:00', phone: '4135550123', remindSms, rebookSms,
+        people: [{ name: 'A Customer', serviceSlug: 'hair-cut' }, { name: 'Kid', serviceSlug: 'kids-cut' }],
+      });
+      const [name, args] = sb.rpc.mock.calls.at(-1);
+      expect(name).toBe('book_slot_group');
+      expect(args).toMatchObject({ p_remind_sms: remindSms, p_rebook_sms: rebookSms });
+    }
   });
 });
