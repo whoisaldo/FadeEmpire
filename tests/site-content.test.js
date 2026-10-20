@@ -274,6 +274,15 @@ describe('the gallery, focus and 404 styles', () => {
       sel.includes('.booking__field input:focus') && /outline:\s*none/.test(body))).toBe(true);
   });
 
+  it('a focused gallery plate draws its ring with the frame above the photo (the photo would hide an outline)', () => {
+    const css = rules('styles/gallery.css');
+    const ring = css.find(([sel]) => sel.join() === '.plate:has(.plate__btn:focus-visible)::after');
+    expect(ring[1]).toMatch(/border:\s*2px solid var\(--gold\)/);
+    const frame = css.find(([sel]) => sel.join() === '.plate::after');
+    expect(frame[1]).toMatch(/position:\s*absolute/);
+    expect(frame[1]).toMatch(/z-index:\s*2/);
+  });
+
   it('the 404 page loads its styles and icons from the site root, so nested missing URLs keep them', () => {
     const page = readFileSync(join(ROOT, '404.html'), 'utf8');
     const local = [...page.matchAll(/<link\b[^>]*href="([^"]+)"/g)].map((m) => m[1]).filter((h) => !/^https?:/.test(h));

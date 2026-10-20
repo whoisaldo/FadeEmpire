@@ -57,9 +57,12 @@
   background: none;
   cursor: zoom-in;
 }
-.plate__btn:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: -6px;
+/* The photo paints over the button's own outline, so the plate's frame
+   (::after, above the photo) becomes the focus ring instead. */
+.plate__btn:focus-visible { outline: none; }
+.plate:has(.plate__btn:focus-visible)::after {
+  inset: 6px;
+  border: 2px solid var(--gold);
 }
 
 .plate picture { height: 100%; }
