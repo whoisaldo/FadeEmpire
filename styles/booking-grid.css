@@ -949,7 +949,14 @@
 
 .cancel__meta { color: var(--bone-mute); }
 
-.cancel__btn.is-arming {
+.cancel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.cancel__btn.is-arming,
+.cancel__move.is-arming {
   border-color: #e08e79;
   color: #e08e79;
 }

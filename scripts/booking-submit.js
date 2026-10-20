@@ -16,7 +16,7 @@
 //      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked } from './booking-grid.js';
+import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked, chooseBarber } from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
@@ -713,6 +713,28 @@ async function focusNextStep(form) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+/** "Move it" in the cancel panel: the old booking is cancelled. The form
+ *  takes its barber and its service, keeps the name and phone (filled from
+ *  the lookup when empty), and focus goes to the day row for a new time. */
+function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
+  if (form.dataset.booked === 'true') { focusNextStep(form); return; }   // the confirmation is the next step
+  chooseBarber(barberSlug);
+  const select = form.querySelector('[data-service-select]');
+  if (serviceSlug && select.querySelector(`option[value="${serviceSlug}"]`)) {
+    select.value = serviceSlug;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const name = form.querySelector('input[name="name"]');
+  if (!name.value.trim() && firstName) name.value = firstName;
+  const tel = form.querySelector('input[name="phone"]');
+  if (!tel.value.trim() && phone) tel.value = formatPhoneDisplay(phone);
+  const day = document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
+    || document.querySelector('[data-day-row] .booking__day:not([disabled])');
+  if (!day) return;
+  day.focus({ preventScroll: true });
+  day.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 /** Out of the booked state: the picker and fields open and emptied. */
 function unlock(form) {
   shown = null;
@@ -809,6 +831,7 @@ export function initBookingSubmit() {
   });
   document.addEventListener('booking:focus-next', () => focusNextStep(form));
   document.addEventListener('booking:cancelled', (e) => onCancelled(form, e.detail));
+  document.addEventListener('booking:move', (e) => moveBooking(form, e.detail));
 
   document.addEventListener('booking:selected', (e) => {
     updateTimeline(form);

@@ -1522,6 +1522,125 @@ describe('cancellation flow', () => {
   });
 });
 
+/* ================= Reschedule (C4) ================= */
+
+describe('move a booking (C4)', () => {
+  const larryRow = {
+    booking_id: 'feedface-0000-0000-0000-000000000000', barber_slug: 'larry', barber_name: 'Larry',
+    service_slug: 'line-up', service_name: 'Line Up', first_name: 'Dana',
+    booking_date: '2026-07-08', booking_time: '10:00:00', duration_minutes: 30,
+    selected_addons: [], total_price_cents: 1000, booking_status: 'confirmed',
+  };
+  // A mock's implementation outlives clearAllMocks: the cancellation tests
+  // leave cancelBooking rejecting.
+  beforeEach(() => { rpc.cancelBooking.mockResolvedValue(undefined); });
+
+  async function findRow(row = larryRow) {
+    rpc.findBookingsByPhone.mockResolvedValue([row]);
+    $('[data-cancel-open]').click();
+    fill('[data-cancel-phone]', '4135550123');
+    $('[data-cancel-find]').click();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(1));
+  }
+
+  it('each booking has Move it next to Cancel, armed by a first tap that names the time', async () => {
+    await findRow();
+    const buttons = $$('.cancel__row .cancel__actions button').map(b => b.textContent);
+    expect(buttons).toEqual(['Move it', 'Cancel']);
+    const move = $('.cancel__move');
+    move.click();
+    expect(move.textContent).toBe('Yes, move Wed 10:00 AM');
+    expect(move.classList.contains('is-arming')).toBe(true);
+    expect(rpc.cancelBooking).not.toHaveBeenCalled();
+  });
+
+  it('the second tap cancels, then the form takes the barber and service, keeps name and phone, and the day row is next', async () => {
+    fill('input[name="name"]', 'Dana Reyes');
+    fill('input[name="phone"]', '4135550123');
+    fill('[data-service-select]', 'hair-cut');
+    await findRow();
+    const cancelled = vi.fn();
+    document.addEventListener('booking:cancelled', cancelled);
+    Element.prototype.scrollIntoView.mockClear();
+
+    $('.cancel__move').click();
+    $('.cancel__move').click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').textContent).toBe('Cancelled. Pick a new time.'));
+
+    expect(rpc.cancelBooking).toHaveBeenCalledWith({ bookingId: larryRow.booking_id, phone: '4135550123' });
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true);
+    expect($('.cancel__row .cancel__actions')).toBeNull();
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-service-select]').value).toBe('line-up');
+    expect($('[data-total-display]').textContent).toBe('$10');
+    expect($('input[name="name"]').value).toBe('Dana Reyes');
+    expect($('input[name="phone"]').value).toBe('(413) 555-0123');
+    const day = $('[data-day-row] .booking__day[aria-selected="true"]');
+    expect(document.activeElement).toBe(day);
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(day);
+    await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenCalledWith(expect.objectContaining({ barberSlug: 'larry' })));
+  });
+
+  it('an empty form gets the name and phone from the lookup', async () => {
+    await findRow();
+    $('.cancel__move').click();
+    $('.cancel__move').click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').textContent).toBe('Cancelled. Pick a new time.'));
+    expect($('input[name="name"]').value).toBe('Dana');
+    expect($('input[name="phone"]').value).toBe('(413) 555-0123');
+  });
+
+  it('a lookup without a service leaves the chosen service as it is', async () => {
+    fill('[data-service-select]', 'kids-cut');
+    await findRow({ ...larryRow, service_slug: null, service_name: null });
+    $('.cancel__move').click();
+    $('.cancel__move').click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').textContent).toBe('Cancelled. Pick a new time.'));
+    expect($('[data-service-select]').value).toBe('kids-cut');
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('a failed cancel fills in nothing, says why, and leaves Move it ready again', async () => {
+    rpc.cancelBooking.mockRejectedValueOnce(new rpc.BookingError('cannot_cancel'));
+    await findRow();
+    const move = $('.cancel__move');
+    move.click();
+    move.click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').dataset.tone).toBe('error'));
+    expect($('[data-cancel-status]').textContent).toBe(
+      "We couldn't find an active booking matching that phone. It may already be cancelled.");
+    expect($('.cancel__row').classList.contains('is-cancelled')).toBe(false);
+    expect(move.disabled).toBe(false);
+    expect($('.cancel__btn').disabled).toBe(false);
+    expect(move.textContent).toBe('Move it');
+    expect(document.activeElement).toBe(move);
+    expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-service-select]').value).toBe('');
+    expect($('input[name="name"]').value).toBe('');
+    expect($('input[name="phone"]').value).toBe('');
+  });
+
+  it('moving the booking the confirmation shows opens the form for the new time', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: larryRow.booking_id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 1000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('10:00:00');
+    fillPrimary({ name: 'Dana Reyes', service: 'line-up' });
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    await findRow();
+    $('.cancel__move').click();
+    $('.cancel__move').click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').textContent).toBe('Cancelled. Pick a new time.'));
+    expect($('[data-success-head]').textContent).toBe('Cancelled.');
+    expect($('[data-submit]').disabled).toBe(false);
+    expect($('[data-service-select]').value).toBe('line-up');
+    expect($('input[name="phone"]').value).toBe('(413) 555-0123');
+    expect(document.activeElement).toBe($('[data-day-row] .booking__day[aria-selected="true"]'));
+  });
+});
+
 /* ================= Edge cases ================= */
 
 describe('booking edge cases', () => {

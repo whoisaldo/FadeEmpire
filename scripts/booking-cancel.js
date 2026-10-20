@@ -10,6 +10,8 @@
 //   3. On success we prefill a cancellation text to the shop so the barber
 //      knows the gap is real: auto-open SMS on mobile, tap-to-send links on
 //      desktop. Then the slot grid refreshes so the freed time shows as open.
+//   4. "Move it" cancels the same way (two taps, "Yes, move Wed 10:00 AM"),
+//      then hands the booking's barber and service to the form for a new time.
 
 import { findBookingsByPhone, cancelBooking, BookingError } from './booking-rpc.js';
 import { refreshAvailability as gridRefresh } from './booking-grid.js';
@@ -74,6 +76,7 @@ function renderBookings(root, bookings, phoneDigits) {
 
   bookings.forEach((b) => {
     const { service, barber, when } = bookingLine(b);
+    const timeLabel = minutesToLabel(hmsToMinutes(b.booking_time));
 
     const row  = el('div', 'cancel__row');
     const info = el('div', 'cancel__info');
@@ -83,40 +86,42 @@ function renderBookings(root, bookings, phoneDigits) {
       `with ${barber} · ${when} · ${formatPrice(b.total_price_cents)}`));
     row.appendChild(info);
 
-    const btn = el('button', 'btn btn--ghost cancel__btn', 'Cancel');
-    btn.type = 'button';
-    let armed = false;
-    let disarmTimer = null;
+    const actions = el('div', 'cancel__actions');
+    const moveBtn = el('button', 'btn btn--ghost cancel__move', 'Move it');
+    const btn     = el('button', 'btn btn--ghost cancel__btn', 'Cancel');
+    moveBtn.type = btn.type = 'button';
+    actions.append(moveBtn, btn);
+    row.appendChild(actions);
+    list.appendChild(row);
 
-    btn.addEventListener('click', async () => {
-      if (!armed) {
-        armed = true;
-        btn.textContent = 'Tap again to confirm';
-        btn.classList.add('is-arming');
-        disarmTimer = setTimeout(() => {
-          armed = false;
-          btn.textContent = 'Cancel';
-          btn.classList.remove('is-arming');
-        }, ARM_TIMEOUT_MS);
-        return;
-      }
-
-      clearTimeout(disarmTimer);
-      btn.disabled = true;
-      btn.textContent = 'Cancelling…';
-
+    /** Both buttons cancel the booking in the DB. True once it is cancelled;
+     *  on a failure the row is as it was and the status says why. */
+    const cancelIt = async (pressed, disarm) => {
+      moveBtn.disabled = btn.disabled = true;
+      pressed.textContent = 'Cancelling…';
       try {
         await cancelBooking({ bookingId: b.booking_id, phone: phoneDigits });
       } catch (err) {
         const code = err instanceof BookingError ? err.code : 'unknown';
-        btn.disabled = false;
-        armed = false;
-        btn.textContent = 'Cancel';
-        btn.classList.remove('is-arming');
+        moveBtn.disabled = btn.disabled = false;
+        disarm();
         setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
-        btn.focus();               // it was disabled while focused
-        return;
+        pressed.focus();           // it was disabled while focused
+        return false;
       }
+      row.classList.add('is-cancelled');
+      row.removeChild(actions);
+      // The confirmation card may be showing this booking (booking-submit.js).
+      document.dispatchEvent(new CustomEvent('booking:cancelled', { detail: {
+        bookingId: b.booking_id, barberSlug: b.barber_slug, phone: phoneDigits, date: b.booking_date, time: b.booking_time,
+      } }));
+      // Freed slot should show as open in the grid without a reload.
+      gridRefresh();
+      return true;
+    };
+
+    twoTap(btn, 'Cancel', 'Tap again to confirm', async (disarm) => {
+      if (!await cancelIt(btn, disarm)) return;
 
       // Cancelled in the DB — the slot is already freed. Offer the prefilled
       // note to the barber the same way the reservation card does: plain
@@ -128,14 +133,12 @@ function renderBookings(root, bookings, phoneDigits) {
         barberName:   barber,
         serviceLabel: service,
         dateLabel:    dateLabelFromIso(b.booking_date),
-        timeLabel:    minutesToLabel(hmsToMinutes(b.booking_time)),
+        timeLabel,
         ref:          b.booking_id,
         useMarkdown,
       });
       const phone = canText();
 
-      row.classList.add('is-cancelled');
-      row.removeChild(btn);
       const done = el('div', 'cancel__done');
       const waLink = el('a', 'btn btn--mini', 'WhatsApp');
       waLink.href = messagingUrl('whatsapp', message(true));
@@ -151,18 +154,43 @@ function renderBookings(root, bookings, phoneDigits) {
       waLink.focus();              // the Cancel button that had focus is gone
 
       setStatus(root, `Cancelled. Let ${barber || 'the shop'} know:`, 'ok');
-
-      // The confirmation card may be showing this booking (booking-submit.js).
-      document.dispatchEvent(new CustomEvent('booking:cancelled', { detail: {
-        bookingId: b.booking_id, barberSlug: b.barber_slug, phone: phoneDigits, date: b.booking_date, time: b.booking_time,
-      } }));
-
-      // Freed slot should show as open in the grid without a reload.
-      gridRefresh();
     });
 
-    row.appendChild(btn);
-    list.appendChild(row);
+    // "Move it": the same cancel, then the form takes this booking's barber
+    // and service and the day row is next (booking-submit.js).
+    const day = dateLabelFromIso(b.booking_date, { weekday: 'short' });
+    twoTap(moveBtn, 'Move it', `Yes, move ${day} ${timeLabel}`, async (disarm) => {
+      if (!await cancelIt(moveBtn, disarm)) return;
+      setStatus(root, 'Cancelled. Pick a new time.', 'ok');
+      document.dispatchEvent(new CustomEvent('booking:move', { detail: {
+        barberSlug: b.barber_slug, serviceSlug: b.service_slug, firstName: b.first_name, phone: phoneDigits,
+      } }));
+    });
+  });
+}
+
+/** A button that acts on the second tap, within five seconds of the first
+ *  (no browser confirm() dialogs). `run` gets a function that puts the
+ *  button back to its first state. */
+function twoTap(btn, label, armedLabel, run) {
+  let armed = false;
+  let disarmTimer = null;
+  const disarm = () => {
+    armed = false;
+    clearTimeout(disarmTimer);
+    btn.textContent = label;
+    btn.classList.remove('is-arming');
+  };
+  btn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = armedLabel;
+      btn.classList.add('is-arming');
+      disarmTimer = setTimeout(disarm, ARM_TIMEOUT_MS);
+      return;
+    }
+    clearTimeout(disarmTimer);
+    run(disarm);
   });
 }
 
