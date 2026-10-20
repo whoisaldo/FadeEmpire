@@ -340,7 +340,7 @@ function showSuccess(form, { text, people, total, next, send }) {
   card.querySelector('[data-success-total]').textContent = total;
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
-  revealCard(form, card, `Chair reserved. ${next}`);
+  revealCard(form, card, next);
 }
 
 function showFallback(form, { text, send }) {

@@ -304,7 +304,7 @@ describe('booking submit — success', () => {
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(document.activeElement).toBe($('[data-form-success]'));
     expect($('[data-form-success]').getAttribute('tabindex')).toBe('-1');
-    await vi.waitFor(() => expect(live.textContent).toContain('Chair reserved.'));
+    await vi.waitFor(() => expect(live.textContent).toBe("Your chair is reserved. Send the message so Hassan has your details; he'll reply to confirm."));
   });
 
   it('an error is announced through the alert region and takes focus (D8)', async () => {
