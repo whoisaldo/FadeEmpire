@@ -13,8 +13,8 @@ Video encodes live in tools/build-video.sh.
 Needs Pillow (`pip3 install pillow`). Sizes are chosen per image from how large
 it renders: gallery plates top out around 600 CSS px, the hero fills the
 viewport, so it gets a 2000 px rung for 2x desktop screens. The interior renders
-about 400 px wide on 1x desktops, so it gets a 480 rung; the barbers' 160 px
-rung is the 52 px booking thumbnail at 3x.
+about 400 px wide on 1x desktops, so it gets a 480 rung. The booking buttons'
+52 px circles get their own 160 px face crops (FACES), 3x of 52.
 """
 
 import sys
@@ -31,7 +31,6 @@ WEBP_QUALITY = 80
 
 GALLERY = (480, 800, 1200)
 WIDE = (480, 800, 1200, 1600, 2000)
-THUMB = 160
 PORTRAIT_HERO = (480, 800, 1200, 1600, 2000)
 
 # stem -> (source, widths)
@@ -43,8 +42,8 @@ SOURCES = {
     "storefront":        ("assets/FadeEmpireStore/FadeEmpireStoreFront.JPG", GALLERY),
     "price-wall":        ("assets/Haircuts/cut-price-list-wall.jpg", GALLERY),
     # barbers
-    "hassan":            ("assets/Barbers/Hassan/HassanBarber.png", (THUMB,) + GALLERY),
-    "larry":             ("assets/Barbers/Larry/LarryBarber.jpg", (THUMB,) + GALLERY),
+    "hassan":            ("assets/Barbers/Hassan/HassanBarber.png", GALLERY),
+    "larry":             ("assets/Barbers/Larry/LarryBarber.jpg", GALLERY),
     # gallery, newest first
     "cut-textured-taper":  ("assets/Haircuts/cut-textured-taper.jpg", GALLERY),
     "cut-curls-full-beard":("assets/Haircuts/cut-curls-full-beard.jpg", GALLERY),
@@ -60,6 +59,15 @@ SOURCES = {
     "cut-low-fade":        ("assets/Haircuts/IMG_9449.jpg", GALLERY),
     "cut-high-fade-texture": ("assets/Haircuts/IMG_0063.jpg", GALLERY),
 }
+
+# stem -> square crop box (left, top, right, bottom) in source pixels around the
+# barber's face, written as <stem>-face-160. Hassan's portrait also has a
+# customer in it; the box takes Hassan only.
+FACES = {
+    "hassan": (415, 230, 1095, 910),
+    "larry":  (644, 1151, 1504, 2011),
+}
+FACE_SIZE = 160
 
 LOGO = ROOT / "assets/FadeEmpireStore/fadeempirelogo.png"
 INK = (10, 9, 8)
@@ -83,6 +91,15 @@ def write_variants(stem: str, src: str, widths) -> None:
                    optimize=True, progressive=True)
         frame.save(OUT / f"{stem}-{w}.webp", "WEBP", quality=WEBP_QUALITY, method=6)
     print(f"  {stem:<24} {im.width}x{im.height} -> {[w for w in widths if w <= im.width]}")
+
+
+def write_face(stem: str, box) -> None:
+    im = load(ROOT / SOURCES[stem][0])
+    frame = im.crop(box).resize((FACE_SIZE, FACE_SIZE), Image.LANCZOS)
+    frame.save(OUT / f"{stem}-face-{FACE_SIZE}.jpg", "JPEG", quality=JPEG_QUALITY,
+               optimize=True, progressive=True)
+    frame.save(OUT / f"{stem}-face-{FACE_SIZE}.webp", "WEBP", quality=WEBP_QUALITY, method=6)
+    print(f"  {stem + '-face':<24} {box} -> {FACE_SIZE}x{FACE_SIZE}")
 
 
 def logo_alpha() -> Image.Image:
@@ -155,6 +172,8 @@ def main(argv) -> None:
         if only and stem not in only:
             continue
         write_variants(stem, src, widths)
+        if stem in FACES:
+            write_face(stem, FACES[stem])
     if not only or "brand" in only:
         build_brand()
 
