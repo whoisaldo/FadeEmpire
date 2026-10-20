@@ -3,7 +3,7 @@
 // The non-booking page modules against the real index.html markup:
 //   * main.js     booking loads apart from the rest of the page
 //   * cover.js    the nav stamp, the hero status line, the "next open slot"
-//                 lines, the phone-only compare collapse
+//                 lines, the phone-only compare collapse, the mobile menu
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 captions) and the pause buttons on both clips
@@ -146,6 +146,74 @@ describe('cover.js: live status and next open slot', () => {
     expect($('[data-compare]').open).toBe(true);
   });
 
+});
+
+/* ================= cover.js: mobile menu ================= */
+
+describe('cover.js: the mobile menu', () => {
+  async function bootMenu() {
+    vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
+    document.body.innerHTML = HEADER + HERO + MOBILE_CTA + '<section id="book"></section>';
+    const { initCover } = await import('../scripts/cover.js');
+    initCover();
+  }
+  const key = (k, opts = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
+  const walled = () => [...document.body.children].filter((el) => !el.matches('[data-nav]'));
+
+  it('opening moves focus to the first link and makes the rest of the page inert', async () => {
+    await bootMenu();
+    const toggle = $('[data-nav-toggle]');
+    toggle.click();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe($('.nav__link'));
+    expect(walled().length).toBeGreaterThan(0);
+    for (const el of walled()) expect(el.hasAttribute('inert'), el.className || el.id).toBe(true);
+    if (!('inert' in HTMLElement.prototype)) {                       // jsdom: the aria-hidden fallback
+      for (const el of walled()) expect(el.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('Tab and Shift+Tab cycle through the links and the toggle only', async () => {
+    await bootMenu();
+    const toggle = $('[data-nav-toggle]');
+    const links = $$('.nav__link');
+    toggle.click();
+    links[links.length - 1].focus();
+    key('Tab');
+    expect(document.activeElement).toBe(toggle);
+    key('Tab');
+    expect(document.activeElement).toBe(links[0]);
+    key('Tab', { shiftKey: true });
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('Escape closes it, hands focus back to the toggle, and restores the page', async () => {
+    await bootMenu();
+    const toggle = $('[data-nav-toggle]');
+    const cta = $('[data-mobile-cta]');
+    const ctaHidden = cta.getAttribute('aria-hidden');
+    toggle.click();
+    key('Escape');
+    expect($('[data-nav]').hasAttribute('data-nav-open')).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+    expect(document.body.style.overflow).toBe('');
+    for (const el of walled()) expect(el.hasAttribute('inert')).toBe(false);
+    expect(cta.getAttribute('aria-hidden')).toBe(ctaHidden);         // its own state, not the menu's
+    expect($('#hero').hasAttribute('aria-hidden')).toBe(false);
+  });
+
+  it('a menu link closes it without pulling focus back to the toggle', async () => {
+    await bootMenu();
+    const toggle = $('[data-nav-toggle]');
+    toggle.click();
+    const link = $('.nav__link[href="#barbers"]');
+    link.focus();
+    link.click();
+    expect($('[data-nav]').hasAttribute('data-nav-open')).toBe(false);
+    expect(document.activeElement).not.toBe(toggle);
+    for (const el of walled()) expect(el.hasAttribute('inert')).toBe(false);
+  });
 });
 
 /* ================= main.js ================= */
