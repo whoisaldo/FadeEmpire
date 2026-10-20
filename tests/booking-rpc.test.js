@@ -76,3 +76,53 @@ describe('text consent (C3)', () => {
     }
   });
 });
+
+describe('a database before migration 0019 (C3)', () => {
+  const single = { serviceSlug: 'hair-cut', date: '2026-07-08', time: '11:30:00', name: 'A Customer', phone: '4135550123' };
+  const noSignature = {
+    data: null, status: 404,
+    error: { code: 'PGRST202', message: 'Could not find the function public.book_slot(...) in the schema cache' },
+  };
+
+  it('book_slot without the consent flags is retried once without them, with a warning', async () => {
+    sb.rpc.mockClear();
+    sb.rpc.mockResolvedValueOnce(noSignature).mockResolvedValueOnce({ data: [{ booking_id: 'b1' }], error: null });
+    await expect(bookSlot({ ...single, remindSms: false, rebookSms: true })).resolves.toEqual([{ booking_id: 'b1' }]);
+    expect(sb.rpc).toHaveBeenCalledTimes(2);
+    const [[, first], [name, retry]] = sb.rpc.mock.calls;
+    expect(first).toMatchObject({ p_remind_sms: false, p_rebook_sms: true });
+    expect(name).toBe('book_slot');
+    expect(retry).not.toHaveProperty('p_remind_sms');
+    expect(retry).not.toHaveProperty('p_rebook_sms');
+    expect(retry).toEqual(Object.fromEntries(Object.entries(first).filter(([k]) => !/^p_(remind|rebook)_sms$/.test(k))));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('migration 0019'));
+  });
+
+  it('book_slot_group is retried the same way', async () => {
+    sb.rpc.mockClear();
+    sb.rpc.mockResolvedValueOnce(noSignature).mockResolvedValueOnce({ data: [], error: null });
+    await bookSlotGroup({
+      date: '2026-07-08', startTime: '11:30:00', phone: '4135550123',
+      people: [{ name: 'A Customer', serviceSlug: 'hair-cut' }, { name: 'Kid', serviceSlug: 'kids-cut' }],
+    });
+    expect(sb.rpc).toHaveBeenCalledTimes(2);
+    const [name, retry] = sb.rpc.mock.calls[1];
+    expect(name).toBe('book_slot_group');
+    expect(retry).not.toHaveProperty('p_remind_sms');
+    expect(retry).not.toHaveProperty('p_rebook_sms');
+    expect(retry.p_people).toHaveLength(2);
+  });
+
+  it('retries only once, and only for PGRST202', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    sb.rpc.mockClear();
+    sb.rpc.mockResolvedValueOnce(noSignature).mockResolvedValueOnce(noSignature);
+    await expect(bookSlot(single)).rejects.toBeInstanceOf(BookingError);
+    expect(sb.rpc).toHaveBeenCalledTimes(2);
+
+    sb.rpc.mockClear();
+    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'slot_taken' }, status: 400 });
+    await expect(bookSlot(single)).rejects.toMatchObject({ code: 'slot_taken' });
+    expect(sb.rpc).toHaveBeenCalledTimes(1);
+  });
+});

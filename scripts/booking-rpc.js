@@ -21,6 +21,17 @@ function toBookingError(error, rpcName, status) {
   return new BookingError(mapBookingErrorCode(error, status), error);
 }
 
+/** book_slot and book_slot_group take the text-consent flags from migration
+ *  0019 on. Against a database without it PostgREST finds no function with
+ *  that signature (PGRST202), so the booking goes once more without them. */
+async function rpcWithConsent(rpcName, args) {
+  const res = await sb.rpc(rpcName, args);
+  if (res.error?.code !== 'PGRST202') return res;
+  console.warn(`[booking] ${rpcName} takes no p_remind_sms/p_rebook_sms yet (migration 0019); booking without them`);
+  const { p_remind_sms, p_rebook_sms, ...older } = args;
+  return sb.rpc(rpcName, older);
+}
+
 /**
  * Atomically book a slot. Throws BookingError on conflict / validation error.
  * Returns N rows (one per 45-min slot the service occupies); row 0 is the
@@ -41,7 +52,7 @@ export async function bookSlot({
   remindSms = true,      // "Text me a reminder the day before"
   rebookSms = false,     // "Text me when it's time for my next cut"
 }) {
-  const { data, error, status } = await sb.rpc('book_slot', {
+  const { data, error, status } = await rpcWithConsent('book_slot', {
     p_barber_slug:    barberSlug,
     p_service_slug:   serviceSlug,
     p_date:           date,
@@ -79,7 +90,7 @@ export async function bookSlotGroup({
   remindSms = true,
   rebookSms = false,
 }) {
-  const { data, error, status } = await sb.rpc('book_slot_group', {
+  const { data, error, status } = await rpcWithConsent('book_slot_group', {
     p_barber_slug:    barberSlug,
     p_date:           date,
     p_start_time:     startTime,
