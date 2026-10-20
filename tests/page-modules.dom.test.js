@@ -280,6 +280,29 @@ describe('main.js: booking loads apart from the rest of the page', () => {
     vi.doUnmock('../scripts/booking-grid.js');
   });
 
+  it('a failed booking module shows the notice at once, even while cover.js is still loading', async () => {
+    let releaseCover;
+    const coverHeld = new Promise((resolve) => { releaseCover = resolve; });
+    const initCover = vi.fn();
+    vi.doMock('../scripts/cover.js', async () => { await coverHeld; return { initCover }; });
+    vi.doMock('../scripts/booking-grid.js', () => { throw new Error('offline'); });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = HEADER + HERO + section('book');
+    try {
+      await import('../scripts/main.js');
+      await vi.waitFor(() => expect($('[data-booking-offline]')).toBeTruthy());
+      expect(initCover).not.toHaveBeenCalled();         // cover.js has not arrived yet
+
+      releaseCover();
+      await vi.waitFor(() => expect(initCover).toHaveBeenCalled());
+      expect($$('[data-booking-offline]')).toHaveLength(1);
+    } finally {
+      releaseCover();
+      vi.doUnmock('../scripts/cover.js');
+      vi.doUnmock('../scripts/booking-grid.js');
+    }
+  });
+
   it('if the database client fails to load, the menu, live status, sticky nav and desktop compare table all still work', async () => {
     vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
     vi.doMock('../scripts/supabase.js', () => { throw new Error('vendor file blocked'); });

@@ -58,8 +58,8 @@ function showBookingUnavailable() {
   container.prepend(note);
 }
 
-ready(async () => {
-  registerSW();                // before any await: it listens for window load
+ready(() => {
+  registerSW();
   initMobileNav();
   initPage();
   initReveals();
@@ -67,27 +67,29 @@ ready(async () => {
   initGallery();
   initVisit();
 
-  const cover   = import('./cover.js');
-  const booking = Promise.all([
-    import('./booking-grid.js'),
-    import('./booking-submit.js'),
-    import('./booking-cancel.js'),
-  ]);
-  booking.catch(() => {});     // handled below; stops an early "unhandled rejection" report
+  // cover.js and the three booking modules load side by side and fail on
+  // their own: a booking module that fails shows the notice at once, without
+  // waiting on cover.js or the other two.
+  import('./cover.js')
+    .then((cover) => cover.initCover())
+    .catch((err) => console.warn('[main] next open slot and sticky bar failed to start', err));
 
-  try {
-    (await cover).initCover();
-  } catch (err) {
-    console.warn('[main] next open slot and sticky bar failed to start', err);
-  }
-
-  try {
-    const [grid, submit, cancel] = await booking;
-    submit.initBookingSubmit();
-    cancel.initBookingCancel();
-    grid.initBookingGrid();    // async; loads availability in the background
-  } catch (err) {
+  const bookingFailed = (err) => {
     console.warn('[main] booking failed to start', err);
     showBookingUnavailable();
-  }
+  };
+  const load = (module) => module.catch((err) => { bookingFailed(err); throw err; });
+  Promise.all([
+    load(import('./booking-grid.js')),
+    load(import('./booking-submit.js')),
+    load(import('./booking-cancel.js')),
+  ]).then(([grid, submit, cancel]) => {
+    try {
+      submit.initBookingSubmit();
+      cancel.initBookingCancel();
+      grid.initBookingGrid();  // async; loads availability in the background
+    } catch (err) {
+      bookingFailed(err);
+    }
+  }, () => {});                // each failed import has already shown the notice
 });
