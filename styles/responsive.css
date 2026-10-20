@@ -412,7 +412,6 @@ input, select, textarea, button {
   .nav, .hero__bg, .shop, .plates__count, .lightbox,
   .booking__submit, .booking__addons,
   .footer, .mobile-cta, .skip-link { display: none !important; }
-  .reveal { opacity: 1 !important; transform: none !important; clip-path: none !important; }
   body { background: #fff; color: #000; }
   body::before, body::after { display: none; }
 }

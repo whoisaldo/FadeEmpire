@@ -8,6 +8,7 @@
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 captions) and the pause buttons on both clips
 //   * gallery.js  the lightbox (with Back) and the filmstrip counter
+//   * reveals.js  scroll reveals, and the CSS that skips them
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
 // those are stubbed just enough to drive the code paths.
 
@@ -615,4 +616,39 @@ describe('reveals.js: scroll reveals', () => {
     delete window.IntersectionObserver;
   });
 
+  it('reveals on the first visible pixel, with no shrunken viewport', async () => {
+    document.body.innerHTML = MENU;
+    let options;
+    window.IntersectionObserver = class {
+      constructor(cb, opts) { options = opts; }
+      observe() {}
+      unobserve() {}
+    };
+    const { initReveals } = await import('../scripts/reveals.js');
+    initReveals();
+    expect(options.threshold).toBe(0);
+    expect(options.rootMargin).toBeUndefined();
+    delete window.IntersectionObserver;
+  });
+
+  it('reduced motion and print show every reveal as is: opaque, in place, unclipped', () => {
+    const css = readFileSync(join(__dir, '..', 'styles', 'motion.css'), 'utf8');
+    const block = (at) => {
+      const start = css.indexOf(at);
+      expect(start, at).toBeGreaterThan(-1);
+      let depth = 0;
+      for (let i = css.indexOf('{', start); i < css.length; i++) {
+        if (css[i] === '{') depth++;
+        if (css[i] === '}' && --depth === 0) return css.slice(start, i + 1);
+      }
+      return '';
+    };
+    for (const at of ['@media (prefers-reduced-motion: reduce)', '@media print']) {
+      const rule = block(at).match(/\.reveal,\s*\.section__head h2\.reveal\s*\{([^}]*)\}/);
+      expect(rule, at).toBeTruthy();
+      expect(rule[1]).toMatch(/opacity:\s*1;/);
+      expect(rule[1]).toMatch(/transform:\s*none;/);
+      expect(rule[1]).toMatch(/clip-path:\s*none;/);
+    }
+  });
 });

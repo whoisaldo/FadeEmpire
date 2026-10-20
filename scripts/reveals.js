@@ -1,6 +1,9 @@
 // reveals.js — IntersectionObserver-driven scroll reveals.
 //
-// Elements with class="reveal" get .is-visible once they scroll into view.
+// Elements with class="reveal" get .is-visible as soon as any part of them
+// enters the viewport, so a page that stops scrolling (or jumps to an
+// anchor) never leaves visible content blank. Reduced motion and print skip
+// the effect in motion.css.
 // Section headlines are masked with clip-path while hidden, and Chromium
 // reports a fully clipped element as never intersecting, so those are
 // watched through their parent (.section__head) instead of themselves.
@@ -30,7 +33,7 @@ export function initReveals() {
       byAnchor.get(entry.target)?.forEach((el) => el.classList.add('is-visible'));
       io.unobserve(entry.target);
     });
-  }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
+  }, { threshold: 0 });
 
   byAnchor.forEach((_, anchor) => io.observe(anchor));
 }

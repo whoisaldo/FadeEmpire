@@ -39,13 +39,14 @@
   clip-path: inset(0 0 0 0);
 }
 
-/* --- Reduced motion: everything collapses to a short fade --- */
+/* --- Reduced motion: no reveal at all, content is simply there --- */
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .section__head h2.reveal {
-    transition: opacity 200ms linear, transform 0ms, clip-path 0ms;
+    opacity: 1;
     transform: none;
     clip-path: none;
+    transition: none;
   }
   .hero__title-rule { animation: none !important; transform: scaleX(1); }
   .hero__bg img { animation: none !important; transform: none; }
@@ -60,4 +61,15 @@
   .visit__photo:hover img,
   .menu__photo:hover img { transform: none; }
   .lightbox__img { animation: none; }
+}
+
+/* --- Print: every block on paper, nothing waiting for a scroll --- */
+@media print {
+  .reveal,
+  .section__head h2.reveal {
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+    transition: none;
+  }
 }
