@@ -212,7 +212,8 @@ function renderSlots() {
   }
 
   const loading  = state.availability === 'loading';
-  wrap.toggleAttribute('aria-busy', loading);
+  if (loading) wrap.setAttribute('aria-busy', 'true');   // an empty value isn't exposed as busy
+  else wrap.removeAttribute('aria-busy');
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
   let selectionStillOpen = false;

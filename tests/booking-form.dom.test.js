@@ -281,7 +281,7 @@ describe('booking grid', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe($('[data-day-row] .booking__day[data-date="2026-07-08"]')));
   });
 
-  it('pills take no taps until the first read lands: loading is not "all open" (P2)', async () => {
+  it('pills take no taps until the first read lands: loading is not "all open", and the grid is aria-busy="true" (P2, R18)', async () => {
     let resolve;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
     $('[data-barber-option="larry"]').click();
@@ -289,7 +289,7 @@ describe('booking grid', () => {
     const pills = $$('[data-slot-grid] .booking__slot');
     expect(pills.length).toBe(11);
     expect(pills.every(p => p.disabled && p.classList.contains('is-loading'))).toBe(true);
-    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(true);
+    expect($('[data-slot-grid]').getAttribute('aria-busy')).toBe('true');
 
     resolve([]);   // an empty successful read: every slot is open
     await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot').disabled).toBe(false));
@@ -1330,7 +1330,7 @@ describe('booking edge cases', () => {
     const chip = $('[data-day-row] .booking__day[data-date="2026-07-09"]');
     expect(document.activeElement).toBe(chip);                 // no silent wait
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(true);
+    expect($('[data-slot-grid]').getAttribute('aria-busy')).toBe('true');
     expect($('[data-slot-grid] .booking__slot[data-time="12:15:00"]').classList.contains('is-loading')).toBe(true);
     expect($('[data-form-time]').value).toBe('');
 
