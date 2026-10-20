@@ -150,8 +150,7 @@ input, select, textarea, button {
   }
 
   /* --- The work: a swipe filmstrip instead of a 15-plate scroll ---
-     One plate-high strip you flick through, edge to edge. The counter and
-     progress bar under it show where you are. */
+     One plate-high strip you flick through, edge to edge. */
   .plates {
     display: flex;
     align-items: stretch;
@@ -176,29 +175,6 @@ input, select, textarea, button {
   /* Plates sit off to the right until swiped; a fade-in mid-swipe would look
      like a loading glitch, so the strip skips the scroll reveal. */
   .plate.reveal { opacity: 1; transform: none; transition: none; }
-  .plate__cap { left: 0.85rem; bottom: 0.85rem; padding: 0.35rem 0.55rem; font-size: 0.625rem; letter-spacing: 0.10em; }
-
-  .plates__count {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 1rem 0 0;
-    color: var(--bone-mute);
-  }
-  .plates__bar {
-    flex: 1;
-    height: 1px;
-    background: var(--rule);
-    position: relative;
-    overflow: hidden;
-  }
-  .plates__bar-fill {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 6.66%;
-    background: var(--gold);
-    transition: transform var(--t-base) var(--ease-out);
-  }
 
   /* --- Barbers --- */
   .feature { gap: 1.5rem; }
@@ -442,7 +418,7 @@ input, select, textarea, button {
    Print: the menu and the hours, nothing that moves
 ===================================================== */
 @media print {
-  .nav, .hero__bg, .shop, .plates__count, .lightbox,
+  .nav, .hero__bg, .shop, .lightbox,
   .booking__submit, .booking__addons,
   .footer, .mobile-cta, .skip-link { display: none !important; }
   body { background: #fff; color: #000; }

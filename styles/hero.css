@@ -237,13 +237,14 @@
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-/* --- Wide and short screens (laptops): keep the status strip above the
-   fold. The title sizes from the height as well as the width, and the
-   stack tightens. --- */
+/* --- Wide and short screens (laptops): keep the status strip and the
+   facts row above the fold (1366x768 is the tightest common one). The title
+   sizes from the height as well as the width, and the stack tightens. --- */
 @media (min-width: 900px) and (max-height: 880px) {
-  .hero { padding-top: 5.5rem; padding-bottom: 2rem; }
-  .hero__inner { gap: 1.1rem; }
+  .hero { padding-top: 4rem; padding-bottom: 2rem; }
+  .hero__inner { gap: 0.9rem; }
   .hero__title { font-size: clamp(4rem, min(14vw, 18vh), 11rem); }
   .hero__ctas,
   .hero__status { margin-top: 0.4rem; }
+  .hero__facts { margin-top: 0.75rem; padding-top: 0.9rem; }
 }

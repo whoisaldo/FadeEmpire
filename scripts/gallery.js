@@ -1,9 +1,9 @@
-// gallery.js — the work: the phone filmstrip counter and the lightbox.
+// gallery.js — the work: the lightbox.
 //
-// Plates are <figure data-plate="stem"> elements. Tapping one opens the
-// single <dialog data-lightbox> with the 1200 px file for that stem, and
-// arrow keys / swipes / the two buttons move through the photos. The video
-// plate has no stem and is skipped by the lightbox. Opening adds a history
+// Plates are <figure data-plate="stem" data-caption="name"> elements. Tapping
+// one opens the single <dialog data-lightbox> with the 1200 px file for that
+// stem and its name under it, and arrow keys / swipes / the two buttons move
+// through the photos. The video plate has no stem and is skipped by the lightbox. Opening adds a history
 // entry that names the photo, so the browser's Back closes it instead of
 // leaving the page and Forward opens it again; closing any other way removes
 // that entry again.
@@ -13,7 +13,7 @@ const IMG_DIR = './assets/img';
 function plateImages(root) {
   return [...root.querySelectorAll('[data-plate]')].map((figure) => ({
     stem:    figure.dataset.plate,
-    caption: figure.querySelector('.plate__cap')?.textContent.trim() || '',
+    caption: figure.dataset.caption || '',
     alt:     figure.querySelector('img')?.getAttribute('alt') || '',
   }));
 }
@@ -151,43 +151,10 @@ function initLightbox(root) {
   return { open, close, show, get index() { return index; }, size: items.length };
 }
 
-/* ---------- Filmstrip counter (phone) ---------- */
-
-function initFilmstrip(root) {
-  const counter = document.querySelector('[data-filmstrip-count]');
-  if (!counter) return;
-  const indexEl = counter.querySelector('[data-filmstrip-index]');
-  const totalEl = counter.querySelector('[data-filmstrip-total]');
-  const bar     = counter.querySelector('[data-filmstrip-bar]');
-  const plates  = [...root.querySelectorAll('.plate')];
-  if (!plates.length) return;
-
-  totalEl.textContent = String(plates.length).padStart(2, '0');
-  if (bar) bar.style.width = `${100 / plates.length}%`;
-
-  let raf = 0;
-  const update = () => {
-    raf = 0;
-    const mid = root.scrollLeft + root.clientWidth / 2;
-    let current = 0;
-    plates.forEach((plate, i) => {
-      if (plate.offsetLeft <= mid) current = i;
-    });
-    indexEl.textContent = String(current + 1).padStart(2, '0');
-    if (bar) bar.style.transform = `translateX(${current * 100}%)`;
-  };
-
-  root.addEventListener('scroll', () => {
-    if (!raf) raf = requestAnimationFrame(update);
-  }, { passive: true });
-  update();
-}
-
 /* ---------- Boot ---------- */
 
 export function initGallery() {
   const root = document.querySelector('[data-gallery]');
   if (!root) return null;
-  initFilmstrip(root);
   return initLightbox(root);
 }

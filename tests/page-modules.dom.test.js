@@ -4,12 +4,12 @@
 //   * main.js     booking loads apart from the rest of the page
 //   * nav.js      the mobile menu
 //   * page.js     the nav stamp, the hero status line, the sticky nav, the
-//                 phone-only compare collapse
+//                 phone-only compare collapse, landing on a #fragment
 //   * cover.js    the "next open slot" lines
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 no caption track) and the pause buttons on both clips
-//   * gallery.js  the lightbox (with Back) and the filmstrip counter
+//   * gallery.js  the lightbox (with Back)
 //   * reveals.js  scroll reveals, and the CSS that skips them
 // jsdom has no IntersectionObserver, media playback, or <dialog> methods, so
 // those are stubbed just enough to drive the code paths.
@@ -149,6 +149,99 @@ describe('page.js: live status, sticky nav, and the compare table', () => {
     const click = new MouseEvent('click', { bubbles: true, cancelable: true });
     expect(summary.dispatchEvent(click)).toBe(true);
     expect(summary.hasAttribute('tabindex')).toBe(false);
+  });
+});
+
+describe('page.js: landing on a #fragment after the page has grown (X2)', () => {
+  let calls, readyState;
+
+  // A cold load of /#<hash>: the document is still loading when page.js runs.
+  async function land(hash) {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    readyState = 'interactive';
+    vi.spyOn(document, 'readyState', 'get').mockImplementation(() => readyState);
+    history.replaceState(null, '', hash || location.pathname);
+    document.body.innerHTML = HEADER + HERO + MENU + '<section id="book"><p id="cancel"></p></section>';
+    // Earlier tests' pages still wait on window events; record this page's elements only.
+    calls = [];
+    Element.prototype.scrollIntoView = vi.fn(function (opts) {
+      if (this.isConnected) calls.push([this, opts, document.documentElement.style.scrollBehavior]);
+    });
+    const { initPage } = await import('../scripts/page.js');
+    initPage();
+  }
+  const load = () => { readyState = 'complete'; window.dispatchEvent(new Event('load')); };
+  const bookingReady = () => document.dispatchEvent(new CustomEvent('booking:ready'));
+  const settle = () => vi.advanceTimersByTimeAsync(250);   // the page sits still for 250 ms
+  afterEach(() => {
+    vi.restoreAllMocks();
+    history.replaceState(null, '', location.pathname);
+  });
+
+  it('scrolls to #book once more, instantly, after load and the booking modules', async () => {
+    await land('#book');
+    load();
+    await settle();
+    expect(calls).toEqual([]);                         // the booking modules have not started yet
+    bookingReady();
+    await settle();
+    expect(calls).toEqual([[$('#book'), { block: 'start', behavior: 'auto' }, 'auto']]);
+    expect(document.documentElement.style.scrollBehavior).toBe('');   // html's own smooth scrolling is back
+    bookingReady();
+    await settle();
+    expect(calls).toHaveLength(1);                     // once
+  });
+
+  it('waits 3 s at most for the booking modules', async () => {
+    await land('#book');
+    load();
+    await vi.advanceTimersByTimeAsync(2900);
+    expect(calls).toEqual([]);
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(calls.map(([el]) => el)).toEqual([$('#book')]);
+  });
+
+  it("waits for the browser's own smooth jump to stop: Chromium carries it on past an instant scroll", async () => {
+    await land('#book');
+    load();
+    bookingReady();
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(100);
+      window.dispatchEvent(new Event('scroll'));
+    }
+    expect(calls).toEqual([]);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(calls).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls.map(([el]) => el)).toEqual([$('#book')]);
+  });
+
+  for (const [what, act] of [
+    ['scrolled with the wheel', () => window.dispatchEvent(new Event('wheel'))],
+    ['pressed Page Down', () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown' }))],
+    ['tapped the page', () => window.dispatchEvent(new Event('pointerdown'))],
+    ['focused a link', () => $('a').focus()],
+  ]) {
+    it(`leaves the page alone when the customer ${what} before then`, async () => {
+      await land('#book');
+      act();
+      load();
+      bookingReady();
+      await settle();
+      expect(calls).toEqual([]);
+    });
+  }
+
+  it('does nothing without a hash, for #cancel (booking-cancel.js owns it), or for a hash that names nothing', async () => {
+    for (const hash of ['', '#cancel', '#nowhere']) {
+      await land(hash);
+      load();
+      bookingReady();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(calls, hash).toEqual([]);
+      vi.restoreAllMocks();
+    }
   });
 });
 
@@ -645,7 +738,7 @@ describe('shop-video.js: pause buttons and the sound toggle', () => {
 
 /* ================= gallery.js ================= */
 
-describe('gallery.js: lightbox and filmstrip', () => {
+describe('gallery.js: lightbox', () => {
   let api, hist;
 
   /** A session history the test can see: entry 0 is the page we came from,
@@ -748,7 +841,7 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect(dialogOpen()).toBe(false);
     expect(hist.at).toBe(1);
     // Focus lands on the plate of the photo that was on screen.
-    const shown = $$('[data-plate]').find((f) => f.querySelector('.plate__cap')?.textContent.trim() === seen);
+    const shown = $$('[data-plate]').find((f) => f.dataset.caption === seen);
     expect(document.activeElement).toBe(shown.querySelector('[data-lightbox-open]'));
     history.back();
     expect(hist.at).toBe(0);                           // and the next Back leaves the page
@@ -851,21 +944,6 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect($('[data-lightbox-count]').textContent).toBe('01 / 14');
     touch('touchstart', 100); touch('touchend', 120);      // a tap-sized wobble does nothing
     expect($('[data-lightbox-count]').textContent).toBe('01 / 14');
-  });
-
-  it('the filmstrip counter reports the plate under the middle of the strip', async () => {
-    await bootGallery();
-    const strip = $('[data-gallery]');
-    const plates = $$('.plate');
-    expect($('[data-filmstrip-total]').textContent).toBe(String(plates.length).padStart(2, '0'));
-    // Lay the plates out 300px apart in a 390px viewport (jsdom has no layout).
-    plates.forEach((p, i) => Object.defineProperty(p, 'offsetLeft', { value: i * 300 }));
-    Object.defineProperty(strip, 'clientWidth', { value: 390 });
-    strip.scrollLeft = 900;
-    strip.dispatchEvent(new Event('scroll'));
-    await new Promise((r) => setTimeout(r, 5));
-    expect($('[data-filmstrip-index]').textContent).toBe('04');
-    expect($('[data-filmstrip-bar]').style.transform).toBe('translateX(300%)');
   });
 });
 

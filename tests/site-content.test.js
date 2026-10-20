@@ -346,3 +346,32 @@ describe('the copy is free of the old placeholders', () => {
     }
   });
 });
+
+describe('no filler over the photos or in the hero (X4)', () => {
+  const gallery = html.slice(html.indexOf('<div class="plates" data-gallery>'), html.indexOf('<dialog class="lightbox"'));
+  const plates = [...gallery.matchAll(/<figure [^>]*data-plate="([^"]+)"[^>]*>([\s\S]*?)<\/figure>/g)];
+
+  it('the gallery plates carry no caption chips, and there is no filmstrip counter', () => {
+    expect(plates).toHaveLength(14);
+    expect(gallery).not.toContain('<figcaption');
+    expect(html).not.toMatch(/plate__cap|plates__count|data-filmstrip/);
+    for (const file of ['styles/gallery.css', 'styles/responsive.css', 'scripts/gallery.js']) {
+      expect(readFileSync(join(ROOT, file), 'utf8'), file).not.toMatch(/plate__cap|plates__count|plates__bar|filmstrip-/);
+    }
+  });
+
+  it('each photo keeps its name for the lightbox caption and its button label', () => {
+    for (const [figure, stem, inner] of plates) {
+      expect(figure, stem).toMatch(/data-caption="[^"]+"/);
+      expect(inner, stem).toMatch(/data-lightbox-open aria-label="View larger: [^"]+"/);
+    }
+  });
+
+  it('the hero facts leave out the founding year; the footer keeps it', () => {
+    const facts = html.match(/<ul class="hero__facts[^>]*>([\s\S]*?)<\/ul>/)[1];
+    expect([...facts.matchAll(/<li>([^<]+)<\/li>/g)].map((m) => m[1]))
+      .toEqual(['Walk-ins welcome', 'Cash, card, Apple Pay', '45-min appointments']);
+    expect(html.match(/Est\. 2018/g)).toHaveLength(1);
+    expect(html.match(/<footer[\s\S]*<\/footer>/)[0]).toContain('Est. 2018');
+  });
+});
