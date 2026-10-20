@@ -62,6 +62,8 @@
   outline-offset: -6px;
 }
 
+.plate picture { height: 100%; }
+
 .plate img,
 .plate__video {
   width: 100%;
@@ -71,6 +73,11 @@
   transition: transform 1.2s var(--ease-curtain), filter 0.6s var(--ease-out);
   filter: saturate(0.94);
 }
+
+/* Heads that start near the top of the photo: keep the hair in frame where
+   the wide desktop plates crop top and bottom. */
+.plate[data-plate="cut-kids-high-fade"] img,
+.plate[data-plate="cut-low-fade"] img { object-position: 50% 0%; }
 
 .plate:hover img { transform: scale(1.03); filter: saturate(1); }
 

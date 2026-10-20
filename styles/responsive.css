@@ -97,7 +97,7 @@ input, select, textarea, button {
   .shop__head { margin-bottom: 0.25rem; }
   .shop__video { aspect-ratio: 2 / 3; }
   .shop__room  { aspect-ratio: 4 / 3; }
-  .shop__room img { object-position: 50% 72%; }
+  .shop__room img { object-position: 50% 100%; }   /* the room, not the ceiling: the car's wheels sit on the bottom edge */
   .shop__sound { left: 0.85rem; bottom: 0.85rem; padding: 0.55rem 0.85rem 0.55rem 0.7rem; font-size: 0.6875rem; }
 
   /* --- Services --- */
@@ -113,7 +113,7 @@ input, select, textarea, button {
   .menu__addons li { padding-bottom: 0.6rem; gap: 0.5rem; }
   .menu__addons li .t-display-sm { font-size: 1rem; }
   .menu__photo { aspect-ratio: 4 / 3; }
-  .menu__photo img { object-position: 50% 22%; }
+  .menu__photo img { object-position: 50% 8%; }    /* his head and the whole price list */
 
   /* Comparison: a collapsed <details> with cards instead of the table */
   .compare { overflow: visible; margin-top: 2.5rem; padding-top: 1.75rem; }
@@ -303,7 +303,7 @@ input, select, textarea, button {
   .hero__title       { font-size: clamp(4rem, 11vw, 7rem); }
   .booking__slots    { grid-template-columns: repeat(4, 1fr); }
   .menu__photo       { aspect-ratio: 3 / 2; }
-  .menu__photo img   { object-position: 50% 25%; }
+  .menu__photo img   { object-position: 50% 8%; }
   .visit__photo      { aspect-ratio: 3 / 2; }
   body               { padding-bottom: 0; }
 }
