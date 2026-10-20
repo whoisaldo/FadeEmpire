@@ -799,6 +799,24 @@ describe('cancellation flow', () => {
     expect(document.activeElement).toBe(toggle);
   });
 
+  it('an empty or short phone is marked invalid, described by the status, and focused (R4)', async () => {
+    $('[data-cancel-open]').click();
+    const input = $('[data-cancel-phone]');
+    for (const value of ['', '413555']) {
+      fill('[data-cancel-phone]', value);
+      $('[data-cancel-find]').focus();
+      $('[data-cancel-find]').click();
+      expect(input.getAttribute('aria-invalid'), value).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toBe('cancel-status');
+      expect($('#cancel-status').textContent).toBe('Enter the 10-digit phone number you booked with.');
+      expect(document.activeElement).toBe(input);
+    }
+    fill('[data-cancel-phone]', '4135550123');                 // typing clears the mark
+    expect(input.hasAttribute('aria-invalid')).toBe(false);
+    expect(input.hasAttribute('aria-describedby')).toBe(false);
+    expect(rpc.findBookingsByPhone).not.toHaveBeenCalled();
+  });
+
   it('requires a 10-digit phone before looking anything up', async () => {
     $('[data-cancel-open]').click();
     fill('[data-cancel-phone]', '413555');

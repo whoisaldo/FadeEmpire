@@ -38,6 +38,20 @@ function setStatus(root, text, tone = 'muted') {
   status.dataset.tone = tone;
 }
 
+/** The phone field as the thing to fix: marked invalid, described by the
+ *  status line, and focused (the same pattern as the booking form). */
+function markPhone(root, invalid) {
+  const input = root.querySelector('[data-cancel-phone]');
+  if (invalid) {
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', 'cancel-status');
+    input.focus();
+  } else {
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  }
+}
+
 /* ---------- Rendering the bookings list ---------- */
 
 function bookingLine(b) {
@@ -160,8 +174,10 @@ async function lookup(root) {
 
   if (digits.length < 10) {
     setStatus(root, 'Enter the 10-digit phone number you booked with.', 'error');
+    markPhone(root, true);
     return;
   }
+  markPhone(root, false);
 
   button.disabled = true;
   button.textContent = 'Looking…';
@@ -174,6 +190,7 @@ async function lookup(root) {
   } catch (err) {
     const code = err instanceof BookingError ? err.code : 'unknown';
     setStatus(root, ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown, 'error');
+    if (code === 'bad_phone') markPhone(root, true);
   } finally {
     const hadFocus = document.activeElement === button || document.activeElement === document.body;
     button.disabled = false;
@@ -190,6 +207,7 @@ export function initBookingCancel() {
 
   const input = root.querySelector('[data-cancel-phone]');
   input.addEventListener('input', (e) => {
+    if (input.getAttribute('aria-invalid') === 'true') markPhone(root, false);
     let digits = e.target.value.replace(/\D/g, '');
     if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
     e.target.value = formatPhoneDisplay(digits.slice(0, 10));
