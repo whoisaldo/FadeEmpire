@@ -1174,6 +1174,22 @@ describe('booking edge cases', () => {
     expect(wed.textContent).not.toContain('Closed');
   });
 
+  it('the Closed / No slots left tag is 11px or larger and passes 4.5:1 on the chip (R14)', () => {
+    const css = readFileSync(join(__dir, '..', 'styles', 'booking-grid.css'), 'utf8');
+    const tokens = readFileSync(join(__dir, '..', 'styles', 'tokens.css'), 'utf8');
+    const rule = css.match(/\.booking__day-month\.booking__day-closed\s*\{([^}]*)\}/)?.[1];
+    expect(rule, 'the closed-tag rule').toBeTruthy();
+    expect(parseFloat(rule.match(/font-size:\s*([\d.]+)rem/)[1]) * 16).toBeGreaterThanOrEqual(11);
+    expect(rule).not.toMatch(/opacity/);
+    const hex = (h) => [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
+      .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    const lum = (h) => hex(h).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+    const fg = rule.match(/color:\s*#([0-9a-f]{6})/i)[1];
+    const ink = tokens.match(/--ink:\s*#([0-9a-f]{6})/i)[1];          // the chip's background
+    expect(css).toMatch(/\.booking__day \{[^}]*background: var\(--ink\)/);
+    expect((lum(fg) + 0.05) / (lum(ink) + 0.05)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('the "next open slot" pick selects barber, day, and time in one go', async () => {
     document.dispatchEvent(new CustomEvent('booking:pick', {
       detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },

@@ -104,14 +104,14 @@
 }
 .booking__day.is-closed .booking__day-num { opacity: 0.35; }
 
-.booking__day-closed {
+/* Two classes so the phone sizes for the month label don't shrink it */
+.booking__day-month.booking__day-closed {
   line-height: 1.2;                    /* "No slots left" wraps in a narrow chip */
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.16em;
+  font-size: 0.6875rem;                /* 11px */
+  letter-spacing: 0.04em;              /* "Closed" fits the 64px phone chip */
   text-transform: uppercase;
-  color: var(--status-closed);
-  opacity: 0.85;
+  color: #E5735F;                      /* --status-closed lifted to 6:1 on the chip, as on the nav stamp */
 }
 
 .booking__day-weekday {
