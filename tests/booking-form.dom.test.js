@@ -1639,6 +1639,101 @@ describe('move a booking (C4)', () => {
     expect($('input[name="phone"]').value).toBe('(413) 555-0123');
     expect(document.activeElement).toBe($('[data-day-row] .booking__day[aria-selected="true"]'));
   });
+
+  /* --- A Move while a confirmation shows (CR1) --- */
+
+  const expectOpenForm = () => {
+    expect(document.querySelector('.booking [inert]')).toBeNull();
+    expect($('[data-form-success]').hidden).toBe(false);          // the card stays as the record
+    expect($('[data-submit]').disabled).toBe(false);
+    expect($('[data-form-time]').value).toBe('');
+    expect(document.activeElement).toBe($('[data-day-row] .booking__day[aria-selected="true"]'));
+  };
+  async function bookGroupOnCard() {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'grp-1', person_index: 0, person_name: 'Test Customer', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
+      { booking_id: 'grp-2', person_index: 1, person_name: 'Kid', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Kid');
+    fill('[data-guest-service]', 'kids-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+  }
+  const hassanRow = (over) => ({ ...larryRow, barber_slug: 'hassan', barber_name: 'Hassan', ...over });
+  async function confirmMove() {
+    $('.cancel__move').click();
+    $('.cancel__move').click();
+    await vi.waitFor(() => expect($('[data-cancel-status]').textContent).toBe('Cancelled. Pick a new time.'));
+  }
+
+  it('moving the single booking on the card: the card reads "Cancelled.", the form opens, and the new time books', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: larryRow.booking_id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 1000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('10:00:00');
+    fillPrimary({ name: 'Dana Reyes', service: 'line-up' });
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    const reads = rpc.fetchAvailability.mock.calls.length;
+    await findRow();
+    await confirmMove();
+
+    expect($('[data-success-head]').textContent).toBe('Cancelled.');
+    expectOpenForm();
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-service-select]').value).toBe('line-up');
+    await vi.waitFor(() => expect(rpc.fetchAvailability.mock.calls.length).toBe(reads + 1));   // one read, for the freed slot
+
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'moved-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 1000 }]);
+    clickSlot('11:30:00');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Chair reserved'));
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry', serviceSlug: 'line-up', time: '11:30:00' }));
+  });
+
+  it('moving one guest of the group on the card strikes that line, opens the form for the guest\'s service, and the card keeps tracking', async () => {
+    await bookGroupOnCard();
+    await findRow(hassanRow({ booking_id: 'grp-2', service_slug: 'kids-cut', first_name: 'Kid', booking_time: '12:15:00' }));
+    await confirmMove();
+
+    expect($('[data-success-head]').textContent).toBe('Chair reserved');
+    expect($$('[data-success-list] li').map(li => li.textContent)).toEqual([
+      'Test Customer · Hair Cut · 11:30 AM', 'Kid · Kids Cut · 12:15 PM · Cancelled',
+    ]);
+    expect($('[data-success-total]').textContent).toBe('$30');
+    expectOpenForm();
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(0);
+    expect($('[data-service-select]').value).toBe('kids-cut');
+
+    // Cancelling the rest from the panel still updates the record, and leaves the open form alone.
+    await findRow(hassanRow({ booking_id: 'grp-1', service_slug: 'hair-cut', first_name: 'Test', booking_time: '11:30:00' }));
+    $('.cancel__btn').click();
+    $('.cancel__btn').click();
+    await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Cancelled.'));
+    expect($('[data-service-select]').value).toBe('kids-cut');
+  });
+
+  it('moving a booking that is not on the card leaves the card as it is and opens the form for it', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'card-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    await findRow();                                            // Larry, Line Up: another booking
+    await confirmMove();
+
+    expect($('[data-success-head]').textContent).toBe('Chair reserved');
+    expect($$('[data-success-list] li').map(li => li.textContent)).toEqual(['Test Customer · Hair Cut · 11:30 AM']);
+    expectOpenForm();
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-service-select]').value).toBe('line-up');
+    await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry' })));
+  });
 });
 
 /* ================= The price list books itself (C5) ================= */

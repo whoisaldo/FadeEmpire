@@ -95,8 +95,9 @@ function renderBookings(root, bookings, phoneDigits) {
     list.appendChild(row);
 
     /** Both buttons cancel the booking in the DB. True once it is cancelled;
-     *  on a failure the row is as it was and the status says why. */
-    const cancelIt = async (pressed, disarm) => {
+     *  on a failure the row is as it was and the status says why. A Move
+     *  leaves the grid's re-read to the form, which opens it first. */
+    const cancelIt = async (pressed, disarm, { move = false } = {}) => {
       moveBtn.disabled = btn.disabled = true;
       pressed.textContent = 'Cancelling…';
       try {
@@ -116,7 +117,7 @@ function renderBookings(root, bookings, phoneDigits) {
         bookingId: b.booking_id, barberSlug: b.barber_slug, phone: phoneDigits, date: b.booking_date, time: b.booking_time,
       } }));
       // Freed slot should show as open in the grid without a reload.
-      gridRefresh();
+      if (!move) gridRefresh();
       return true;
     };
 
@@ -160,7 +161,7 @@ function renderBookings(root, bookings, phoneDigits) {
     // and service and the day row is next (booking-submit.js).
     const day = dateLabelFromIso(b.booking_date, { weekday: 'short' });
     twoTap(moveBtn, 'Move it', `Yes, move ${day} ${timeLabel}`, async (disarm) => {
-      if (!await cancelIt(moveBtn, disarm)) return;
+      if (!await cancelIt(moveBtn, disarm, { move: true })) return;
       setStatus(root, 'Cancelled. Pick a new time.', 'ok');
       document.dispatchEvent(new CustomEvent('booking:move', { detail: {
         barberSlug: b.barber_slug, serviceSlug: b.service_slug, firstName: b.first_name, phone: phoneDigits,

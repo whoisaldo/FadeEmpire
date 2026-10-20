@@ -203,6 +203,7 @@ function relabelGuests(form) {
 function hideMessages(form) {
   form.querySelector('[data-form-error]').hidden    = true;
   form.querySelector('[data-form-success]').hidden  = true;
+  shown = null;                // the confirmation is gone, so nothing tracks it
   const fb = form.querySelector('[data-form-fallback]');
   if (fb) fb.hidden = true;
 }
@@ -372,15 +373,16 @@ function setCardCancelled(card, on) {
 
 // The booking the confirmation card shows, so a cancel from the panel below
 // can update it: { barberSlug, phone, date, rows, cancelled: Set of ids,
-// send(rows), calendar(rows) }.
+// send(rows), calendar(rows) }. Kept while the card is on screen, also after
+// a Move has opened the form again; cleared when the card is hidden.
 let shown = null;
 
 /** A booking was cancelled in the panel. If the card shows it, that person
  *  is struck off the card, the total and the message to the barber; once
- *  nobody is left the card says "Cancelled." and the form opens again as
- *  after "Book another", leaving focus and the cancel status where they are. */
+ *  nobody is left the card says "Cancelled." and a locked form opens again
+ *  as after "Book another", leaving focus and the cancel status where they are. */
 function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
-  if (form.dataset.booked !== 'true' || !shown) return;
+  if (!shown) return;
   // The booking id first; otherwise the same barber, phone, day and time (one
   // barber's slot holds one booking, so that is the same booking too).
   const open = shown.rows.filter(b => b.booking_id && !shown.cancelled.has(b.booking_id));
@@ -393,7 +395,7 @@ function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   const left = shown.rows.filter(b => !shown.cancelled.has(b.booking_id));
   if (!left.some(b => b.booking_id)) {
     setCardCancelled(card, true);
-    unlock(form);
+    if (form.dataset.booked === 'true') unlock(form);
     return;
   }
   const li = card.querySelector(`[data-success-list] li[data-booking-id="${hit.booking_id}"]`);
@@ -713,12 +715,17 @@ async function focusNextStep(form) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-/** "Move it" in the cancel panel: the old booking is cancelled. The form
- *  takes its barber and its service, keeps the name and phone (filled from
- *  the lookup when empty), and focus goes to the day row for a new time. */
+/** "Move it" in the cancel panel: the old booking is cancelled (and struck
+ *  off the confirmation, if it is on it). A locked form opens again the way
+ *  "Book another" opens it, the card staying as the record; then the form
+ *  takes the booking's barber and service, keeps the name and phone (filled
+ *  from the lookup when empty), and focus goes to the day row for a new time. */
 function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
-  if (form.dataset.booked === 'true') { focusNextStep(form); return; }   // the confirmation is the next step
+  if (form.dataset.booked === 'true') unlock(form);
+  // One fresh read for the freed slot: a new barber's is already on its way.
+  const sameBarber = getSelection().barberSlug === barberSlug;
   chooseBarber(barberSlug);
+  if (sameBarber) gridRefresh();
   const select = form.querySelector('[data-service-select]');
   if (serviceSlug && select.querySelector(`option[value="${serviceSlug}"]`)) {
     select.value = serviceSlug;
@@ -737,7 +744,6 @@ function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
 
 /** Out of the booked state: the picker and fields open and emptied. */
 function unlock(form) {
-  shown = null;
   setBooked(form, false);
   resetForm(form);
 }
