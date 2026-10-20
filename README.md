@@ -246,9 +246,11 @@ npm run test:db    # supabase db start && supabase test db
 
 ### CI (GitHub Actions)
 
-- **`.github/workflows/ci.yml`** — on every push/PR: the vitest suite and the
-  full DB suite above (fresh Postgres, all migrations, `db lint`, pgTAP).
-  Make both jobs required checks on `main` so nothing broken can deploy.
+- **`.github/workflows/ci.yml`** — on every push/PR: the vitest suite, the
+  full DB suite above (fresh Postgres, all migrations, `db lint`, pgTAP), and
+  the send-reminders Deno tests. The Supabase CLI (2.109.0) and Deno (2.9.7)
+  versions are pinned. Make all three jobs required checks on `main` so
+  nothing broken can deploy.
 - **`.github/workflows/live-health.yml`** — daily at 7 am ET, after every push
   to `main`, and on demand: read-only end-to-end checks against the LIVE site
   and database using only the public anon key. Verifies the deploy is current,
