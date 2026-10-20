@@ -1587,6 +1587,33 @@ describe('move a booking (C4)', () => {
     expect(rpc.cancelBooking).not.toHaveBeenCalled();
   });
 
+  it('each result is a list item, and its buttons are named for its booking, armed or not (X3)', async () => {
+    rpc.findBookingsByPhone.mockResolvedValue([
+      larryRow,
+      { ...larryRow, booking_id: 'b2', barber_slug: 'hassan', barber_name: 'Hassan', booking_date: '2026-07-11', booking_time: '14:30:00' },
+    ]);
+    $('[data-cancel-open]').click();
+    fill('[data-cancel-phone]', '4135550123');
+    $('[data-cancel-find]').click();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(2));
+    expect($('[data-cancel-results]').tagName).toBe('UL');
+    expect($$('[data-cancel-results] > li.cancel__row')).toHaveLength(2);
+    expect([...$('.cancel__row .cancel__info').children].map(span => span.textContent))
+      .toEqual(['Dana · Line Up', 'with Larry · Wed, Jul 8 · 10:00 AM · $10']);
+    const names = () => $$('.cancel__row .cancel__actions button').map(b => b.getAttribute('aria-label'));
+    expect(names()).toEqual([
+      'Move Wed Jul 8, 10:00 AM with Larry', 'Cancel Wed Jul 8, 10:00 AM with Larry',
+      'Move Sat Jul 11, 2:30 PM with Hassan', 'Cancel Sat Jul 11, 2:30 PM with Hassan',
+    ]);
+    const [move, cancel] = $$('.cancel__row')[1].querySelectorAll('button');
+    move.click();
+    expect(move.textContent).toBe('Yes, move Sat 2:30 PM');
+    expect(move.getAttribute('aria-label')).toBe('Yes, move Sat 2:30 PM');
+    cancel.click();
+    expect(cancel.textContent).toBe('Tap again to confirm');
+    expect(cancel.getAttribute('aria-label')).toBe('Tap again to confirm');
+  });
+
   it('the second tap cancels, then the form takes the barber and service, keeps name and phone, and the day row is next', async () => {
     fill('input[name="name"]', 'Dana Reyes');
     fill('input[name="phone"]', '4135550123');
@@ -1647,6 +1674,7 @@ describe('move a booking (C4)', () => {
     expect(move.disabled).toBe(false);
     expect($('.cancel__btn').disabled).toBe(false);
     expect(move.textContent).toBe('Move it');
+    expect(move.getAttribute('aria-label')).toBe('Move Wed Jul 8, 10:00 AM with Larry');   // its name back, disarmed (X3)
     expect(document.activeElement).toBe(move);
     expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('true');
     expect($('[data-service-select]').value).toBe('');

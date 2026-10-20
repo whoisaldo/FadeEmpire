@@ -77,8 +77,10 @@ function renderBookings(root, bookings, phoneDigits) {
   bookings.forEach((b) => {
     const { service, barber, when } = bookingLine(b);
     const timeLabel = minutesToLabel(hmsToMinutes(b.booking_time));
+    // The buttons' names: "Move Wed Oct 21, 10:00 AM with Hassan".
+    const named = `${dateLabelFromIso(b.booking_date, { weekday: 'short' })} ${dateLabelFromIso(b.booking_date, { month: 'short', day: 'numeric' })}, ${timeLabel}${barber ? ` with ${barber}` : ''}`;
 
-    const row  = el('div', 'cancel__row');
+    const row  = el('li', 'cancel__row');
     const info = el('div', 'cancel__info');
     info.appendChild(el('span', 'cancel__service t-display-sm',
       b.first_name ? `${b.first_name} · ${service}` : service));
@@ -100,6 +102,7 @@ function renderBookings(root, bookings, phoneDigits) {
     const cancelIt = async (pressed, disarm, { move = false } = {}) => {
       moveBtn.disabled = btn.disabled = true;
       pressed.textContent = 'Cancelling…';
+      pressed.setAttribute('aria-label', 'Cancelling…');
       try {
         await cancelBooking({ bookingId: b.booking_id, phone: phoneDigits });
       } catch (err) {
@@ -122,7 +125,7 @@ function renderBookings(root, bookings, phoneDigits) {
       return true;
     };
 
-    twoTap(btn, 'Cancel', 'Tap again to confirm', async (disarm) => {
+    twoTap(btn, 'Cancel', `Cancel ${named}`, 'Tap again to confirm', async (disarm) => {
       if (!await cancelIt(btn, disarm)) return;
 
       // Cancelled in the DB — the slot is already freed. Offer the prefilled
@@ -161,7 +164,7 @@ function renderBookings(root, bookings, phoneDigits) {
     // "Move it": the same cancel, then the form takes this booking's barber,
     // service, add-ons and day, and the day row is next (booking-submit.js).
     const day = dateLabelFromIso(b.booking_date, { weekday: 'short' });
-    twoTap(moveBtn, 'Move it', `Yes, move ${day} ${timeLabel}`, async (disarm) => {
+    twoTap(moveBtn, 'Move it', `Move ${named}`, `Yes, move ${day} ${timeLabel}`, async (disarm) => {
       if (!await cancelIt(moveBtn, disarm, { move: true })) return;
       setStatus(root, 'Cancelled. Pick a new time.', 'ok');
       document.dispatchEvent(new CustomEvent('booking:move', { detail: {
@@ -173,21 +176,25 @@ function renderBookings(root, bookings, phoneDigits) {
 }
 
 /** A button that acts on the second tap, within five seconds of the first
- *  (no browser confirm() dialogs). `run` gets a function that puts the
+ *  (no browser confirm() dialogs). `name` is its accessible name at rest;
+ *  armed, the name is the armed label. `run` gets a function that puts the
  *  button back to its first state. */
-function twoTap(btn, label, armedLabel, run) {
+function twoTap(btn, label, name, armedLabel, run) {
   let armed = false;
   let disarmTimer = null;
   const disarm = () => {
     armed = false;
     clearTimeout(disarmTimer);
     btn.textContent = label;
+    btn.setAttribute('aria-label', name);
     btn.classList.remove('is-arming');
   };
+  btn.setAttribute('aria-label', name);
   btn.addEventListener('click', () => {
     if (!armed) {
       armed = true;
       btn.textContent = armedLabel;
+      btn.setAttribute('aria-label', armedLabel);
       btn.classList.add('is-arming');
       disarmTimer = setTimeout(disarm, ARM_TIMEOUT_MS);
       return;
