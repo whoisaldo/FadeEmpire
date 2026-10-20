@@ -29,6 +29,10 @@ vi.mock('../scripts/booking-rpc.js', () => {
   };
 });
 
+// Node 22+ has its own global localStorage (undefined without
+// --localstorage-file) that hides jsdom's: use the page's, as a browser would.
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: globalThis.jsdom.window.localStorage });
+
 const __dir = dirname(fileURLToPath(import.meta.url));
 const indexHtml = readFileSync(join(__dir, '..', 'index.html'), 'utf8');
 
@@ -45,7 +49,7 @@ function bookSectionHtml() {
 // A fixed "now": Monday 2026-07-06, 10:00 AM in America/New_York (14:00 UTC).
 const FIXED_NOW = new Date('2026-07-06T14:00:00Z');
 
-let rpc, grid, submitMod, cancelMod;
+let rpc, grid, submitMod, cancelMod, returnMod;
 
 async function boot(extraHtml = '') {
   document.body.innerHTML = extraHtml + bookSectionHtml();
@@ -53,8 +57,10 @@ async function boot(extraHtml = '') {
   grid      = await import('../scripts/booking-grid.js');
   submitMod = await import('../scripts/booking-submit.js');
   cancelMod = await import('../scripts/booking-cancel.js');
+  returnMod = await import('../scripts/booking-return.js');
   submitMod.initBookingSubmit();
   cancelMod.initBookingCancel();
+  returnMod.initBookingReturn();
   await grid.initBookingGrid();
 }
 
@@ -133,6 +139,7 @@ beforeEach(async () => {
   rpc = await import('../scripts/booking-rpc.js');
   rpc.fetchAvailability.mockResolvedValue([]);
 
+  localStorage.clear();              // no remembered customer unless a test saves one
   await boot();
 });
 
@@ -711,6 +718,173 @@ describe('text consent (C3)', () => {
     $('[data-book-another]').click();
     expect($('input[name="remind_sms"]').checked).toBe(true);
     expect($('input[name="rebook_sms"]').checked).toBe(false);
+  });
+});
+
+/* ================= Remembered customer (C1) ================= */
+
+describe('remembered customer (C1)', () => {
+  const KEY = 'fe.lastBooking';
+  const mobileCtaHtml = () => {
+    const start = indexHtml.indexOf('<div class="mobile-cta"');
+    return indexHtml.slice(start, indexHtml.indexOf('</div>', start) + '</div>'.length);
+  };
+  const larryRecord = {
+    name: 'Dana Reyes', phone: '4135550123', barberSlug: 'larry', serviceSlug: 'hair-cut',
+    addons: ['beard', 'wax'], remindSms: false, rebookSms: true, savedAt: '2026-06-20T15:00:00.000Z',
+  };
+  async function bootSaved(record = larryRecord, extraHtml = '') {
+    localStorage.setItem(KEY, JSON.stringify(record));
+    rpc.fetchAvailability.mockClear();
+    await reboot(extraHtml);
+  }
+
+  it('a booking saves the customer\'s own choices under one key, and nothing about guests', async () => {
+    expect(localStorage.getItem(KEY)).toBeNull();
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 's1', person_index: 0, person_name: 'Dana Reyes', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 4000 },
+      { booking_id: 's2', person_index: 1, person_name: 'Kid', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ name: 'Dana Reyes', phone: '(413) 555-0123' });
+    $('input[name="addons"][value="beard"]').click();
+    $('input[name="rebook_sms"]').click();
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Kid');
+    fill('[data-guest-service]', 'kids-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    expect(saved).toEqual({
+      name: 'Dana Reyes', phone: '4135550123', barberSlug: 'larry', serviceSlug: 'hair-cut',
+      addons: ['beard'], remindSms: true, rebookSms: true, savedAt: expect.any(String),
+    });
+    expect(new Date(saved.savedAt).toISOString()).toBe(saved.savedAt);
+    expect(localStorage.getItem(KEY)).not.toContain('Kid');
+    expect(Object.keys(localStorage)).toEqual([KEY]);
+  });
+
+  it('a failed booking saves nothing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('no saved booking: no card, an empty form, the plain sticky bar', async () => {
+    await reboot(mobileCtaHtml());
+    expect($('[data-rebook]').hidden).toBe(true);
+    expect($('input[name="name"]').value).toBe('');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Book a chair');
+  });
+
+  it('on load the card welcomes them back and the form is filled in as last time, total shown', async () => {
+    await bootSaved();
+    const card = $('[data-rebook]');
+    expect(card.hidden).toBe(false);
+    expect($('[data-rebook-text]').textContent)
+      .toBe('Welcome back, Dana. Same as last time: Larry, Hair Cut + Beard, Wax. Pick a day.');
+    expect($('[data-rebook-clear]').textContent).toBe('Not you? Clear');
+    expect(card.querySelector('.booking__rebook-note').textContent).toBe('Saved on this phone only.');
+
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('false');
+    // The grid started on Larry: his schedule was the only one read.
+    expect(rpc.fetchAvailability.mock.calls.map(([a]) => a.barberSlug)).toEqual(['larry']);
+    expect($('input[name="name"]').value).toBe('Dana Reyes');
+    expect($('input[name="phone"]').value).toBe('(413) 555-0123');
+    expect($('[data-service-select]').value).toBe('hair-cut');
+    expect($$('input[name="addons"]:checked').map(i => i.value)).toEqual(['wax', 'beard']);
+    expect($('input[name="remind_sms"]').checked).toBe(false);
+    expect($('input[name="rebook_sms"]').checked).toBe(true);
+    expect($('[data-total-display]').textContent).toBe('$45');
+    expect($('[data-cancel-phone]').value).toBe('(413) 555-0123');
+  });
+
+  it('a saved VIP shows its included extras as included and keeps only the paid add-on', async () => {
+    await bootSaved({ ...larryRecord, serviceSlug: 'vip-haircut', addons: ['wax'] });
+    expect($('[data-rebook-text]').textContent).toContain('Same as last time: Larry, VIP Haircut + Wax.');
+    expect($('input[name="addons"][value="facial"]').disabled).toBe(true);
+    expect($('input[name="addons"][value="wax"]').checked).toBe(true);
+    expect($('[data-total-display]').textContent).toBe('$65');
+  });
+
+  it('the sticky bar reads "Rebook · <Barber>" and keeps its next-slot suffix', async () => {
+    await bootSaved(larryRecord, mobileCtaHtml());
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Larry');
+    expect($('[data-mobile-cta-book] [data-mobile-cta-next] [data-mobile-cta-next-slot]')).toBeTruthy();
+  });
+
+  it('rebooks in two taps: a time on the day already picked, then Reserve', async () => {
+    await bootSaved();
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'rb1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 4500 }]);
+    clickSlot('11:30:00');                                      // Monday Jul 6, the day picked on load
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
+      barberSlug: 'larry', serviceSlug: 'hair-cut', date: '2026-07-06', time: '11:30:00',
+      name: 'Dana Reyes', phone: '(413) 555-0123', addons: ['wax', 'beard'], remindSms: false, rebookSms: true,
+    }));
+  });
+
+  it('the card hides while the confirmation shows, and "Book another" stays a fresh form', async () => {
+    await bootSaved(larryRecord, mobileCtaHtml());
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'rb2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    await pickBarber('hassan');
+    clickSlot('11:30:00');
+    fill('[data-service-select]', 'line-up');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect($('[data-rebook]').hidden).toBe(true);
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
+    expect(JSON.parse(localStorage.getItem(KEY))).toMatchObject({ barberSlug: 'hassan', serviceSlug: 'line-up', addons: ['wax', 'beard'] });
+
+    $('[data-book-another]').click();
+    expect($('[data-rebook]').hidden).toBe(true);
+    expect($('input[name="name"]').value).toBe('');
+
+    await reboot(mobileCtaHtml());                              // the next visit shows the new choices
+    expect($('[data-rebook-text]').textContent).toContain('Same as last time: Hassan, Line Up + Wax, Beard.');
+  });
+
+  it('"Not you? Clear" forgets the booking and resets the form, the cancel phone and the sticky bar', async () => {
+    await bootSaved(larryRecord, mobileCtaHtml());
+    clickSlot('11:30:00');
+    $('[data-rebook-clear]').focus();
+    $('[data-rebook-clear]').click();
+
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect($('[data-rebook]').hidden).toBe(true);
+    expect($('input[name="name"]').value).toBe('');
+    expect($('input[name="phone"]').value).toBe('');
+    expect($('[data-service-select]').value).toBe('');
+    expect($$('input[name="addons"]:checked')).toHaveLength(0);
+    expect($('input[name="remind_sms"]').checked).toBe(true);
+    expect($('input[name="rebook_sms"]').checked).toBe(false);
+    expect($('[data-total-display]').textContent).toBe('$0');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-cancel-phone]').value).toBe('');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Book a chair');
+    expect(document.activeElement).toBe($('[data-barber-option][aria-checked="true"]'));
+
+    await reboot(mobileCtaHtml());
+    expect($('[data-rebook]').hidden).toBe(true);
+  });
+
+  it('a record naming a barber who is gone, or a broken one, is ignored', async () => {
+    await bootSaved({ ...larryRecord, barberSlug: 'javier' });
+    expect($('[data-rebook]').hidden).toBe(true);
+    expect($('input[name="name"]').value).toBe('');
+    localStorage.setItem(KEY, '{not json');
+    await reboot();
+    expect($('[data-rebook]').hidden).toBe(true);
   });
 });
 

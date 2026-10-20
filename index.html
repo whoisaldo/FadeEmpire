@@ -730,6 +730,15 @@
          link land, and a tall block behind a reveal threshold stayed invisible. -->
     <div class="booking">
 
+      <!-- A returning customer: their last booking, kept on this device (booking-return.js) -->
+      <div class="booking__rebook" data-rebook hidden>
+        <div class="booking__rebook-card">
+          <p class="booking__rebook-text" data-rebook-text></p>
+          <button type="button" class="booking__fine-link booking__rebook-clear" data-rebook-clear>Not you? Clear</button>
+        </div>
+        <p class="booking__rebook-note t-meta">Saved on this phone only.</p>
+      </div>
+
       <!-- Next open slot, filled by cover.js -->
       <div class="booking__callout" data-next-available-callout hidden>
         <span class="t-eyebrow tone-gold">Next open slot</span>
@@ -1054,7 +1063,7 @@
 ============================================================ -->
 <div class="mobile-cta" data-mobile-cta aria-hidden="true">
   <a href="#book" class="mobile-cta__book" data-mobile-cta-book>
-    <strong>Book a chair</strong>
+    <strong data-mobile-cta-label>Book a chair</strong>
     <span class="mobile-cta__next" data-mobile-cta-next hidden>· <span data-mobile-cta-next-slot>—</span></span>
   </a>
   <a href="tel:+14138854440" class="mobile-cta__call" aria-label="Call Fade Empire">

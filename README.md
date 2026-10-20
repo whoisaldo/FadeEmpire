@@ -16,6 +16,8 @@ Live: <https://chicopeefadeempire.com>
 - **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
 - **Multi-slot services** — any service longer than the 45-minute grid books linked consecutive slots automatically. No current service needs it: the VIP is 45 minutes (migration 0018), so every service fits one slot — the machinery stays for the day one doesn't
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
+- **Text consent** — two boxes in your details: a reminder the day before (on by default) and a text when the next cut is due, about every 3 weeks (off). Sent with the booking as `p_remind_sms` / `p_rebook_sms` (migration 0019)
+- **Returning customer** — after a booking, the customer's own choices (name, phone, barber, service, add-ons, the text boxes; never guests) stay in `localStorage` under `fe.lastBooking`. The next visit opens with "Welcome back" and the form filled in, the cancel panel has the phone, and the sticky bar reads "Rebook · Hassan". "Not you? Clear" forgets it
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
 - **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across both barbers) pulled from Supabase
@@ -74,6 +76,7 @@ FadeEmpire/
 │   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
 │   ├── booking-submit.js         Form submit, group flow, the result cards and their WhatsApp/text links, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
+│   ├── booking-return.js         The remembered customer: saved choices, the rebook card, Clear
 │   ├── booking-validate.js       Pure form validation + duration-aware party planning
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
 │   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map

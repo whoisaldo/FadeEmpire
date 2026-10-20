@@ -648,6 +648,12 @@ async function submit(form) {
   // off, until "Book another".
   form.dataset.busy = 'false';
   setBooked(form, true);
+
+  // The customer's own choices, for next time (booking-return.js). Guests aren't kept.
+  document.dispatchEvent(new CustomEvent('booking:booked', { detail: {
+    name, phone: phone.replace(/\D/g, '').slice(-10), barberSlug: sel.barberSlug,
+    serviceSlug: service, addons, remindSms, rebookSms,
+  } }));
 }
 
 /** After a shortcut has filled part of the booking (Book with Hassan, Book
@@ -678,6 +684,11 @@ async function focusNextStep(form) {
 function unlock(form) {
   shown = null;
   setBooked(form, false);
+  resetForm(form);
+}
+
+/** Every field back to its default, no guests, no time picked. */
+export function resetForm(form) {
   form.reset();
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;

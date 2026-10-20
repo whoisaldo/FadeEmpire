@@ -7,6 +7,7 @@ import { initGallery }        from './gallery.js';
 import { initBookingGrid }    from './booking-grid.js';
 import { initBookingSubmit }  from './booking-submit.js';
 import { initBookingCancel }  from './booking-cancel.js';
+import { initBookingReturn }  from './booking-return.js';
 import { initVisit }          from './visit.js';
 
 function ready(fn) {
@@ -47,6 +48,7 @@ ready(() => {
   initVisit();
   initBookingSubmit();
   initBookingCancel();
+  initBookingReturn();          // before the grid: it starts on a returning customer's barber
   initBookingGrid();           // async; loads availability in the background
   registerSW();
 });

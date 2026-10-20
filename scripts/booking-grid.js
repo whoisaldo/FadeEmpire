@@ -73,6 +73,19 @@ function selectBarber(slug, { keepDate = false } = {}) {
   }
 }
 
+/** A barber chosen from outside the picker: a returning customer's, or the
+ *  barber of a booking being moved. Before the grid boots this only sets the
+ *  barber it starts with, so the first read is already his. */
+let booted = false;
+export function chooseBarber(slug) {
+  if (!booted) {
+    if (BARBERS[slug]) state.barberSlug = slug;
+    return;
+  }
+  cancelPick();
+  selectBarber(slug);
+}
+
 function bindBarberPicker() {
   document.querySelectorAll('[data-barber-option]').forEach(btn => {
     btn.addEventListener('click', () => { cancelPick(); selectBarber(btn.dataset.barberOption); });
@@ -468,6 +481,7 @@ function initAutoRefresh() {
 
 export async function initBookingGrid() {
   if (!document.querySelector('[data-day-row]')) return;
+  booted = true;
   bindBarberPicker();
   selectBarber(state.barberSlug);   // paint initial aria-checked state
   renderDayRow();
