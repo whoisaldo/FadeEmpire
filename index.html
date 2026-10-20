@@ -39,8 +39,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,700;1,9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap">
 
-  <link rel="preload" as="image"
+  <link rel="preload" as="image" media="(min-width: 441px)"
         imagesrcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w, ./assets/img/hero-cut-1600.webp 1600w, ./assets/img/hero-cut-2000.webp 2000w"
+        imagesizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" media="(max-width: 440px)"
+        imagesrcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w"
         imagesizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw" type="image/webp" fetchpriority="high">
 
   <script type="application/ld+json">
@@ -140,6 +143,9 @@
 <section class="hero" id="hero">
   <div class="hero__bg" aria-hidden="true">
     <picture>
+      <source media="(max-width: 440px)" type="image/webp"
+              srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w"
+              sizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw">
       <source type="image/webp"
               srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w, ./assets/img/hero-cut-1600.webp 1600w, ./assets/img/hero-cut-2000.webp 2000w"
               sizes="(max-width: 600px) max(100vw, 66vh, 550px), (max-width: 767px) max(100vw, 69vh), 100vw">
@@ -226,6 +232,9 @@
 
       <figure class="shop__room reveal" data-reveal-delay="120">
         <picture>
+          <source media="(max-width: 440px)" type="image/webp"
+                  srcset="./assets/img/interior-480.webp 480w, ./assets/img/interior-800.webp 800w"
+                  sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 719px) calc(103.5vw - 36px), (max-width: 1023px) calc(52vw - 30px), (max-width: 1279px) 30vw, 405px">
           <source type="image/webp"
                   srcset="./assets/img/interior-480.webp 480w, ./assets/img/interior-800.webp 800w, ./assets/img/interior-1200.webp 1200w, ./assets/img/interior-1600.webp 1600w"
                   sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 719px) calc(103.5vw - 36px), (max-width: 1023px) calc(52vw - 30px), (max-width: 1279px) 30vw, 405px">
@@ -318,6 +327,9 @@
 
         <figure class="menu__photo">
           <picture>
+            <source media="(max-width: 440px)" type="image/webp"
+                    srcset="./assets/img/price-wall-480.webp 480w, ./assets/img/price-wall-800.webp 800w"
+                    sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 899px) calc(92vw - 32px), (max-width: 1349px) calc(35vw - 10px), 462px">
             <source type="image/webp"
                     srcset="./assets/img/price-wall-480.webp 480w, ./assets/img/price-wall-800.webp 800w, ./assets/img/price-wall-1200.webp 1200w"
                     sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 899px) calc(92vw - 32px), (max-width: 1349px) calc(35vw - 10px), 462px">
@@ -468,6 +480,7 @@
       <figure class="plate plate--span-4 reveal" data-plate="cut-textured-taper">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Textured taper, low skin fade">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-textured-taper-480.webp 480w, ./assets/img/cut-textured-taper-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-textured-taper-480.webp 480w, ./assets/img/cut-textured-taper-800.webp 800w, ./assets/img/cut-textured-taper-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-textured-taper-800.jpg" srcset="./assets/img/cut-textured-taper-480.jpg 480w, ./assets/img/cut-textured-taper-800.jpg 800w, ./assets/img/cut-textured-taper-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Textured taper with a low skin fade, seen from the side">
           </picture>
@@ -478,6 +491,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="80" data-plate="cut-curls-full-beard">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Curls with a full shaped beard">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-curls-full-beard-480.webp 480w, ./assets/img/cut-curls-full-beard-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-curls-full-beard-480.webp 480w, ./assets/img/cut-curls-full-beard-800.webp 800w, ./assets/img/cut-curls-full-beard-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-curls-full-beard-800.jpg" srcset="./assets/img/cut-curls-full-beard-480.jpg 480w, ./assets/img/cut-curls-full-beard-800.jpg 800w, ./assets/img/cut-curls-full-beard-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Long curls on top with a full beard, shaped and lined">
           </picture>
@@ -488,6 +502,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-mid-fade-lineup">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Skin fade with a textured top">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-mid-fade-lineup-480.webp 480w, ./assets/img/cut-mid-fade-lineup-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-mid-fade-lineup-480.webp 480w, ./assets/img/cut-mid-fade-lineup-800.webp 800w, ./assets/img/cut-mid-fade-lineup-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-mid-fade-lineup-800.jpg" srcset="./assets/img/cut-mid-fade-lineup-480.jpg 480w, ./assets/img/cut-mid-fade-lineup-800.jpg 800w, ./assets/img/cut-mid-fade-lineup-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Skin fade with a textured top, side profile">
           </picture>
@@ -498,6 +513,7 @@
       <figure class="plate plate--span-5 reveal" data-plate="cut-crop-goatee">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: French crop with a goatee">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-crop-goatee-480.webp 480w, ./assets/img/cut-crop-goatee-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <source type="image/webp" srcset="./assets/img/cut-crop-goatee-480.webp 480w, ./assets/img/cut-crop-goatee-800.webp 800w, ./assets/img/cut-crop-goatee-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <img src="./assets/img/cut-crop-goatee-800.jpg" srcset="./assets/img/cut-crop-goatee-480.jpg 480w, ./assets/img/cut-crop-goatee-800.jpg 800w, ./assets/img/cut-crop-goatee-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px" width="800" height="1067" loading="lazy" decoding="async" alt="Short French crop with a skin fade and a trimmed goatee">
           </picture>
@@ -515,6 +531,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-beard-recline">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Beard trim in the chair">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-beard-recline-480.webp 480w, ./assets/img/cut-beard-recline-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-beard-recline-480.webp 480w, ./assets/img/cut-beard-recline-800.webp 800w, ./assets/img/cut-beard-recline-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-beard-recline-800.jpg" srcset="./assets/img/cut-beard-recline-480.jpg 480w, ./assets/img/cut-beard-recline-800.jpg 800w, ./assets/img/cut-beard-recline-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="A customer reclined in the chair for a beard trim">
           </picture>
@@ -525,6 +542,7 @@
       <figure class="plate plate--span-3 reveal" data-plate="cut-designed-part">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: V-shaped neckline">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-designed-part-480.webp 480w, ./assets/img/cut-designed-part-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px">
             <source type="image/webp" srcset="./assets/img/cut-designed-part-480.webp 480w, ./assets/img/cut-designed-part-800.webp 800w, ./assets/img/cut-designed-part-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px">
             <img src="./assets/img/cut-designed-part-800.jpg" srcset="./assets/img/cut-designed-part-480.jpg 480w, ./assets/img/cut-designed-part-800.jpg 800w, ./assets/img/cut-designed-part-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px" width="800" height="1067" loading="lazy" decoding="async" alt="Fade with a V-shaped neckline, seen from behind">
           </picture>
@@ -535,6 +553,7 @@
       <figure class="plate plate--span-5 reveal" data-reveal-delay="80" data-plate="cut-kids-high-fade">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: High fade">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-kids-high-fade-480.webp 480w, ./assets/img/cut-kids-high-fade-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <source type="image/webp" srcset="./assets/img/cut-kids-high-fade-480.webp 480w, ./assets/img/cut-kids-high-fade-800.webp 800w, ./assets/img/cut-kids-high-fade-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <img src="./assets/img/cut-kids-high-fade-800.jpg" srcset="./assets/img/cut-kids-high-fade-480.jpg 480w, ./assets/img/cut-kids-high-fade-800.jpg 800w, ./assets/img/cut-kids-high-fade-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px" width="800" height="1067" loading="lazy" decoding="async" alt="High skin fade with a textured top and a full beard, side profile">
           </picture>
@@ -545,6 +564,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-beard-shape">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Low taper">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-beard-shape-480.webp 480w, ./assets/img/cut-beard-shape-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-beard-shape-480.webp 480w, ./assets/img/cut-beard-shape-800.webp 800w, ./assets/img/cut-beard-shape-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-beard-shape-800.jpg" srcset="./assets/img/cut-beard-shape-480.jpg 480w, ./assets/img/cut-beard-shape-800.jpg 800w, ./assets/img/cut-beard-shape-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Low taper fade, side view, in the chair by the window">
           </picture>
@@ -555,6 +575,7 @@
       <figure class="plate plate--span-4 reveal" data-plate="cut-curls-skin-fade">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Curls with a skin fade">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-curls-skin-fade-480.webp 480w, ./assets/img/cut-curls-skin-fade-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-curls-skin-fade-480.webp 480w, ./assets/img/cut-curls-skin-fade-800.webp 800w, ./assets/img/cut-curls-skin-fade-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-curls-skin-fade-800.jpg" srcset="./assets/img/cut-curls-skin-fade-480.jpg 480w, ./assets/img/cut-curls-skin-fade-800.jpg 800w, ./assets/img/cut-curls-skin-fade-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Curly top with a skin fade, seen from the side">
           </picture>
@@ -565,6 +586,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="80" data-plate="cut-razor-design">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Skin fade, beard">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-razor-design-480.webp 480w, ./assets/img/cut-razor-design-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-razor-design-480.webp 480w, ./assets/img/cut-razor-design-800.webp 800w, ./assets/img/cut-razor-design-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-razor-design-800.jpg" srcset="./assets/img/cut-razor-design-480.jpg 480w, ./assets/img/cut-razor-design-800.jpg 800w, ./assets/img/cut-razor-design-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Skin fade with a beard, photographed in profile">
           </picture>
@@ -575,6 +597,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-beard-shape-up">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Taper with a shape-up">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-beard-shape-up-480.webp 480w, ./assets/img/cut-beard-shape-up-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/cut-beard-shape-up-480.webp 480w, ./assets/img/cut-beard-shape-up-800.webp 800w, ./assets/img/cut-beard-shape-up-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/cut-beard-shape-up-800.jpg" srcset="./assets/img/cut-beard-shape-up-480.jpg 480w, ./assets/img/cut-beard-shape-up-800.jpg 800w, ./assets/img/cut-beard-shape-up-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Side part with a tight taper and shape-up">
           </picture>
@@ -585,6 +608,7 @@
       <figure class="plate plate--span-5 reveal" data-plate="cut-low-fade">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Beard line, skin fade">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-low-fade-480.webp 480w, ./assets/img/cut-low-fade-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <source type="image/webp" srcset="./assets/img/cut-low-fade-480.webp 480w, ./assets/img/cut-low-fade-800.webp 800w, ./assets/img/cut-low-fade-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px">
             <img src="./assets/img/cut-low-fade-800.jpg" srcset="./assets/img/cut-low-fade-480.jpg 480w, ./assets/img/cut-low-fade-800.jpg 800w, ./assets/img/cut-low-fade-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(40vw - 22px), 576px" width="800" height="1067" loading="lazy" decoding="async" alt="Razor-lined beard with a skin fade, close up">
           </picture>
@@ -595,6 +619,7 @@
       <figure class="plate plate--span-3 reveal" data-reveal-delay="80" data-plate="cut-high-fade-texture">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Fade with textured top">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/cut-high-fade-texture-480.webp 480w, ./assets/img/cut-high-fade-texture-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px">
             <source type="image/webp" srcset="./assets/img/cut-high-fade-texture-480.webp 480w, ./assets/img/cut-high-fade-texture-800.webp 800w, ./assets/img/cut-high-fade-texture-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px">
             <img src="./assets/img/cut-high-fade-texture-800.jpg" srcset="./assets/img/cut-high-fade-texture-480.jpg 480w, ./assets/img/cut-high-fade-texture-800.jpg 800w, ./assets/img/cut-high-fade-texture-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(24.8vw - 16px), 355px" width="800" height="1067" loading="lazy" decoding="async" alt="High fade with a textured top, in the blue cape">
           </picture>
@@ -605,6 +630,7 @@
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="hero-cut">
         <button type="button" class="plate__btn" data-lightbox-open aria-label="View larger: Pompadour with a skin fade">
           <picture>
+            <source media="(max-width: 600px)" type="image/webp" srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <source type="image/webp" srcset="./assets/img/hero-cut-480.webp 480w, ./assets/img/hero-cut-800.webp 800w, ./assets/img/hero-cut-1200.webp 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px">
             <img src="./assets/img/hero-cut-800.jpg" srcset="./assets/img/hero-cut-480.jpg 480w, ./assets/img/hero-cut-800.jpg 800w, ./assets/img/hero-cut-1200.jpg 1200w" sizes="(max-width: 461px) 78vw, (max-width: 600px) 360px, (max-width: 1023px) calc(47.5vw - 18px), (max-width: 1499px) calc(31.5vw - 15px), 457px" width="800" height="1067" loading="lazy" decoding="async" alt="Slicked-back pompadour with a skin fade and a shaped beard">
           </picture>
@@ -656,6 +682,9 @@
     <div class="feature" id="hassan">
       <figure class="feature__portrait reveal">
         <picture>
+          <source media="(max-width: 440px)" type="image/webp"
+                  srcset="./assets/img/hassan-480.webp 480w, ./assets/img/hassan-800.webp 800w"
+                  sizes="(max-width: 600px) calc(102vw - 40px), (max-width: 899px) calc(93.5vw - 32px), (max-width: 1349px) calc(40.5vw - 16px), 530px">
           <source type="image/webp"
                   srcset="./assets/img/hassan-480.webp 480w, ./assets/img/hassan-800.webp 800w, ./assets/img/hassan-1200.webp 1200w"
                   sizes="(max-width: 600px) calc(102vw - 40px), (max-width: 899px) calc(93.5vw - 32px), (max-width: 1349px) calc(40.5vw - 16px), 530px">
@@ -684,6 +713,9 @@
     <div class="feature feature--flip" id="larry">
       <figure class="feature__portrait reveal">
         <picture>
+          <source media="(max-width: 440px)" type="image/webp"
+                  srcset="./assets/img/larry-480.webp 480w, ./assets/img/larry-800.webp 800w"
+                  sizes="(max-width: 600px) calc(102vw - 40px), (max-width: 899px) calc(93.5vw - 32px), (max-width: 1349px) calc(40.5vw - 16px), 530px">
           <source type="image/webp"
                   srcset="./assets/img/larry-480.webp 480w, ./assets/img/larry-800.webp 800w, ./assets/img/larry-1200.webp 1200w"
                   sizes="(max-width: 600px) calc(102vw - 40px), (max-width: 899px) calc(93.5vw - 32px), (max-width: 1349px) calc(40.5vw - 16px), 530px">
@@ -959,6 +991,9 @@
     <div class="visit">
       <figure class="visit__photo reveal">
         <picture>
+          <source media="(max-width: 440px)" type="image/webp"
+                  srcset="./assets/img/storefront-480.webp 480w, ./assets/img/storefront-800.webp 800w"
+                  sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 899px) calc(92vw - 32px), (max-width: 1349px) calc(45.6vw - 20px), 596px">
           <source type="image/webp"
                   srcset="./assets/img/storefront-480.webp 480w, ./assets/img/storefront-800.webp 800w, ./assets/img/storefront-1200.webp 1200w"
                   sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 899px) calc(92vw - 32px), (max-width: 1349px) calc(45.6vw - 20px), 596px">
