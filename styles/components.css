@@ -35,15 +35,9 @@
 .btn:hover,
 .btn:focus-visible {
   transform: translateY(-1px);
-  outline: none;
 }
 
 .btn:active { transform: translateY(0); }
-
-.btn:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
 
 .btn--gold {
   --btn-bg: var(--gold);
@@ -251,6 +245,44 @@
 }
 
 /* =====================================================
+   Video buttons (tour sound + pause, gallery pause): a pill over the clip.
+   aria-pressed="true" turns them gold: sound on, or paused.
+===================================================== */
+.video-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.6rem 0.95rem 0.6rem 0.8rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-pill);
+  background: rgba(10, 9, 8, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--bone);
+  font-family: 'General Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
+}
+.video-btn:hover { border-color: var(--gold); color: var(--gold); }
+.video-btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+
+.video-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.video-btn__fill { fill: currentColor; stroke: none; }
+
+/* =====================================================
    OPEN / CLOSED stamp
 ===================================================== */
 .stamp {
@@ -304,7 +336,7 @@
 }
 
 .stamp--closed {
-  color: var(--status-closed);
+  color: #E5735F;   /* --status-closed lifted to 6:1 on the nav; the dot keeps the deeper red */
   border-color: rgba(192, 57, 43, 0.45);
   background: rgba(192, 57, 43, 0.05);
 }
@@ -366,6 +398,36 @@
 }
 
 /* =====================================================
+   Booking unavailable: main.js shows this at the top of #book when the
+   booking scripts fail to load.
+===================================================== */
+.booking-offline {
+  margin: 0 0 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-md);
+  background: var(--gold-faint);
+  color: var(--bone);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+.booking-offline a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+/* =====================================================
    Misc
 ===================================================== */
 [hidden] { display: none !important; }
+
+/* One focus ring for everything the keyboard reaches: links, buttons,
+   fields, summaries. Plates draw theirs inset (gallery.css) because the
+   frame clips anything outside it. */
+:focus-visible,
+#book .booking__field :is(input, select, textarea):focus-visible {   /* outranks the fields' outline: none */
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

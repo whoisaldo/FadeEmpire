@@ -3,8 +3,10 @@
 // Both clips are marked `preload="none"` with their file in a data attribute,
 // so nothing downloads until the plate scrolls near the viewport. They play
 // muted and looped, pause when they scroll out again (battery, data), and
-// never autoplay for people who asked the OS for reduced motion. The tour
-// gets a sound toggle: off by default, one tap to hear it.
+// never autoplay for people who asked the OS for reduced motion. Each clip
+// has a pause button; a clip the visitor paused stays paused when it scrolls
+// back into view. The tour also gets a sound toggle (off by default); its
+// voice-over is captioned in the video itself, so there is no caption track.
 
 const NEAR = '200px 0px';
 
@@ -22,15 +24,17 @@ function safePlay(video) {
 }
 
 /** Attach the right file once, then play/pause with visibility.
- *  Returns { attach } so a user gesture can force the file to load. */
+ *  Returns { attach, userPaused }: a user gesture can force the file to
+ *  load, and while userPaused is set, scrolling back does not restart it. */
 function bindLazyClip(video) {
   const src = video.dataset.src
     || (isPhone() ? video.dataset.srcMobile : video.dataset.srcDesktop)
     || video.dataset.srcDesktop;
-  if (!src) return { attach() {} };
+  const clip = { attach() {}, userPaused: false };
+  if (!src) return clip;
 
   let attached = false;
-  const attach = () => {
+  clip.attach = () => {
     if (attached) return;
     attached = true;
     video.src = src;
@@ -38,14 +42,14 @@ function bindLazyClip(video) {
   };
 
   const play = () => {
-    attach();
-    if (prefersReducedMotion()) return;
+    clip.attach();
+    if (prefersReducedMotion() || clip.userPaused) return;
     safePlay(video);
   };
 
   if (!('IntersectionObserver' in window)) {
     play();
-    return { attach };
+    return clip;
   }
 
   const io = new IntersectionObserver((entries) => {
@@ -55,7 +59,29 @@ function bindLazyClip(video) {
     });
   }, { rootMargin: NEAR, threshold: 0.2 });
   io.observe(video);
-  return { attach };
+  return clip;
+}
+
+/** Play or pause on a visitor's request, and remember a pause. */
+function togglePlayback(video, clip) {
+  if (video.paused) {
+    clip.userPaused = false;
+    clip.attach();
+    safePlay(video);
+  } else {
+    clip.userPaused = true;
+    video.pause();
+  }
+}
+
+/** The pause button reads as pressed whenever the clip is not playing. */
+function bindPauseToggle(button, video, clip) {
+  if (!button) return;
+  const render = () => button.setAttribute('aria-pressed', video.paused ? 'true' : 'false');
+  button.addEventListener('click', () => togglePlayback(video, clip));
+  video.addEventListener('play', render);
+  video.addEventListener('pause', render);
+  render();
 }
 
 function bindSoundToggle(figure, video, clip) {
@@ -76,6 +102,7 @@ function bindSoundToggle(figure, video, clip) {
       // Unmuting is a user gesture, so playback is allowed even where
       // autoplay with sound is not. Restart from the top so the voice-over
       // makes sense.
+      clip.userPaused = false;
       clip.attach();
       video.currentTime = 0;
       safePlay(video);
@@ -103,16 +130,16 @@ export function initShopVideo() {
       video.muted = true;     // the attribute alone is not enough in every browser
       const clip = bindLazyClip(video);
       bindSoundToggle(figure, video, clip);
+      bindPauseToggle(figure.querySelector('[data-video-pause]'), video, clip);
       // Tapping the video itself toggles play/pause (there are no native controls)
-      video.addEventListener('click', () => {
-        if (video.paused) { clip.attach(); safePlay(video); }
-        else video.pause();
-      });
+      video.addEventListener('click', () => togglePlayback(video, clip));
     }
   }
 
   document.querySelectorAll('.plate__video').forEach((video) => {
     video.muted = true;
-    bindLazyClip(video);
+    const clip = bindLazyClip(video);
+    bindPauseToggle(video.parentElement.querySelector('[data-video-pause]'), video, clip);
+    video.addEventListener('click', () => togglePlayback(video, clip));
   });
 }

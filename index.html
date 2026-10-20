@@ -99,6 +99,7 @@
 </head>
 <body>
 
+<a class="skip-link" href="#main">Skip to main content</a>
 <a class="skip-link" href="#book">Skip to booking</a>
 
 <!-- ============================================================
@@ -125,7 +126,7 @@
     <div class="nav__meta">
       <span class="stamp" data-open-stamp aria-live="polite">
         <span class="stamp__dot"></span>
-        <span class="stamp__text">Open</span>
+        <span class="stamp__text">10–6 · Closed Tue</span>
       </span>
       <a href="tel:+14138854440" class="nav__phone t-mono">413·885·4440</a>
       <button class="nav__toggle" type="button" data-nav-toggle aria-label="Open menu" aria-expanded="false">
@@ -221,15 +222,21 @@
                data-src-mobile="./assets/video/shop-tour-540.mp4"
                data-src-desktop="./assets/video/shop-tour-720.mp4"
                aria-label="A short tour of Fade Empire"></video>
-        <button type="button" class="shop__sound" data-video-sound aria-pressed="false" aria-label="Turn sound on">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path class="shop__sound-body" d="M4 9v6h4l5 4V5L8 9H4z"/>
-            <path class="shop__sound-wave" d="M16 8.5a4.5 4.5 0 0 1 0 7"/>
-            <path class="shop__sound-wave shop__sound-wave--far" d="M18.5 5.5a8 8 0 0 1 0 13"/>
-            <path class="shop__sound-off" d="M16 9l5 6M21 9l-5 6"/>
-          </svg>
-          <span class="shop__sound-text" data-video-sound-text>Sound off</span>
-        </button>
+        <div class="shop__controls">
+          <button type="button" class="video-btn shop__sound" data-video-sound aria-pressed="false" aria-label="Turn sound on">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="shop__sound-body" d="M4 9v6h4l5 4V5L8 9H4z"/>
+              <path class="shop__sound-wave" d="M16 8.5a4.5 4.5 0 0 1 0 7"/>
+              <path class="shop__sound-wave shop__sound-wave--far" d="M18.5 5.5a8 8 0 0 1 0 13"/>
+              <path class="shop__sound-off" d="M16 9l5 6M21 9l-5 6"/>
+            </svg>
+            <span class="shop__sound-text" data-video-sound-text>Sound off</span>
+          </button>
+          <button type="button" class="video-btn" data-video-pause aria-pressed="false" aria-label="Pause tour video">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="video-btn__fill" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+            <span>Pause</span>
+          </button>
+        </div>
       </figure>
 
       <figure class="shop__room reveal" data-reveal-delay="120">
@@ -528,6 +535,10 @@
                poster="./assets/img/mirror-check-poster.jpg"
                data-src="./assets/video/mirror-check.mp4"
                aria-label="A customer checking his fresh fade in the mirror"></video>
+        <button type="button" class="video-btn plate__pause" data-video-pause aria-pressed="false" aria-label="Pause gallery video">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="video-btn__fill" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+          <span>Pause</span>
+        </button>
       </figure>
 
       <figure class="plate plate--span-4 reveal" data-reveal-delay="160" data-plate="cut-beard-recline">
@@ -657,7 +668,7 @@
     </button>
     <figure class="lightbox__figure">
       <img class="lightbox__img" data-lightbox-img alt="">
-      <figcaption class="lightbox__cap t-meta">
+      <figcaption class="lightbox__cap t-meta" aria-live="polite">
         <span data-lightbox-cap></span>
         <span class="lightbox__count t-mono" data-lightbox-count></span>
       </figcaption>
@@ -1124,7 +1135,7 @@
       </div>
     </div>
     <p class="footer__copy t-meta">
-      © <span data-year>2026</span> Fade Empire · All rights reserved
+      © <span data-year>2026</span> Fade Empire
     </p>
   </div>
 </footer>

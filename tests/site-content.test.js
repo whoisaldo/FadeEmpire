@@ -245,6 +245,70 @@ describe('the booking section is never hidden behind a scroll reveal (D1)', () =
   });
 });
 
+describe('the page before (or without) its scripts', () => {
+  it('the nav stamp ships the hours, not a live state it cannot know yet', () => {
+    const stamp = html.match(/<span class="([^"]*)" data-open-stamp[^>]*>([\s\S]*?)<\/span>\s*<\/span>/);
+    expect(stamp).toBeTruthy();
+    expect(stamp[1]).toBe('stamp');                      // no stamp--open / --closed class
+    expect(stamp[2]).toMatch(/<span class="stamp__text">10–6 · Closed Tue$/);
+  });
+
+  it('the first two links are "Skip to main content" then "Skip to booking", both to real targets', () => {
+    const links = [...html.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].slice(0, 2).map((m) => [m[1], m[2]]);
+    expect(links).toEqual([['#main', 'Skip to main content'], ['#book', 'Skip to booking']]);
+    expect(html).toMatch(/<main id="main">/);
+    expect(html).toMatch(/<section[^>]*id="book"/);
+  });
+
+  it('no caption track on the tour: its voice-over is captioned in the video itself', () => {
+    expect(html).not.toMatch(/<track\b/);
+    expect(html).not.toContain('shop-tour.vtt');
+  });
+});
+
+describe('the gallery, focus and 404 styles', () => {
+  /** Every top-level rule in a stylesheet, as [selectors[], body]. */
+  const rules = (file) => [...readFileSync(join(ROOT, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    .matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].split(/,(?![^(]*\))/).map((s) => s.trim()), m[2]]);   // not the commas inside :is()
+
+  it('gallery photos fill their plates; only the pause button sits absolutely in a corner', () => {
+    const css = rules('styles/gallery.css');
+    const fill = css.find(([sel]) => sel.includes('.plate img'));
+    expect(fill[0]).toEqual(['.plate img', '.plate__video']);
+    expect(fill[1]).toMatch(/width:\s*100%/);
+    expect(fill[1]).toMatch(/object-fit:\s*cover/);
+    for (const [sel, body] of css) {
+      if (sel.includes('.plate img')) expect(body).not.toMatch(/position:\s*absolute/);
+    }
+    expect(css.find(([sel]) => sel.join() === '.plate__pause')[1]).toMatch(/position:\s*absolute/);
+  });
+
+  it('one gold focus ring, and the booking fields get it too despite their outline: none on focus', () => {
+    const ring = rules('styles/components.css').find(([sel]) => sel.includes(':focus-visible'));
+    expect(ring[0]).toEqual([':focus-visible', '#book .booking__field :is(input, select, textarea):focus-visible']);
+    expect(ring[1]).toMatch(/outline:\s*2px solid var\(--gold\)/);
+    // The ring rule must outrank this one (an id beats its two classes).
+    expect(rules('styles/booking-grid.css').some(([sel, body]) =>
+      sel.includes('.booking__field input:focus') && /outline:\s*none/.test(body))).toBe(true);
+  });
+
+  it('a focused gallery plate draws its ring with the frame above the photo (the photo would hide an outline)', () => {
+    const css = rules('styles/gallery.css');
+    const ring = css.find(([sel]) => sel.join() === '.plate:has(.plate__btn:focus-visible)::after');
+    expect(ring[1]).toMatch(/border:\s*2px solid var\(--gold\)/);
+    const frame = css.find(([sel]) => sel.join() === '.plate::after');
+    expect(frame[1]).toMatch(/position:\s*absolute/);
+    expect(frame[1]).toMatch(/z-index:\s*2/);
+  });
+
+  it('the 404 page loads its styles and icons from the site root, so nested missing URLs keep them', () => {
+    const page = readFileSync(join(ROOT, '404.html'), 'utf8');
+    const local = [...page.matchAll(/<link\b[^>]*href="([^"]+)"/g)].map((m) => m[1]).filter((h) => !/^https?:/.test(h));
+    expect(local.length).toBeGreaterThanOrEqual(4);
+    for (const href of local) expect(href.startsWith('/')).toBe(true);
+  });
+});
+
 describe('the copy is free of the old placeholders', () => {
   it('has no fake magazine chrome or invented statistics', () => {
     for (const tell of ['Issue No.', 'Chapter I', 'Plate 01', '2,000+', '★ 5.0', 'No filters', 'no AI hair']) {

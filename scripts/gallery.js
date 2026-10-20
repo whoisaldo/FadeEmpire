@@ -3,7 +3,10 @@
 // Plates are <figure data-plate="stem"> elements. Tapping one opens the
 // single <dialog data-lightbox> with the 1200 px file for that stem, and
 // arrow keys / swipes / the two buttons move through the photos. The video
-// plate has no stem and is skipped by the lightbox.
+// plate has no stem and is skipped by the lightbox. Opening adds a history
+// entry that names the photo, so the browser's Back closes it instead of
+// leaving the page and Forward opens it again; closing any other way removes
+// that entry again.
 
 const IMG_DIR = './assets/img';
 
@@ -37,7 +40,9 @@ function initLightbox(root) {
   const count = dialog.querySelector('[data-lightbox-count]');
   const items = plateImages(root);
   let index = 0;
-  let returnTo = null;
+  let returnTo = null;     // the plate that gets focus on close
+  let openedBy = null;     // the plate the visitor tapped to open the viewer
+  const onOurEntry = () => Boolean(history.state?.lightbox);
 
   const show = (i) => {
     index = (i + items.length) % items.length;
@@ -48,26 +53,64 @@ function initLightbox(root) {
     img.alt = item.alt;
     cap.textContent = item.caption;
     count.textContent = `${String(index + 1).padStart(2, '0')} / ${String(items.length).padStart(2, '0')}`;
+    // Our entry follows the photo on screen, so Forward brings back the last one seen.
+    if (dialog.open && onOurEntry()) history.replaceState({ lightbox: item.stem }, '');
   };
 
-  const open = (stem, opener) => {
+  const plateButton = (stem) => [...root.querySelectorAll('[data-plate]')]
+    .find((figure) => figure.dataset.plate === stem)?.querySelector('[data-lightbox-open]');
+
+  // fromHistory: the entry already exists (Forward, or a reload on it).
+  const open = (stem, opener, { fromHistory = false } = {}) => {
     const i = items.findIndex((it) => it.stem === stem);
     if (i < 0) return;
-    returnTo = opener || null;
+    if (opener) openedBy = opener;
+    returnTo = opener || plateButton(stem);
     show(i);
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     document.body.style.overflow = 'hidden';
+    if (!fromHistory) history.pushState({ lightbox: stem }, '');
   };
 
   const close = () => {
     if (dialog.open) dialog.close();
   };
 
+  // Back off our entry closes the photo; Forward onto it opens that photo again.
+  window.addEventListener('popstate', (e) => {
+    const stem = e.state?.lightbox;
+    if (stem) open(stem, null, { fromHistory: true });
+    else close();
+  });
+
   dialog.addEventListener('close', () => {
     document.body.style.overflow = '';
     img.removeAttribute('src');
     img.removeAttribute('srcset');
-    returnTo?.focus?.({ preventScroll: true });
+    // A plate other than the one tapped (the photo came back through Forward
+    // or a reload) may be far down the page or along the filmstrip: bring it
+    // into view first, so its focus ring is on screen.
+    const target = returnTo;
+    const moved = Boolean(target) && target !== openedBy;
+    const refocus = () => {
+      if (moved) {
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      }
+      target?.focus?.({ preventScroll: true });
+    };
+    // Closed with the button, Escape or the backdrop: our entry is still on
+    // top, so drop it and the next Back leaves the page as usual. (Closed by
+    // Back, the browser has already left the entry.) Landing on the page's
+    // entry restores its old scroll position just after popstate, so a plate
+    // that needs scrolling waits one task past it.
+    if (onOurEntry()) {
+      if (moved) window.addEventListener('popstate', () => setTimeout(refocus), { once: true });
+      else refocus();
+      history.back();
+    } else {
+      refocus();
+    }
   });
 
   dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
@@ -101,6 +144,9 @@ function initLightbox(root) {
       if (stem) open(stem, btn);
     });
   });
+
+  // A reload on our entry shows its photo, so that entry never sits there empty.
+  if (onOurEntry()) open(history.state.lightbox, null, { fromHistory: true });
 
   return { open, close, show, get index() { return index; }, size: items.length };
 }

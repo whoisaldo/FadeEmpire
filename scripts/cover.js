@@ -1,36 +1,11 @@
-// cover.js — nav and hero helpers:
-//   * the live OPEN / CLOSING SOON / CLOSED stamp in the nav
-//   * the status line in the hero ("Open now · Closes 6 PM")
-//   * the "next open slot" line (hero, booking callout, sticky bar)
-//   * sticky-nav solidification, the mobile menu, the sticky CTA bar
-//   * the year in the footer
+// cover.js — the parts of the nav and hero that touch booking:
+//   * the "next open slot" line (hero, booking callout, sticky bar), which
+//     reads the database
+//   * the sticky CTA bar
+// Everything else on the page that needs no database lives in page.js and
+// nav.js, so it keeps working when the database client fails to load.
 
-import { CLOSING_SOON_MIN } from './config.js';
-import { shopStatus } from './booking-helpers.js';
 import { fetchNextAvailable } from './booking-rpc.js';
-
-/* ---------- Live status: nav stamp + hero line ---------- */
-
-function updateStatus() {
-  const status = shopStatus({ closingSoonMin: CLOSING_SOON_MIN });
-
-  const stamp = document.querySelector('[data-open-stamp]');
-  if (stamp) {
-    stamp.classList.remove('stamp--open', 'stamp--soon', 'stamp--closed');
-    stamp.classList.add(`stamp--${status.state}`);
-    const text = stamp.querySelector('.stamp__text');
-    if (text) text.textContent = status.label;
-  }
-
-  const hero = document.querySelector('[data-hero-status]');
-  if (hero) {
-    hero.dataset.state = status.state;
-    const label  = hero.querySelector('[data-hero-status-label]');
-    const detail = hero.querySelector('[data-hero-status-detail]');
-    if (label)  label.textContent  = status.label;
-    if (detail) detail.textContent = status.detail;
-  }
-}
 
 /* ---------- Next open slot ---------- */
 
@@ -118,78 +93,10 @@ function initMobileCta() {
   window.addEventListener('resize', onScroll, { passive: true });
 }
 
-/* ---------- Sticky nav ---------- */
-
-function initStickyNav() {
-  const nav = document.querySelector('[data-nav]');
-  if (!nav) return;
-  const onScroll = () => {
-    nav.classList.toggle('is-solid', window.scrollY > 32);
-  };
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
-}
-
-/* ---------- Mobile menu ---------- */
-
-function initMobileNav() {
-  const nav    = document.querySelector('[data-nav]');
-  const toggle = document.querySelector('[data-nav-toggle]');
-  if (!nav || !toggle) return;
-
-  const close = () => {
-    nav.removeAttribute('data-nav-open');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open menu');
-    document.body.style.overflow = '';
-  };
-  const open = () => {
-    nav.setAttribute('data-nav-open', '');
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close menu');
-    document.body.style.overflow = 'hidden';
-  };
-
-  toggle.addEventListener('click', () => {
-    nav.hasAttribute('data-nav-open') ? close() : open();
-  });
-  nav.querySelectorAll('.nav__link').forEach(a => a.addEventListener('click', close));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && nav.hasAttribute('data-nav-open')) close();
-  });
-}
-
-/* ---------- "Which one do I book?" ----------
-   A <details> that ships closed so phones never flash the four cards before
-   collapsing them. Desktop opens it here (the table should always show) and
-   the summary goes inert through CSS once open. */
-
-function initCompare() {
-  const details = document.querySelector('[data-compare]');
-  if (!details || !window.matchMedia) return;
-  const phone = window.matchMedia('(max-width: 600px)');
-  const sync = () => { details.open = !phone.matches; };
-  sync();
-  phone.addEventListener?.('change', sync);
-}
-
-/* ---------- Footer year ---------- */
-
-function initYear() {
-  const el = document.querySelector('[data-year]');
-  if (el) el.textContent = new Date().getFullYear();
-}
-
 /* ---------- Boot ---------- */
 
 export function initCover() {
-  initStickyNav();
-  initMobileNav();
   initMobileCta();
-  initCompare();
-  initYear();
-  updateStatus();
-  setInterval(updateStatus, 60_000);
   updateNextAvailable();
   setInterval(updateNextAvailable, 5 * 60_000);
 }

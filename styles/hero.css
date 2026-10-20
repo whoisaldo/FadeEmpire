@@ -49,10 +49,13 @@
       rgba(10, 9, 8, 0.68) 60%,
       var(--ink) 100%);
 }
+/* Desktop: the text column sits on a bright wall, so the left 32% holds a
+   heavy shade (the gold eyebrow needs it for 4.5:1) that is gone by 56%,
+   leaving the right half of the photo as shot. */
 @media (min-width: 900px) {
   .hero__scrim {
     background:
-      linear-gradient(90deg, rgba(10, 9, 8, 0.55) 0%, rgba(10, 9, 8, 0.15) 45%, rgba(10, 9, 8, 0) 70%),
+      linear-gradient(90deg, rgba(10, 9, 8, 0.78) 0%, rgba(10, 9, 8, 0.66) 32%, rgba(10, 9, 8, 0.2) 46%, rgba(10, 9, 8, 0) 56%),
       linear-gradient(180deg,
         rgba(10, 9, 8, 0.35) 0%,
         rgba(10, 9, 8, 0.05) 30%,
@@ -232,4 +235,15 @@
 
 @keyframes heroIn {
   to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* --- Wide and short screens (laptops): keep the status strip above the
+   fold. The title sizes from the height as well as the width, and the
+   stack tightens. --- */
+@media (min-width: 900px) and (max-height: 880px) {
+  .hero { padding-top: 5.5rem; padding-bottom: 2rem; }
+  .hero__inner { gap: 1.1rem; }
+  .hero__title { font-size: clamp(4rem, min(14vw, 18vh), 11rem); }
+  .hero__ctas,
+  .hero__status { margin-top: 0.4rem; }
 }
