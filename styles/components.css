@@ -426,7 +426,8 @@
 /* One focus ring for everything the keyboard reaches: links, buttons,
    fields, summaries. Plates draw theirs inset (gallery.css) because the
    frame clips anything outside it. */
-:focus-visible {
+:focus-visible,
+#book .booking__field :is(input, select, textarea):focus-visible {   /* outranks the fields' outline: none */
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }

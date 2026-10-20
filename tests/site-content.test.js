@@ -247,10 +247,10 @@ describe('the page before (or without) its scripts', () => {
   });
 });
 
-describe('the gallery and 404 styles', () => {
+describe('the gallery, focus and 404 styles', () => {
   /** Every top-level rule in a stylesheet, as [selectors[], body]. */
   const rules = (file) => [...readFileSync(join(ROOT, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-    .matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].split(',').map((s) => s.trim()), m[2]]);
+    .matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].split(/,(?![^(]*\))/).map((s) => s.trim()), m[2]]);   // not the commas inside :is()
 
   it('gallery photos fill their plates; only the pause button sits absolutely in a corner', () => {
     const css = rules('styles/gallery.css');
@@ -262,6 +262,15 @@ describe('the gallery and 404 styles', () => {
       if (sel.includes('.plate img')) expect(body).not.toMatch(/position:\s*absolute/);
     }
     expect(css.find(([sel]) => sel.join() === '.plate__pause')[1]).toMatch(/position:\s*absolute/);
+  });
+
+  it('one gold focus ring, and the booking fields get it too despite their outline: none on focus', () => {
+    const ring = rules('styles/components.css').find(([sel]) => sel.includes(':focus-visible'));
+    expect(ring[0]).toEqual([':focus-visible', '#book .booking__field :is(input, select, textarea):focus-visible']);
+    expect(ring[1]).toMatch(/outline:\s*2px solid var\(--gold\)/);
+    // The ring rule must outrank this one (an id beats its two classes).
+    expect(rules('styles/booking-grid.css').some(([sel, body]) =>
+      sel.includes('.booking__field input:focus') && /outline:\s*none/.test(body))).toBe(true);
   });
 
   it('the 404 page loads its styles and icons from the site root, so nested missing URLs keep them', () => {
