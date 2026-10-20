@@ -331,16 +331,57 @@ function fillSend(card, { barberName, whatsapp, sms }) {
 function showSuccess(form, { text, people, total, next, send }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
+  setCardCancelled(card, false);
   card.querySelector('[data-success-text]').textContent = text;
   card.querySelector('[data-success-list]').replaceChildren(...people.map(p => {
     const li = document.createElement('li');
     li.textContent = `${p.name} · ${p.service} · ${p.time}`;
+    li.dataset.bookingId = p.id;
     return li;
   }));
   card.querySelector('[data-success-total]').textContent = total;
   card.querySelector('[data-success-next]').textContent = next;
   fillSend(card, send);
   revealCard(form, card, next);
+}
+
+/** The confirmation once everything on it is cancelled: "Cancelled.", what
+ *  it was, and no total, next step or send links. */
+function setCardCancelled(card, on) {
+  const head = card.querySelector('[data-success-head]');
+  head.textContent = on ? 'Cancelled.' : 'Chair reserved';
+  head.classList.toggle('tone-gold', !on);
+  card.querySelectorAll('.booking__success-total, [data-success-next], .booking__send')
+    .forEach(el => { el.hidden = on; });
+}
+
+// The booking the confirmation card shows, so a cancel from the panel below
+// can update it: { phone, date, rows, cancelled: Set of ids, send(rows) }.
+let shown = null;
+
+/** A booking was cancelled in the panel. If the card shows it, that person
+ *  is struck off the card, the total and the message to the barber; once
+ *  nobody is left the card says "Cancelled." and the form opens again as
+ *  after "Book another", leaving focus and the cancel status where they are. */
+function onCancelled(form, { bookingId, phone, date, time } = {}) {
+  if (form.dataset.booked !== 'true' || !shown) return;
+  const hit = shown.rows.find(b => b.booking_id && !shown.cancelled.has(b.booking_id)
+    && (b.booking_id === bookingId
+      || (phone === shown.phone && date === shown.date && b.booking_time === time)));
+  if (!hit) return;
+  shown.cancelled.add(hit.booking_id);
+  const card = form.querySelector('[data-form-success]');
+  const left = shown.rows.filter(b => !shown.cancelled.has(b.booking_id));
+  if (!left.some(b => b.booking_id)) {
+    setCardCancelled(card, true);
+    unlock(form);
+    return;
+  }
+  const li = card.querySelector(`[data-success-list] li[data-booking-id="${hit.booking_id}"]`);
+  if (li) li.textContent += ' · Cancelled';
+  card.querySelector('[data-success-total]').textContent = formatTotal(
+    left.reduce((sum, b) => sum + b.total_price_cents, 0), left.some(b => isUnpricedService(b.service_slug)));
+  fillSend(card, shown.send(left));
 }
 
 function showFallback(form, { text, send }) {
@@ -570,6 +611,7 @@ async function submit(form) {
   const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
   // One line per person; a multi-slot service's continuation rows have no id.
   const people = bookings.filter(b => b.booking_id).map(b => ({
+    id:      b.booking_id,
     name:    b.person_name,
     service: serviceLine(b.service_slug, custom)
       + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : ''),
@@ -584,6 +626,10 @@ async function submit(form) {
     next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details; he'll reply to confirm.`,
     send: sendLinks(bookings),
   });
+  shown = {
+    phone: phone.replace(/\D/g, '').slice(-10), date: sel.date,
+    rows: bookings, cancelled: new Set(), send: sendLinks,
+  };
 
   // The form stays as submitted next to the confirmation, and Reserve stays
   // off, until "Book another".
@@ -615,8 +661,9 @@ async function focusNextStep(form) {
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-/** "Book another": a fresh form, and a grid that shows the slots just taken. */
-function startOver(form) {
+/** Out of the booked state: the picker and fields open and emptied. */
+function unlock(form) {
+  shown = null;
   setBooked(form, false);
   form.reset();
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
@@ -624,10 +671,15 @@ function startOver(form) {
   form.querySelectorAll('input[name="addons"]').forEach(i => { i.dataset.wasChecked = 'false'; });
   syncCustomField(form);       // reset() fires no change event
   syncIncludedAddons(form);
-  hideMessages(form);
   clearTime();
   updateTotal(form);
   updateTimeline(form);
+}
+
+/** "Book another": a fresh form, and a grid that shows the slots just taken. */
+function startOver(form) {
+  unlock(form);
+  hideMessages(form);
   gridRefresh();
   // The card that had focus is gone: start again at step 01, the barber.
   const start = document.querySelector('[data-barber-option][aria-checked="true"]')
@@ -699,6 +751,7 @@ export function initBookingSubmit() {
     focusNextStep(form);
   });
   document.addEventListener('booking:focus-next', () => focusNextStep(form));
+  document.addEventListener('booking:cancelled', (e) => onCancelled(form, e.detail));
 
   document.addEventListener('booking:selected', (e) => {
     updateTimeline(form);

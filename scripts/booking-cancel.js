@@ -152,6 +152,11 @@ function renderBookings(root, bookings, phoneDigits) {
 
       setStatus(root, `Cancelled. Let ${barber || 'the shop'} know:`, 'ok');
 
+      // The confirmation card may be showing this booking (booking-submit.js).
+      document.dispatchEvent(new CustomEvent('booking:cancelled', { detail: {
+        bookingId: b.booking_id, phone: phoneDigits, date: b.booking_date, time: b.booking_time,
+      } }));
+
       // Freed slot should show as open in the grid without a reload.
       gridRefresh();
     });

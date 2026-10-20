@@ -967,6 +967,104 @@ describe('cancellation flow', () => {
     expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
   });
 
+  async function bookAndCancel({ id, cancelRow }) {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('10:00:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    rpc.findBookingsByPhone.mockResolvedValue([cancelRow]);
+    openPanelAndFind();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(1));
+    const reads = rpc.fetchAvailability.mock.calls.length;
+    $('.cancel__btn').click();
+    $('.cancel__btn').click();
+    await vi.waitFor(() => expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true));
+    return reads;
+  }
+
+  it('cancelling the booking on the confirmation card turns it to "Cancelled." and opens the form (R9)', async () => {
+    const shown = { ...bookingRow, booking_id: 'r9', booking_date: '2026-07-08', booking_time: '10:00:00' };
+    const reads = await bookAndCancel({ id: 'r9', cancelRow: shown });
+    rpc.fetchAvailability.mockResolvedValue([]);
+
+    const card = $('[data-form-success]');
+    expect(card.hidden).toBe(false);
+    expect(card.textContent).not.toContain('Chair reserved');
+    expect($('[data-success-head]').textContent).toBe('Cancelled.');
+    for (const sel of ['.booking__send', '[data-success-next]', '.booking__success-total']) {
+      expect(card.querySelector(sel).hidden, sel).toBe(true);
+    }
+    // Unlocked exactly as "Book another" leaves it, with the cancel status and focus kept.
+    expect(document.querySelector('.booking [inert]')).toBeNull();
+    expect($('[data-submit]').disabled).toBe(false);
+    expect($('input[name="name"]').value).toBe('');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-cancel-status]').textContent).toBe('Cancelled. Let Hassan know:');
+    expect(document.activeElement).toBe($('.cancel__done a'));
+    // The grid re-reads once now that it is open.
+    await vi.waitFor(() => expect(rpc.fetchAvailability.mock.calls.length).toBe(reads + 1));
+
+    // A new booking afterwards shows a fresh reserved card.
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r9b', slot_index: 0, booking_time: '10:45:00', total_price_cents: 3000 }]);
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    clickDay('2026-07-08');
+    clickSlot('10:45:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Chair reserved'));
+    expect(card.querySelector('.booking__send').hidden).toBe(false);
+  });
+
+  it('a cancel matches the card by phone, date and time when the ids differ (R9)', async () => {
+    const shown = { ...bookingRow, booking_id: 'other-id', booking_date: '2026-07-08', booking_time: '10:00:00' };
+    await bookAndCancel({ id: 'r9c', cancelRow: shown });
+    expect($('[data-success-head]').textContent).toBe('Cancelled.');
+  });
+
+  it('cancelling a different booking leaves the confirmation and the lock alone (R9)', async () => {
+    await bookAndCancel({ id: 'r9d', cancelRow: bookingRow });       // Fri 2 PM, not the card's
+    expect($('[data-success-head]').textContent).toBe('Chair reserved');
+    expect($('[data-form-success] .booking__send').hidden).toBe(false);
+    expect($('[data-slot-grid]').hasAttribute('inert')).toBe(true);
+  });
+
+  it('cancelling one of a group strikes that person off the card, its total and its message (R9)', async () => {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'g1', person_index: 0, person_name: 'Test Customer', service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
+      { booking_id: 'g2', person_index: 1, person_name: 'Kiddo', service_slug: 'kids-cut', booking_time: '12:15:00', total_price_cents: 2500 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-add-guest]').click();
+    fill('[data-guest-name]', 'Kiddo');
+    fill('[data-guest-service]', 'kids-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    rpc.findBookingsByPhone.mockResolvedValue([
+      { ...bookingRow, booking_id: 'g2', first_name: 'Kiddo', service_slug: 'kids-cut', booking_date: '2026-07-08', booking_time: '12:15:00' },
+    ]);
+    openPanelAndFind();
+    await vi.waitFor(() => expect($$('.cancel__row')).toHaveLength(1));
+    $('.cancel__btn').click();
+    $('.cancel__btn').click();
+    await vi.waitFor(() => expect($('.cancel__row').classList.contains('is-cancelled')).toBe(true));
+
+    expect($$('[data-success-list] li').map(li => li.textContent)).toEqual([
+      'Test Customer · Hair Cut · 11:30 AM',
+      'Kiddo · Kids Cut · 12:15 PM · Cancelled',
+    ]);
+    expect($('[data-success-head]').textContent).toBe('Chair reserved');
+    expect($('[data-success-total]').textContent).toBe('$30');
+    const message = decodeURIComponent($('[data-form-success] [data-send-whatsapp]').href);
+    expect(message).toContain('Test Customer');
+    expect(message).not.toContain('Kiddo');
+    expect($('[data-slot-grid]').hasAttribute('inert')).toBe(true);    // still booked for the rest
+  });
+
   it('surfaces cannot_cancel from the DB without breaking the row', async () => {
     rpc.findBookingsByPhone.mockResolvedValue([bookingRow]);
     rpc.cancelBooking.mockRejectedValue(new rpc.BookingError('cannot_cancel'));
