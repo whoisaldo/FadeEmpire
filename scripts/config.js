@@ -111,3 +111,10 @@ export const ADDON_PRICES_CENTS = {
   'wax':        500,
   'beard':      1000,
 };
+
+// Add-ons a service already includes. The VIP is cut, line up, beard, hot
+// towel, facial and eyebrows, so with VIP those show as included, cost
+// nothing, and are never sent as paid add-ons. Wax stays an extra.
+export const INCLUDED_ADDONS = {
+  'vip-haircut': ['eyebrows', 'hot-towel', 'facial', 'beard'],
+};

@@ -653,6 +653,66 @@ describe('booking edge cases', () => {
     expect(timeline).toContain('Kid — 1:00 PM');
   });
 
+  it('VIP shows its extras as included, charges only wax, and gives them back on switching away (P3)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'v1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 6500 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'hair-cut' });
+    $('input[name="addons"][value="beard"]').click();          // chosen before switching to VIP
+    expect($('[data-total-display]').textContent).toBe('$40');
+
+    fill('[data-service-select]', 'vip-haircut');
+    const addon = (v) => $(`input[name="addons"][value="${v}"]`);
+    const price = (v) => addon(v).closest('.booking__addon').querySelector('.t-mono').textContent;
+    for (const v of ['beard', 'hot-towel', 'facial', 'eyebrows']) {
+      expect(addon(v).checked, v).toBe(true);
+      expect(addon(v).disabled, v).toBe(true);
+      expect(price(v), v).toBe('included');
+    }
+    expect(addon('wax').disabled).toBe(false);
+    expect(price('wax')).toBe('+$5');
+    expect($('[data-total-display]').textContent).toBe('$60');
+    addon('wax').click();
+    expect($('[data-total-display]').textContent).toBe('$65');
+
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: ['wax'] }));
+  });
+
+  it('switching away from VIP restores the add-ons as they were (P3)', () => {
+    fillPrimary({ service: 'hair-cut' });
+    $('input[name="addons"][value="beard"]').click();
+    fill('[data-service-select]', 'vip-haircut');
+    fill('[data-service-select]', 'line-up');
+    const addon = (v) => $(`input[name="addons"][value="${v}"]`);
+    expect(addon('beard').checked).toBe(true);
+    expect(addon('facial').checked).toBe(false);
+    expect(addon('facial').disabled).toBe(false);
+    expect(addon('facial').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$20');
+    expect($('[data-total-display]').textContent).toBe('$20');    // 10 + beard 10
+  });
+
+  it('a VIP guest adds $60 and books with no add-ons (guest rows carry none) (P3)', async () => {
+    rpc.bookSlotGroup.mockResolvedValue([
+      { booking_id: 'g1', person_index: 0, person_name: 'Test Customer', service_slug: 'line-up', booking_time: '11:30:00', total_price_cents: 1000 },
+      { booking_id: 'g2', person_index: 1, person_name: 'Sam', service_slug: 'vip-haircut', booking_time: '12:15:00', total_price_cents: 6000 },
+    ]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'line-up' });
+    $('[data-add-guest]').click();
+    const row = $('[data-guest-list] [data-guest]');
+    row.querySelector('[data-guest-name]').value = 'Sam';
+    row.querySelector('[data-guest-name]').dispatchEvent(new Event('input', { bubbles: true }));
+    row.querySelector('[data-guest-service]').value = 'vip-haircut';
+    row.querySelector('[data-guest-service]').dispatchEvent(new Event('change', { bubbles: true }));
+    expect($('[data-total-display]').textContent).toBe('$70');
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect(rpc.bookSlotGroup).toHaveBeenCalled());
+    expect(rpc.bookSlotGroup.mock.calls[0][0].people[1]).toEqual(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: [] }));
+  });
+
   it('"custom" books a hair cut with the description attached', async () => {
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'c1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     clickDay('2026-07-08');

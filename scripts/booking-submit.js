@@ -16,6 +16,7 @@ import { getSelection, refreshAvailability as gridRefresh, clearTime } from './b
 import {
   totalCents, formatPrice, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
+  includedAddons,
 } from './booking-helpers.js';
 import { buildBookingMessage, messagingUrl } from './booking-messages.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
@@ -25,8 +26,9 @@ const MAX_GUESTS = 4;          // primary + up to 4 guests = 5 people total
 
 /* ---------- Reading the form ---------- */
 
+/** The paid add-ons. Ones the service includes are shown checked but disabled. */
 function readAddons(form) {
-  return [...form.querySelectorAll('input[name="addons"]:checked')].map(i => i.value);
+  return [...form.querySelectorAll('input[name="addons"]:checked:not(:disabled)')].map(i => i.value);
 }
 
 function readGuests(form) {
@@ -49,6 +51,30 @@ function readGuestsRaw(form) {
 /** Map the form's service value to the slug we book in the DB. */
 function bookableService(service) {
   return service === 'custom' ? 'hair-cut' : service;
+}
+
+/* ---------- Add-ons the chosen service already includes ---------- */
+
+function setIncluded(input, included) {
+  const row   = input.closest('.booking__addon');
+  const price = row?.querySelector('.t-mono');
+  if (!row || !price || row.classList.contains('is-included') === included) return;
+  if (included) {
+    input.dataset.wasChecked = String(input.checked);   // restored when the service changes back
+    price.dataset.price = price.textContent;
+    price.textContent = 'included';
+    input.checked = true;
+  } else {
+    input.checked = input.dataset.wasChecked === 'true';
+    price.textContent = price.dataset.price;
+  }
+  input.disabled = included;
+  row.classList.toggle('is-included', included);
+}
+
+function syncIncludedAddons(form) {
+  const included = includedAddons(form.querySelector('[data-service-select]').value);
+  form.querySelectorAll('input[name="addons"]').forEach(i => setIncluded(i, included.includes(i.value)));
 }
 
 /* ---------- Total + timeline updates + overrun check ---------- */
@@ -446,7 +472,9 @@ async function submit(form, mode) {
   // remove any dynamically-added guest rows
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
+  form.querySelectorAll('input[name="addons"]').forEach(i => { i.dataset.wasChecked = 'false'; });
   syncCustomField(form);       // reset() fires no change event
+  syncIncludedAddons(form);
   updateTotal(form);
   updateTimeline(form);
   submitBtns.forEach(b => (b.disabled = false));
@@ -489,7 +517,7 @@ export function initBookingSubmit() {
   bindCustomToggle(form);
 
   form.querySelector('[data-service-select]').addEventListener('change', () => {
-    updateTotal(form); updateTimeline(form);
+    syncIncludedAddons(form); updateTotal(form); updateTimeline(form);
   });
   form.querySelectorAll('input[name="addons"]').forEach(i =>
     i.addEventListener('change', () => updateTotal(form))

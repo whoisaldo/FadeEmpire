@@ -414,6 +414,11 @@
   color: var(--bone-mute);
 }
 
+/* Included in the chosen service (the VIP's extras): checked, fixed, no price */
+.booking__addon.is-included { cursor: default; }
+.booking__addon.is-included input { cursor: default; opacity: 0.6; }
+.booking__addon.is-included span:nth-of-type(2) { color: var(--gold); }
+
 /* --- Total + submit --- */
 .booking__total {
   display: flex;

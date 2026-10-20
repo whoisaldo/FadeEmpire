@@ -2,7 +2,7 @@
 
 import {
   STORE_HOURS, BARBERS, DEFAULT_BARBER_SLUG, SHOP_TZ, SLOT_MINUTES,
-  SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS,
+  SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS, INCLUDED_ADDONS,
 } from './config.js';
 
 /** Strict ISO yyyy-mm-dd in local (shop) time for a given Date. */
@@ -151,10 +151,21 @@ export function serviceSlotCount(serviceSlug) {
   return Math.max(1, Math.ceil(serviceDurationMin(serviceSlug) / SLOT_MINUTES));
 }
 
-/** Compute total cents from service + addon slugs. */
+/** Add-on slugs a service already includes (the VIP's extras). */
+export function includedAddons(serviceSlug) {
+  return INCLUDED_ADDONS[serviceSlug] || [];
+}
+
+/** The add-ons that are actually extra for this service. */
+export function paidAddons(serviceSlug, addonSlugs = []) {
+  const included = includedAddons(serviceSlug);
+  return addonSlugs.filter(a => !included.includes(a));
+}
+
+/** Compute total cents from service + addon slugs; included add-ons cost nothing. */
 export function totalCents(serviceSlug, addonSlugs = []) {
   const base = SERVICE_PRICES_CENTS[serviceSlug] || 0;
-  const add  = addonSlugs.reduce((s, a) => s + (ADDON_PRICES_CENTS[a] || 0), 0);
+  const add  = paidAddons(serviceSlug, addonSlugs).reduce((s, a) => s + (ADDON_PRICES_CENTS[a] || 0), 0);
   return base + add;
 }
 

@@ -6,7 +6,7 @@ import {
   isoDate, minutesToHms, minutesToLabel, hmsToMinutes,
   weekdayFromIso, dateLabelFromIso,
   effectiveHours, slotsForWeekday, serviceDurationMin, serviceSlotCount,
-  totalCents, formatPrice, formatPhoneDisplay, cleanPhone,
+  totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
   mapBookingErrorCode, HARD_FAIL_CODES, ERROR_MESSAGES,
 } from '../scripts/booking-helpers.js';
 import { STORE_HOURS, BARBERS } from '../scripts/config.js';
@@ -130,8 +130,16 @@ describe('pricing', () => {
   it('totalCents sums service + addons from the price mirrors', () => {
     expect(totalCents('hair-cut')).toBe(3000);
     expect(totalCents('hair-cut', ['beard'])).toBe(4000);
-    expect(totalCents('vip-haircut', ['facial', 'eyebrows'])).toBe(8000);
+    expect(totalCents('vip-haircut', ['wax'])).toBe(6500);
     expect(totalCents('nope', ['nope-addon'])).toBe(0);
+  });
+
+  it('the VIP includes beard, hot towel, facial, and eyebrows: they add nothing, wax still does (P3)', () => {
+    expect(includedAddons('vip-haircut')).toEqual(['eyebrows', 'hot-towel', 'facial', 'beard']);
+    expect(includedAddons('hair-cut')).toEqual([]);
+    expect(paidAddons('vip-haircut', ['beard', 'facial', 'wax'])).toEqual(['wax']);
+    expect(paidAddons('hair-cut', ['beard', 'facial'])).toEqual(['beard', 'facial']);
+    expect(totalCents('vip-haircut', ['beard', 'facial', 'hot-towel', 'eyebrows'])).toBe(6000);
   });
 
   it('formatPrice renders whole dollars and cents', () => {
