@@ -4,7 +4,7 @@ import { sb } from './supabase.js';
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
 import {
   mapBookingErrorCode, isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
-  shopWeekday, nowMinutesInShopTz, fmtShopTime,
+  nowMinutesInShopTz, addDaysIso, weekdayFromIso, dateLabelFromIso,
 } from './booking-helpers.js';
 
 export class BookingError extends Error {
@@ -160,11 +160,8 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
  * Throws when availability can't be read.
  */
 export async function fetchNextAvailable() {
-  const today = new Date();
-  const inTwoWeeks = new Date(today.getTime() + 14 * 86400000);
-
-  const fromDate = isoDate(today);
-  const toDate   = isoDate(inTwoWeeks);
+  const fromDate = isoDate(new Date());
+  const toDate   = addDaysIso(fromDate, 14);
   const taken    = await fetchAvailability({ fromDate, toDate, barberSlug: null });
 
   const takenSet = new Set(
@@ -176,9 +173,8 @@ export async function fetchNextAvailable() {
   const barbers  = Object.values(BARBERS);
 
   for (let i = 0; i <= 14; i++) {
-    const d = new Date(today.getTime() + i * 86400000);
-    const iso = isoDate(d);
-    const wk  = shopWeekday(d);
+    const iso = addDaysIso(fromDate, i);
+    const wk  = weekdayFromIso(iso);
 
     // Earliest free slot this day, comparing across barbers.
     let best = null;
@@ -197,14 +193,14 @@ export async function fetchNextAvailable() {
         time: minutesToHms(best.minutes),
         barberSlug: best.barber.slug,
         barberName: best.barber.name,
-        label: `${dayLabel(d)} · ${time} · ${best.barber.name.toUpperCase()}`,
-        shortLabel: `${fmtShopTime(d, { weekday: 'short' })} ${time}`,   // fits the sticky bar
+        label: `${dayLabel(iso)} · ${time} · ${best.barber.name.toUpperCase()}`,
+        shortLabel: `${dateLabelFromIso(iso, { weekday: 'short' })} ${time}`,   // fits the sticky bar
       };
     }
   }
   return null;
 }
 
-function dayLabel(d) {
-  return fmtShopTime(d, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+function dayLabel(iso) {
+  return dateLabelFromIso(iso, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 }

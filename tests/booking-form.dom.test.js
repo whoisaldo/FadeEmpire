@@ -922,6 +922,20 @@ describe('booking edge cases', () => {
     expect(rpc.fetchAvailability).toHaveBeenCalledWith(expect.objectContaining({ fromDate: '2026-07-07' }));
   });
 
+  it('the day row lists each date once across the November DST change', async () => {
+    vi.setSystemTime(new Date('2026-10-25T04:30:00Z'));     // Sun Oct 25, 00:30 EDT
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect($$('[data-day-row] .booking__day')[0].dataset.date).toBe('2026-10-25'));
+    const dates = $$('[data-day-row] .booking__day').map(c => c.dataset.date);
+    expect(dates).toHaveLength(14);
+    expect(new Set(dates).size).toBe(14);
+    expect(dates[7]).toBe('2026-11-01');
+    expect(dates[13]).toBe('2026-11-07');
+    const nov1 = $('[data-day-row] .booking__day[data-date="2026-11-01"]');
+    expect(nov1.textContent.replace(/\s+/g, ' ').trim()).toBe('Sun 1 Nov');
+    expect($('[data-day-row] .booking__day[data-date="2026-11-03"]').disabled).toBe(true);   // a Tuesday
+  });
+
   it('refreshes availability every five minutes while the tab is visible', () => {
     const before = rpc.fetchAvailability.mock.calls.length;
     vi.advanceTimersByTime(5 * 60_000);

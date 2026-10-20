@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isoDate, minutesToHms, minutesToLabel, hmsToMinutes,
-  weekdayFromIso, dateLabelFromIso,
+  weekdayFromIso, dateLabelFromIso, addDaysIso,
   effectiveHours, slotsForWeekday, serviceDurationMin, serviceSlotCount,
   totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
   mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES,
@@ -45,6 +45,14 @@ describe('time + date helpers', () => {
     expect(weekdayFromIso('2026-07-07')).toBe(2); // Tuesday
     expect(weekdayFromIso('2026-07-11')).toBe(6); // Saturday
     expect(weekdayFromIso('2028-02-29')).toBe(2); // leap day
+  });
+
+  it('addDaysIso steps calendar dates straight through both DST changes', () => {
+    expect(addDaysIso('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDaysIso('2026-10-31', 2)).toBe('2026-11-02');
+    expect(addDaysIso('2026-03-07', 1)).toBe('2026-03-08');
+    expect(addDaysIso('2026-03-07', 2)).toBe('2026-03-09');
+    expect(addDaysIso('2026-12-31', 1)).toBe('2027-01-01');
   });
 
   it('dateLabelFromIso renders the SAME calendar day regardless of viewer TZ', () => {

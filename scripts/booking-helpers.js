@@ -57,6 +57,14 @@ export function weekdayFromIso(iso) {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
+/** The calendar date `n` days after a 'YYYY-MM-DD' date. Calendar math, not
+ *  24-hour steps, so a DST change (a 23- or 25-hour day) never repeats or
+ *  skips a date. */
+export function addDaysIso(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
 /** Human label ("Friday, July 4") for a 'YYYY-MM-DD' calendar date, TZ-safe. */
 export function dateLabelFromIso(iso, opts = { weekday: 'long', month: 'long', day: 'numeric' }) {
   const [y, m, d] = iso.split('-').map(Number);

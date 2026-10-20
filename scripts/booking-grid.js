@@ -8,8 +8,8 @@
 
 import { fetchAvailability } from './booking-rpc.js';
 import {
-  isoDate, slotsForWeekday, minutesToHms, minutesToLabel, shopWeekday,
-  nowMinutesInShopTz, fmtShopTime, weekdayFromIso, dateLabelFromIso,
+  isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
+  nowMinutesInShopTz, weekdayFromIso, dateLabelFromIso, addDaysIso,
 } from './booking-helpers.js';
 import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
 
@@ -73,12 +73,11 @@ function renderDayRow() {
   if (!row) return;
   row.innerHTML = '';
 
-  const today = new Date();
+  const todayIso = isoDate(new Date());
 
   for (let i = 0; i < DAYS_AHEAD; i++) {
-    const d = new Date(today.getTime() + i * 86400000);
-    const iso = isoDate(d);
-    const wk  = shopWeekday(d);
+    const iso = addDaysIso(todayIso, i);
+    const wk  = weekdayFromIso(iso);
     const slots = slotsForWeekday(wk, state.barberSlug);
     const closed = slots.length === 0;
 
@@ -91,9 +90,9 @@ function renderDayRow() {
     if (closed) btn.disabled = true;
 
     btn.innerHTML = `
-      <span class="booking__day-weekday">${fmtShopTime(d, { weekday: 'short' })}</span>
-      <span class="booking__day-num">${fmtShopTime(d, { day: 'numeric' })}</span>
-      <span class="booking__day-month">${closed ? 'Closed' : fmtShopTime(d, { month: 'short' })}</span>
+      <span class="booking__day-weekday">${dateLabelFromIso(iso, { weekday: 'short' })}</span>
+      <span class="booking__day-num">${dateLabelFromIso(iso, { day: 'numeric' })}</span>
+      <span class="booking__day-month">${closed ? 'Closed' : dateLabelFromIso(iso, { month: 'short' })}</span>
     `;
     if (closed) {
       btn.querySelector('.booking__day-month').classList.add('booking__day-closed');
@@ -271,8 +270,7 @@ function syncForm() {
 async function loadAvailability() {
   const seq = ++loadSeq;
   const barberSlug = state.barberSlug;
-  const today = new Date();
-  const end   = new Date(today.getTime() + DAYS_AHEAD * 86400000);
+  const fromDate = isoDate(new Date());
   if (state.availability === 'error') {      // Retry: back to "not read yet"
     state.availability = 'loading';
     renderSlots();
@@ -280,7 +278,7 @@ async function loadAvailability() {
   let rows;
   try {
     rows = await fetchAvailability({
-      fromDate: isoDate(today), toDate: isoDate(end), barberSlug,
+      fromDate, toDate: addDaysIso(fromDate, DAYS_AHEAD), barberSlug,
     });
   } catch (_) {
     if (seq !== loadSeq || barberSlug !== state.barberSlug) return;
