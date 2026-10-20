@@ -1281,6 +1281,22 @@ describe('booking edge cases', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
   });
 
+  it('a pick waiting on a read finishes on the latest read when another one supersedes it (R13b)', async () => {
+    const lands = [];
+    rpc.fetchAvailability.mockImplementation(() => new Promise((r) => { lands.push(r); }));
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    grid.refreshAvailability();                // the 5-minute tick or a tab wake-up
+    expect(lands).toHaveLength(2);
+    lands[0]([]);                              // the first read lands stale and is dropped
+    await new Promise(r => setTimeout(r, 0));
+    expect($('[data-form-time]').value).toBe('');
+    lands[1]([]);
+    await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="name"]')));
+  });
+
   it('a pick waiting on a read leaves focus alone if the customer moved it meanwhile (R8)', async () => {
     let land;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));

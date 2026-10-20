@@ -453,9 +453,14 @@ export async function refreshAvailability() {
   await loadAvailability();
 }
 
-/** Resolves once the latest availability read has landed (or failed). */
-export function whenAvailable() {
-  return lastLoad;
+/** Resolves once the latest availability read has landed (or failed),
+ *  including a read that starts while this one is waited on. */
+export async function whenAvailable() {
+  let load;
+  do {
+    load = lastLoad;
+    await load;
+  } while (load !== lastLoad);
 }
 
 export function getSelection() {
