@@ -591,6 +591,7 @@ async function focusNextStep(form) {
   const sel = getSelection();
   const target = !sel.time
     ? document.querySelector('[data-slot-grid] .booking__slot:not([disabled])')
+      || document.querySelector('[data-slots-retry]')
       || document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
     : ['input[name="name"]', 'input[name="phone"]', '[data-service-select]']
         .map(q => form.querySelector(q)).find(el => el && !el.value.trim())

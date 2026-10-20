@@ -92,6 +92,16 @@ function fillPrimary({ name = 'Test Customer', phone = '4135550123', service = '
   fill('[data-service-select]', service);
 }
 
+// Each boot imports fresh module instances that listen on the one shared
+// document; drop a test's listeners afterwards so a stale instance can't act
+// on the next test's markup.
+const realAddListener = document.addEventListener.bind(document);
+let docListeners = [];
+document.addEventListener = (type, fn, opts) => {
+  docListeners.push([type, fn, opts]);
+  return realAddListener(type, fn, opts);
+};
+
 beforeEach(async () => {
   // Date + intervals are faked (the grid's midnight/refresh timers); timeouts
   // stay real so vi.waitFor and the modules' rAF fallbacks keep working.
@@ -121,6 +131,8 @@ beforeEach(async () => {
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+  docListeners.forEach(([type, fn, opts]) => document.removeEventListener(type, fn, opts));
+  docListeners = [];
   document.body.innerHTML = '';
 });
 
@@ -885,6 +897,46 @@ describe('booking edge cases', () => {
     $('.menu__feature-cta').click();
     await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
     expect($('[data-service-select]').value).toBe('vip-haircut');
+  });
+
+  it('a shortcut selects nothing while this barber\'s availability read has failed (R1)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    await grid.refreshAvailability();
+    expect($('[data-slot-grid]').textContent).toContain("Couldn't load open times.");
+
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-08', time: '11:30:00', barberSlug: 'hassan' },
+    }));
+    await vi.waitFor(() => expect(document.activeElement).toBe($('[data-slots-retry]')));
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-slot-grid]').textContent).toContain("Couldn't load open times.");
+    expect($('[data-selected-pill]').hidden).toBe(true);
+
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect(rpc.bookSlot).not.toHaveBeenCalled();
+  });
+
+  it('a shortcut to a slot booked since it was advertised says so and selects nothing (R1)', async () => {
+    rpc.fetchAvailability.mockResolvedValue([
+      { barber_slug: 'larry', booking_date: '2026-07-09', booking_time: '12:15:00', status: 'confirmed' },
+    ]);
+    document.dispatchEvent(new CustomEvent('booking:pick', {
+      detail: { date: '2026-07-09', time: '12:15:00', barberSlug: 'larry' },
+    }));
+    await vi.waitFor(() => expect($('[data-slots-note]').textContent).toBe('That time was just booked.'));
+    const pill = $('[data-slot-grid] .booking__slot[data-time="12:15:00"]');
+    expect(pill.disabled).toBe(true);
+    expect(pill.classList.contains('is-selected')).toBe(false);
+    expect(pill.getAttribute('aria-checked')).toBe('false');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-form-date]').value).toBe('2026-07-09');
+
+    clickSlot('13:00:00');                                     // picking an open time clears the note
+    expect($('[data-slots-note]').textContent).toBe('');
+    expect($('[data-form-time]').value).toBe('13:00:00');
   });
 
   it('switching barber drops the chosen time (his grid is different) but not the day', () => {

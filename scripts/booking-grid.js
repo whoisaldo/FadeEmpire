@@ -132,6 +132,7 @@ function renderDayRow() {
 function selectDate(iso) {
   state.selectedDate = iso;
   state.selectedTime = null;
+  setSlotsNote('');
 
   // Update day-row aria-selected
   document.querySelectorAll('[data-day-row] .booking__day').forEach(b => {
@@ -248,7 +249,12 @@ function renderSlots() {
   }
 }
 
+/** Select a time. Only an open pill can be selected: a taken, passed or
+ *  not-yet-read slot is never picked, whoever asks. Returns whether it was. */
 function selectTime(hms) {
+  const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${hms}"]`);
+  if (!pill || pill.disabled) return false;
+  setSlotsNote('');
   state.selectedTime = hms;
   document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {
     const on = b.dataset.time === hms;
@@ -256,6 +262,13 @@ function selectTime(hms) {
     b.classList.toggle('is-selected', on);
   });
   syncForm();
+  return true;
+}
+
+/** The one-line note under the slots (empty and visually hidden otherwise). */
+function setSlotsNote(text) {
+  const note = document.querySelector('[data-slots-note]');
+  if (note && note.textContent !== text) note.textContent = text;
 }
 
 /* ---------- Form sync ---------- */
@@ -317,16 +330,22 @@ async function readAvailability() {
 /* ---------- External pickers (next-available, "Pick this" button) ---------- */
 
 function bindExternalPick() {
-  document.addEventListener('booking:pick', (e) => {
+  // "Reserve it" / "Take it": the advertised slot comes from a separate read,
+  // so it is taken only if this barber's grid, once read, shows it open. A
+  // failed read leaves "Couldn't load open times."; a slot booked since is
+  // said so; either way nothing is selected.
+  document.addEventListener('booking:pick', async (e) => {
     const { date, time, barberSlug } = e.detail || {};
     if (!date || !time) return;
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
-    // Wait a tick for slot DOM to render, then hand focus to the next step.
-    requestAnimationFrame(() => {
-      selectTime(time);
-      document.dispatchEvent(new CustomEvent('booking:focus-next'));
-    });
+    await whenAvailable();
+    if (state.selectedDate !== date || (barberSlug && state.barberSlug !== barberSlug)) return;   // superseded
+    if (state.availability === 'ok' && !selectTime(time)) {
+      const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]`);
+      if (pill?.classList.contains('is-taken')) setSlotsNote('That time was just booked.');
+    }
+    document.dispatchEvent(new CustomEvent('booking:focus-next'));
   });
 
   document.querySelector('[data-clear-selected]')?.addEventListener('click', clearTime);
