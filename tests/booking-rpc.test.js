@@ -77,7 +77,7 @@ describe('text consent (C3)', () => {
   });
 });
 
-describe('a database before migration 0019 (C3)', () => {
+describe('a database before migration 0020 (C3)', () => {
   const single = { serviceSlug: 'hair-cut', date: '2026-07-08', time: '11:30:00', name: 'A Customer', phone: '4135550123' };
   const noSignature = {
     data: null, status: 404,
@@ -95,7 +95,7 @@ describe('a database before migration 0019 (C3)', () => {
     expect(retry).not.toHaveProperty('p_remind_sms');
     expect(retry).not.toHaveProperty('p_rebook_sms');
     expect(retry).toEqual(Object.fromEntries(Object.entries(first).filter(([k]) => !/^p_(remind|rebook)_sms$/.test(k))));
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('migration 0019'));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('migration 0020'));
   });
 
   it('book_slot_group is retried the same way', async () => {

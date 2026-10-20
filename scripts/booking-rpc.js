@@ -22,12 +22,12 @@ function toBookingError(error, rpcName, status) {
 }
 
 /** book_slot and book_slot_group take the text-consent flags from migration
- *  0019 on. Against a database without it PostgREST finds no function with
+ *  0020 on. Against a database without it PostgREST finds no function with
  *  that signature (PGRST202), so the booking goes once more without them. */
 async function rpcWithConsent(rpcName, args) {
   const res = await sb.rpc(rpcName, args);
   if (res.error?.code !== 'PGRST202') return res;
-  console.warn(`[booking] ${rpcName} takes no p_remind_sms/p_rebook_sms yet (migration 0019); booking without them`);
+  console.warn(`[booking] ${rpcName} takes no p_remind_sms/p_rebook_sms yet (migration 0020); booking without them`);
   const { p_remind_sms, p_rebook_sms, ...older } = args;
   return sb.rpc(rpcName, older);
 }

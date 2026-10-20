@@ -18,7 +18,7 @@ Live: <https://chicopeefadeempire.com>
 - **Multi-slot services** — any service longer than the 45-minute grid books linked consecutive slots automatically. No current service needs it: the VIP is 45 minutes (migration 0018), so every service fits one slot — the machinery stays for the day one doesn't
 - **Customer cancellation** — enter the phone you booked with, see your upcoming bookings, cancel with a two-tap confirm; the DB frees the slot instantly and the site preps a cancellation text to the shop
 - **Move a booking** — "Move it" next to Cancel, the same two taps ("Yes, move Wed 10:00 AM"): the booking is cancelled, the form takes its barber, service and add-ons, under the guest's own name when it is someone else's booking (and opens again if a confirmation was showing, the card kept as the record), and focus goes to the day row for a new time: the booking's own day if it still has an open time, otherwise the next
-- **Text consent** — two boxes in your details: a reminder the day before (on by default) and a text when the next cut is due, about every 3 weeks (off). Sent with the booking as `p_remind_sms` / `p_rebook_sms` (migration 0019)
+- **Text consent** — two boxes in your details: a reminder the day before (on by default) and a text when the next cut is due, about every 3 weeks (off). Sent with the booking as `p_remind_sms` / `p_rebook_sms` (migration 0020)
 - **Returning customer** — after a booking, the customer's own choices (name, phone, barber, service, add-ons, the text boxes; never guests, nor a guest's booking moved to a new time) stay in `localStorage` under `fe.lastBooking`. The next visit opens with "Welcome back" and the form filled in, the cancel panel has the phone, and the sticky bar reads "Rebook · Hassan". "Not you? Clear" forgets it
 - **Add to calendar** — the confirmation offers `fade-empire-<date>.ics`: one event per booking (a group spans the first start to the last end), in UTC from the shop's clock, with the address, the shop phone and the cancel link
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
@@ -119,7 +119,7 @@ FadeEmpire/
 │   │   ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
 │   │   ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
 │   │   ├── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
-│   │   └── 0019_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
+│   │   └── 0020_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
 │   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
 │   └── tests/                    pgTAP suites
 └── assets/
@@ -207,7 +207,7 @@ Each text is sent once. Before a send the function claims the rows (`claim_remin
 
 Each booking row has two flags: `remind_sms` (default on) and `rebook_sms` (default off). `book_slot` and `book_slot_group` take them as `p_remind_sms` and `p_rebook_sms`; a caller that omits them gets the defaults.
 
-Bookings that exist when migration 0019 runs start with `remind_sms` off, because they predate the consent checkbox the booking form is gaining in this release. Bookings made after it take the column default (on).
+Bookings that exist when migration 0020 runs start with `remind_sms` off, because they predate the consent checkbox the booking form is gaining in this release. Bookings made after it take the column default (on).
 
 #### Quiet hours
 
@@ -215,7 +215,7 @@ Nothing goes out from 20:00 to 09:00 shop time (America/New_York). A run in that
 
 #### Deploy
 
-From a checkout of `main` with 0019 on it, in a terminal:
+From a checkout of `main` with 0020 on it, in a terminal:
 
 ```bash
 tools/deploy-reminders.sh --dry-run          # prints every command; writes nothing
@@ -248,7 +248,7 @@ To keep the schedule but stop sending, remove the Twilio secrets (`supabase secr
 - **Permanent rejections.** Twilio errors 21610 (the customer replied STOP), 21211 (invalid number), 21614 (not a mobile) and 21408 (region not enabled) mark the row and keep the code and message in `bookings.sms_last_error`, so the number is not retried.
 - **Other failures** (5xx, 429, other 4xx, network) leave the row unmarked; its claim holds for 10 minutes and the next hourly run retries it while the booking is still due.
 - **Sent but not marked.** If Twilio accepts a message but the mark fails, the function logs an error with the booking ids. Mark them by hand, or they are texted again once the claim expires: `select mark_reminder_sent(array['<id>']::uuid[], 'reminder');`
-- **Tests.** `deno test --no-lock supabase/functions/send-reminders/` for the function; `supabase/tests/005_reminders.sql` for the queries.
+- **Tests.** `deno test --no-lock supabase/functions/send-reminders/` for the function; `supabase/tests/006_reminders.sql` for the queries.
 
 ---
 
