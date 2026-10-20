@@ -99,7 +99,27 @@ FadeEmpire/
 │   └── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
-│   ├── migrations/0001 … 0019    Schema, RLS, RPCs, hours, barbers, prices, reminders (see the history in git)
+│   ├── migrations/
+│   │   ├── 0001_init.sql               Initial schema + RLS + RPCs + pg_cron
+│   │   ├── 0002_fix_book_slot_ambiguity.sql
+│   │   ├── 0003_fix_availability_view.sql
+│   │   ├── 0004_book_slot_group.sql    Group/atomic multi-person booking
+│   │   ├── 0005_fix_addons_null_in_group.sql
+│   │   ├── 0006_robustness.sql         VIP duration + error logging + custom_request in groups
+│   │   ├── 0007_lock_web_bookings_and_hours.sql  Confirm-on-create (no holds)
+│   │   ├── 0008_add_beard_addon.sql
+│   │   ├── 0009_javier_store_hours_cancellation.sql  Javier + store_hours + cancel lookup
+│   │   ├── 0010_lock_owner_functions.sql   Revoke owner RPCs from anon (CI catch)
+│   │   ├── 0011_phone_normalization_and_grants.sql   NANP phone matching + explicit grants (CI catch)
+│   │   ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
+│   │   ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
+│   │   ├── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
+│   │   ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
+│   │   ├── 0016_45_minute_slots.sql        Appointments every 45 minutes (grid-aware RPCs)
+│   │   ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
+│   │   ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
+│   │   ├── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
+│   │   └── 0019_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
 │   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
 │   └── tests/                    pgTAP suites
 └── assets/
@@ -154,6 +174,7 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 
 - `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `bookings` directly (RLS denies all)
 - `SELECT` on `booking_errors` (Hassan-only via Supabase Studio)
+- `SELECT` on `v_people` (one row per person who has booked; service role / Studio only)
 - `EXECUTE` `confirm_booking` (authenticated only)
 
 ### Messaging fallback
@@ -312,10 +333,20 @@ To inspect failed booking attempts:
 select * from booking_errors order by occurred_at desc limit 50;
 ```
 
+To count the people who have booked, not just phone numbers. A group booking stores one row per person under the booker's phone; `party_id` ties them together, `is_guest` marks the friends and kids, and `v_people` has one row per phone + first name:
+
+```sql
+select count(*)                                    as people,
+       count(*) filter (where is_kid)              as kids,        -- has had a Kids Cut
+       count(*) filter (where booked_as_guest > 0) as came_as_a_guest,
+       count(distinct phone)                       as phones
+  from v_people;
+```
+
 ---
 
 ## Developer
 
-Ali Younes — `whois.younes@gmail.com`
+Ali Younes — `aldo@sideband.studio`
 
 © 2026 Fade Empire. All rights reserved.
