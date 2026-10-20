@@ -160,18 +160,32 @@ This means a customer is never lost to a transient backend hiccup. `slot_taken` 
 
 ### Reminders
 
-The `send-reminders` Edge Function runs hourly (pg_cron calls it through pg_net) and sends texts through Twilio:
+The `send-reminders` Edge Function runs hourly. pg_cron calls it through pg_net, and it sends texts through Twilio.
 
-- **Day-before reminder.** Confirmed bookings starting 23 to 25 hours from now, with `remind_sms` set and `reminder_sent_at` empty. One text per phone per day; a group booked from one phone gets one text listing each person and time.
+#### What is sent
+
+- **Day-before reminder.** Confirmed bookings starting 23 to 25 hours from now, with `remind_sms` on and `reminder_sent_at` empty. One text per phone per day: a group booked from one phone gets one text listing each person and time.
   `Fade Empire: your appointment is tomorrow, Wed Oct 21 at 10:00 AM with Hassan. 1193 Memorial Dr, Chicopee. To cancel: https://chicopeefadeempire.com/#cancel`
-- **Rebook nudge.** The phone's most recent visit (confirmed or completed, already started) has `rebook_sms` set, started 21 to 42 days ago, has `rebook_sent_at` empty, and the phone has no pending or confirmed booking after it.
+- **Rebook nudge.** The phone's most recent visit (confirmed or completed, already started) has `rebook_sms` on and `rebook_sent_at` empty, started 21 to 42 days ago, and the phone has no pending or confirmed booking after it.
   `Fade Empire: it's been 3 weeks since your last cut with Hassan. Book your next one: https://chicopeefadeempire.com/#book. Reply STOP to stop.`
 
-Quiet hours: nothing goes out from 20:00 to 09:00 shop time (America/New_York). A run in that window queries, sends and marks nothing and returns `{"dry_run": false, "skipped": "quiet hours: 21:00 in America/New_York; texts go out 09:00-20:00"}`. The schedule stays hourly because the due windows absorb the wait: the shop's slots run 10:00 to 17:15, so every reminder window falls between 09:00 and 18:15 the day before, and a rebook nudge has a 21-day window. The function secrets `QUIET_START_HOUR` and `QUIET_END_HOUR` (whole hours, 0-23) move the bounds; an invalid value falls back to 20 and 9.
+Each text is sent once. Before a send the function claims the rows (`claim_reminders`), which re-checks that the booking is still confirmed (or completed, for a rebook) and still opted in, so two overlapping runs cannot text the same booking and a booking cancelled in the meantime is not texted. A row is marked sent once Twilio accepts the message. Without the Twilio secrets the function runs dry: it logs each message and marks nothing.
 
-Opt-in flags live on each booking row: `remind_sms` (default on) and `rebook_sms` (default off). Bookings that exist when migration 0019 runs start with `remind_sms` false, because they predate the consent checkbox the booking form is gaining in this release. Bookings made after it take the column default (on); a client that does not pass `p_remind_sms` gets that default. `book_slot` and `book_slot_group` take them as `p_remind_sms` and `p_rebook_sms`; callers that omit them get the defaults. A row is marked sent once Twilio accepts the message, and a second run sends nothing new. If Twilio rejects the number for good (21610 the customer replied STOP, 21211 invalid number, 21614 not a mobile, 21408 region not enabled on the account), the row is marked too and `sms_last_error` keeps the code and message, so that number is not retried every hour. Any other failure (5xx, 429, other 4xx, network) leaves the row unmarked and the next run retries it while the booking is still due. Before each send the function claims the rows (`claim_reminders`, which sets `reminder_claimed_at` or `rebook_claimed_at`) and texts only the ids it got, so two overlapping runs cannot send the same booking twice; a claim older than 10 minutes can be taken again, which covers a run that died mid-send. A failed send keeps its claim, so the retry happens on the next hourly run. If Twilio accepts a message but the mark fails, the function logs an error with the booking ids; mark those rows by hand (`select mark_reminder_sent(array['<id>']::uuid[], 'reminder');`) or they are texted again once the claim expires. The JSON summary counts each kind: `sent`, `failed` (retried), `rejected` (not retried), `skipped` (claimed by another run). Without the Twilio secrets the function runs dry: it logs each message and marks nothing. The due queries (`reminders_due`, `rebook_due`, `claim_reminders`, `mark_reminder_sent`) are executable by `service_role` only.
+`reminders_due`, `rebook_due`, `claim_reminders` and `mark_reminder_sent` are executable by `service_role` only. Claiming and marking do not change `bookings.updated_at`.
 
-Deploy (from a checkout of `main` with 0019 on it):
+#### Consent
+
+Each booking row has two flags: `remind_sms` (default on) and `rebook_sms` (default off). `book_slot` and `book_slot_group` take them as `p_remind_sms` and `p_rebook_sms`; a caller that omits them gets the defaults.
+
+Bookings that exist when migration 0019 runs start with `remind_sms` off, because they predate the consent checkbox the booking form is gaining in this release. Bookings made after it take the column default (on).
+
+#### Quiet hours
+
+Nothing goes out from 20:00 to 09:00 shop time (America/New_York). A run in that window does nothing and returns `{"dry_run": false, "skipped": "quiet hours: 21:00 in America/New_York; texts go out 09:00-20:00"}`. The schedule stays hourly: slots run 10:00 to 17:15, so every reminder window falls between 09:00 and 18:15 the day before, and a rebook nudge has a 21-day window. The function secrets `QUIET_START_HOUR` and `QUIET_END_HOUR` (whole hours, 0-23) move the bounds; an invalid value falls back to 20 and 9.
+
+#### Deploy
+
+From a checkout of `main` with 0019 on it, in a terminal:
 
 ```bash
 tools/deploy-reminders.sh --dry-run          # prints every command; writes nothing
@@ -180,13 +194,15 @@ TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... TWILIO_FROM=+1413... \
 CONFIRM_PROD=1 tools/deploy-reminders.sh     # migration list, db push, functions deploy, secrets set, Vault, cron.schedule
 ```
 
-The script reads `tools/.env.local` first; any variable already set in the environment (as in the command above) wins over the file. `CONFIRM_PROD` counts only from the environment. Deploying takes two confirmations: `CONFIRM_PROD=1` to run the script at all, then the Supabase CLI's own prompt. The script prints `supabase migration list --linked` (pending migrations have an empty Remote column) and runs `supabase db push` without `--yes`, so the CLI lists the pending migrations and asks before applying them; answer `n` to stop. The CLI takes its default (yes) when stdin is not a terminal, so the script refuses a real run without one. The dry run prints the list as well when the checkout is already linked. Twilio secrets reach `supabase secrets set` through a mode-600 temp file (`--env-file`) that is deleted afterwards, never as command-line arguments. `SUPABASE_SERVICE_ROLE_KEY` must be the legacy service_role JWT (three dot-separated parts, `eyJ...`); other key formats are rejected.
+- **Two confirmations.** `CONFIRM_PROD=1` lets the script run at all. The script then prints `supabase migration list --linked` (pending migrations have an empty Remote column) and runs `supabase db push` without `--yes`, so the CLI lists the pending migrations again and asks; answer `n` to stop. The CLI takes its default (yes) when stdin is not a terminal, so the script refuses a real run without one.
+- **Variables.** `tools/.env.local` is read first; a variable already set in the environment wins over the file. `CONFIRM_PROD` counts only from the environment. `TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base.
+- **Service role key.** It must be the legacy service_role JWT (three dot-separated parts, `eyJ...`); other formats are rejected. The script stores it in Supabase Vault as `send-reminders-service-key` (created on the first run, updated after), and the cron job reads it from `vault.decrypted_secrets` when it runs, so `cron.job` and `cron.job_run_details` never hold it. Re-run the script to rotate it.
+- **Twilio secrets.** They reach `supabase secrets set` through a mode-600 temp file (`--env-file`) that is deleted afterwards. On a first deploy, leaving the `TWILIO_*` variables out deploys in dry mode. On a re-run, leaving them out keeps the secrets already set; the script runs `supabase secrets list` and says whether they exist (texts go out) or not (dry).
+- **Dry run.** When the checkout is already linked, the dry run also runs the two read-only listings (`migration list`, `secrets list`). Nothing else is executed.
 
-The cron job does not contain the service role key. The script stores it in Supabase Vault as `send-reminders-service-key` (created on the first run, updated on later runs), and the job's command reads it from `vault.decrypted_secrets` each time it runs, so neither `cron.job` nor `cron.job_run_details` holds the key. To rotate the key, re-run the script with the new one.
+The script is safe to re-run.
 
-`TWILIO_MESSAGING_SERVICE_SID` can replace `TWILIO_FROM`; `SITE_URL` overrides the link base. On a first deploy, leaving the `TWILIO_*` variables out deploys in dry mode; read the function logs in the dashboard. On a re-run, leaving them out keeps whatever Twilio secrets were set before: the script runs `supabase secrets list` and says whether they exist (texts go out) or not (dry). The script is safe to re-run.
-
-Turn it off:
+#### Turn off
 
 ```bash
 supabase db query --linked "select cron.unschedule('send-reminders');"
@@ -195,7 +211,14 @@ supabase db query --linked "delete from vault.secrets where name = 'send-reminde
 
 To keep the schedule but stop sending, remove the Twilio secrets (`supabase secrets unset TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM`); the function goes back to dry runs.
 
-Function tests: `deno test --no-lock supabase/functions/send-reminders/`.
+#### Troubleshooting
+
+- **Run summary.** Each run returns and logs JSON counts per kind: `sent`, `failed` (retried next run), `rejected` (not retried), `skipped` (claimed by another run). Read it in the dashboard under Edge Functions -> send-reminders -> Logs.
+- **Cron history.** `supabase db query --linked "select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'send-reminders') order by start_time desc limit 5;"`
+- **Permanent rejections.** Twilio errors 21610 (the customer replied STOP), 21211 (invalid number), 21614 (not a mobile) and 21408 (region not enabled) mark the row and keep the code and message in `bookings.sms_last_error`, so the number is not retried.
+- **Other failures** (5xx, 429, other 4xx, network) leave the row unmarked; its claim holds for 10 minutes and the next hourly run retries it while the booking is still due.
+- **Sent but not marked.** If Twilio accepts a message but the mark fails, the function logs an error with the booking ids. Mark them by hand, or they are texted again once the claim expires: `select mark_reminder_sent(array['<id>']::uuid[], 'reminder');`
+- **Tests.** `deno test --no-lock supabase/functions/send-reminders/` for the function; `supabase/tests/005_reminders.sql` for the queries.
 
 ---
 
