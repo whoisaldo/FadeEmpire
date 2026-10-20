@@ -23,13 +23,41 @@
 }
 
 .menu__item {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Each row is a button that books it (booking-submit.js): the row as it
+   was, a pointer, the name turning gold on hover, and the usual focus ring. */
+.menu__book,
+.menu__addon {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.menu__book {
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-rows: auto auto;
   align-items: baseline;
   column-gap: 0.5rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--rule);
+}
+.menu__book:focus-visible,
+.menu__addon:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.menu__name,
+.menu__addon .t-display-sm { transition: color var(--t-fast); }
+@media (hover: hover) {
+  .menu__book:hover .menu__name,
+  .menu__addon:hover .t-display-sm { color: var(--gold); }
 }
 
 .menu__name {
@@ -163,12 +191,14 @@
 }
 
 .menu__addons li {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--rule);
+}
+.menu__addon {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid var(--rule);
 }
 
 .menu__addons li .t-display-sm { font-size: 1.125rem; }

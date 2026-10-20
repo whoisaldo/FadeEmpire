@@ -1641,6 +1641,90 @@ describe('move a booking (C4)', () => {
   });
 });
 
+/* ================= The price list books itself (C5) ================= */
+
+describe('price list rows (C5)', () => {
+  /** The real price list (the menu's list and add-ons) next to #book. */
+  const menuHtml = () => {
+    const start = indexHtml.indexOf('<div class="menu__col">');
+    return indexHtml.slice(start, indexHtml.indexOf('<div class="menu__side">', start));
+  };
+  beforeEach(async () => { await reboot(menuHtml()); });
+
+  it('every service row is a button labelled with its name and price', () => {
+    const rows = $$('.menu__item');
+    expect(rows).toHaveLength(6);
+    const labels = rows.map(li => {
+      const btn = li.querySelector('button[data-book-service]');
+      expect(btn, li.textContent).toBeTruthy();
+      expect(btn.type).toBe('button');
+      expect($(`#${btn.getAttribute('aria-describedby')}`).textContent).toBe(btn.querySelector('.menu__note').textContent);
+      return btn.getAttribute('aria-label');
+    });
+    expect(labels).toEqual([
+      'Book Hair Cut, $30', 'Book Line Up, $10', 'Book Beard Trim, $15',
+      'Book Kids Cut, $25', 'Book Military Cut, $25', 'Book Senior Cut, $25',
+    ]);
+    expect($$('.menu__addons button[data-book-addon]').map(b => b.getAttribute('aria-label'))).toEqual([
+      'Add Eyebrows, free', 'Add Hot Towel, +$5', 'Add Wax, +$5', 'Add Beard, +$10', 'Add Facial, +$20',
+    ]);
+  });
+
+  it('a service row selects that service, totals it, and moves to the first open time', async () => {
+    Element.prototype.scrollIntoView.mockClear();
+    $('[data-book-service="line-up"]').click();
+    expect($('[data-service-select]').value).toBe('line-up');
+    expect($('[data-total-display]').textContent).toBe('$10');
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
+    expect(Element.prototype.scrollIntoView.mock.contexts).toContain(document.activeElement);
+  });
+
+  it('with a time already picked, a service row moves on to the first empty detail', async () => {
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fill('input[name="name"]', 'Dana Reyes');
+    $('[data-book-service="senior-cut"]').click();
+    await vi.waitFor(() => expect(document.activeElement).toBe($('input[name="phone"]')));
+    expect($('[data-service-select]').value).toBe('senior-cut');
+  });
+
+  it('an add-on row ticks its box, adds to the total, moves on, and unticks on a second tap', async () => {
+    fill('[data-service-select]', 'hair-cut');
+    const box = $('input[name="addons"][value="hot-towel"]');
+    $('[data-book-addon="hot-towel"]').click();
+    expect(box.checked).toBe(true);
+    expect($('[data-total-display]').textContent).toBe('$35');
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
+    $('[data-book-addon="hot-towel"]').click();
+    expect(box.checked).toBe(false);
+    expect($('[data-total-display]').textContent).toBe('$30');
+  });
+
+  it('an add-on the VIP already includes stays included', async () => {
+    fill('[data-service-select]', 'vip-haircut');
+    $('[data-book-addon="facial"]').click();
+    const facial = $('input[name="addons"][value="facial"]');
+    expect(facial.checked).toBe(true);
+    expect(facial.disabled).toBe(true);
+    expect($('[data-total-display]').textContent).toBe('$60');
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
+  });
+
+  it('while a confirmation shows, the rows change nothing and lead to it', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'm1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    $('[data-book-addon="wax"]').click();
+    $('[data-book-service="line-up"]').click();
+    expect($('input[name="addons"][value="wax"]').checked).toBe(false);
+    expect($('[data-service-select]').value).toBe('hair-cut');
+    expect(document.activeElement).toBe($('[data-form-success]'));
+  });
+});
+
 /* ================= Edge cases ================= */
 
 describe('booking edge cases', () => {

@@ -254,51 +254,63 @@
       <div class="menu__col">
         <ol class="menu__list">
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Hair Cut</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$30</span>
-            <span class="menu__note t-meta">Scissor or clipper, edges included</span>
+            <button type="button" class="menu__book" data-book-service="hair-cut" aria-label="Book Hair Cut, $30" aria-describedby="menu-note-hair-cut">
+              <span class="menu__name t-display-sm">Hair Cut</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$30</span>
+              <span class="menu__note t-meta" id="menu-note-hair-cut">Scissor or clipper, edges included</span>
+            </button>
           </li>
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Line Up</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$10</span>
-            <span class="menu__note t-meta">Hairline, edges, sideburns</span>
+            <button type="button" class="menu__book" data-book-service="line-up" aria-label="Book Line Up, $10" aria-describedby="menu-note-line-up">
+              <span class="menu__name t-display-sm">Line Up</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$10</span>
+              <span class="menu__note t-meta" id="menu-note-line-up">Hairline, edges, sideburns</span>
+            </button>
           </li>
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Beard Trim</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$15</span>
-            <span class="menu__note t-meta">Shape and taper, hot towel optional</span>
+            <button type="button" class="menu__book" data-book-service="beard-trim" aria-label="Book Beard Trim, $15" aria-describedby="menu-note-beard-trim">
+              <span class="menu__name t-display-sm">Beard Trim</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$15</span>
+              <span class="menu__note t-meta" id="menu-note-beard-trim">Shape and taper, hot towel optional</span>
+            </button>
           </li>
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Kids Cut</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$25</span>
-            <span class="menu__note t-meta">12 and under</span>
+            <button type="button" class="menu__book" data-book-service="kids-cut" aria-label="Book Kids Cut, $25" aria-describedby="menu-note-kids-cut">
+              <span class="menu__name t-display-sm">Kids Cut</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$25</span>
+              <span class="menu__note t-meta" id="menu-note-kids-cut">12 and under</span>
+            </button>
           </li>
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Military Cut</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$25</span>
-            <span class="menu__note t-meta">Regulation length</span>
+            <button type="button" class="menu__book" data-book-service="military-cut" aria-label="Book Military Cut, $25" aria-describedby="menu-note-military-cut">
+              <span class="menu__name t-display-sm">Military Cut</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$25</span>
+              <span class="menu__note t-meta" id="menu-note-military-cut">Regulation length</span>
+            </button>
           </li>
           <li class="menu__item">
-            <span class="menu__name t-display-sm">Senior Cut</span>
-            <span class="menu__leader" aria-hidden="true"></span>
-            <span class="menu__price t-price">$25</span>
-            <span class="menu__note t-meta">65 and over</span>
+            <button type="button" class="menu__book" data-book-service="senior-cut" aria-label="Book Senior Cut, $25" aria-describedby="menu-note-senior-cut">
+              <span class="menu__name t-display-sm">Senior Cut</span>
+              <span class="menu__leader" aria-hidden="true"></span>
+              <span class="menu__price t-price">$25</span>
+              <span class="menu__note t-meta" id="menu-note-senior-cut">65 and over</span>
+            </button>
           </li>
         </ol>
 
         <footer class="menu__footnote">
           <p class="t-eyebrow">Add-ons</p>
           <ul class="menu__addons">
-            <li><span class="t-display-sm">Eyebrows</span><span class="t-price">free</span></li>
-            <li><span class="t-display-sm">Hot Towel</span><span class="t-price">+$5</span></li>
-            <li><span class="t-display-sm">Wax</span><span class="t-price">+$5</span></li>
-            <li><span class="t-display-sm">Beard</span><span class="t-price">+$10</span></li>
-            <li><span class="t-display-sm">Facial</span><span class="t-price">+$20</span></li>
+            <li><button type="button" class="menu__addon" data-book-addon="eyebrows" aria-label="Add Eyebrows, free"><span class="t-display-sm">Eyebrows</span><span class="t-price">free</span></button></li>
+            <li><button type="button" class="menu__addon" data-book-addon="hot-towel" aria-label="Add Hot Towel, +$5"><span class="t-display-sm">Hot Towel</span><span class="t-price">+$5</span></button></li>
+            <li><button type="button" class="menu__addon" data-book-addon="wax" aria-label="Add Wax, +$5"><span class="t-display-sm">Wax</span><span class="t-price">+$5</span></button></li>
+            <li><button type="button" class="menu__addon" data-book-addon="beard" aria-label="Add Beard, +$10"><span class="t-display-sm">Beard</span><span class="t-price">+$10</span></button></li>
+            <li><button type="button" class="menu__addon" data-book-addon="facial" aria-label="Add Facial, +$20"><span class="t-display-sm">Facial</span><span class="t-price">+$20</span></button></li>
           </ul>
         </footer>
       </div>

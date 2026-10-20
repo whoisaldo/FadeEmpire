@@ -817,8 +817,9 @@ export function initBookingSubmit() {
   form.querySelector('[data-add-guest]').addEventListener('click', () => addGuest(form));
   form.querySelector('[data-book-another]')?.addEventListener('click', () => startOver(form));
 
-  // "Book the VIP" in the menu: the service is chosen (and totalled), then
-  // the page moves to the next step still to do instead of the bare #book.
+  // "Book the VIP" and the service rows of the price list: the service is
+  // chosen (and totalled), then the page moves to the next step still to do
+  // instead of the bare #book.
   document.addEventListener('click', (e) => {
     const link = e.target.closest?.('[data-book-service]');
     if (!link) return;
@@ -827,6 +828,18 @@ export function initBookingSubmit() {
     const select = form.querySelector('[data-service-select]');
     select.value = link.dataset.bookService;
     select.dispatchEvent(new Event('change', { bubbles: true }));
+    focusNextStep(form);
+  });
+  // An add-on row in the price list ticks (or unticks) that add-on and moves
+  // on the same way. One the service already includes stays included.
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest?.('[data-book-addon]');
+    if (!row) return;
+    const input = form.querySelector(`input[name="addons"][value="${row.dataset.bookAddon}"]`);
+    if (input && !input.disabled && form.dataset.booked !== 'true') {
+      input.checked = !input.checked;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     focusNextStep(form);
   });
   document.addEventListener('booking:focus-next', () => focusNextStep(form));
