@@ -246,6 +246,41 @@ describe('booking grid', () => {
     expect($('[data-slot-grid] .booking__slot[data-time="11:30:00"]').disabled).toBe(false);
   });
 
+  it('Retry keeps keyboard focus: on the day while it reads, then the first open time (R10)', async () => {
+    clickDay('2026-07-08');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    await grid.refreshAvailability();
+
+    let land;
+    rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { land = r; }));
+    $('[data-slots-retry]').focus();
+    $('[data-slots-retry]').click();
+    const day = $('[data-day-row] .booking__day[data-date="2026-07-08"]');
+    expect(document.activeElement).toBe(day);                  // not lost with the button
+    land([{ barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '10:00:00', status: 'confirmed' }]);
+    await vi.waitFor(() => expect(document.activeElement).toBe($('[data-slot-grid] .booking__slot[data-time="10:45:00"]')));
+  });
+
+  it('Retry with no open time left focuses the day; a second failure focuses Retry again (R10)', async () => {
+    clickDay('2026-07-08');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    await grid.refreshAvailability();
+
+    rpc.fetchAvailability.mockRejectedValueOnce(new rpc.BookingError('network'));
+    $('[data-slots-retry]').focus();
+    $('[data-slots-retry]').click();
+    await vi.waitFor(() => expect(document.activeElement).toBe($('[data-slots-retry]')));
+
+    const all = ['10:00', '10:45', '11:30', '12:15', '13:00', '13:45', '14:30', '15:15', '16:00', '16:45', '17:30']
+      .map(t => ({ barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: `${t}:00`, status: 'confirmed' }));
+    rpc.fetchAvailability.mockResolvedValueOnce(all);
+    $('[data-slots-retry]').click();
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot')).toBeTruthy());
+    await vi.waitFor(() => expect(document.activeElement).toBe($('[data-day-row] .booking__day[data-date="2026-07-08"]')));
+  });
+
   it('pills take no taps until the first read lands: loading is not "all open" (P2)', async () => {
     let resolve;
     rpc.fetchAvailability.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));

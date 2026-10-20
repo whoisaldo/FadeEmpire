@@ -194,7 +194,7 @@ function renderSlots() {
     wrap.removeAttribute('aria-busy');
     wrap.innerHTML = '<p class="booking__slots-empty booking__slots-error">Couldn\'t load open times.</p>'
       + '<button type="button" class="btn btn--mini booking__slots-retry" data-slots-retry>Retry</button>';
-    wrap.querySelector('[data-slots-retry]').addEventListener('click', () => loadAvailability());
+    wrap.querySelector('[data-slots-retry]').addEventListener('click', retry);
     // Nothing is offered while availability is unknown, so drop a pick too.
     if (state.selectedTime) {
       state.selectedTime = null;
@@ -262,6 +262,21 @@ function renderSlots() {
     state.selectedTime = null;
     syncForm();
   }
+}
+
+/** Retry re-renders the grid, which takes the focused button with it: focus
+ *  holds on the selected day, then goes to the first open time once the read
+ *  lands (the day if there is none, Retry again if the read failed again). */
+async function retry() {
+  const day = () => document.querySelector('[data-day-row] .booking__day[aria-selected="true"]');
+  loadAvailability();
+  const holding = day();
+  holding?.focus({ preventScroll: true });
+  await whenAvailable();
+  if (![holding, document.body].includes(document.activeElement)) return;   // the customer moved on
+  const grid = document.querySelector('[data-slot-grid]');
+  (grid.querySelector('.booking__slot:not([disabled])') || grid.querySelector('[data-slots-retry]') || day())
+    ?.focus({ preventScroll: true });
 }
 
 /** Select a time. Only an open pill can be selected: a taken, passed or
