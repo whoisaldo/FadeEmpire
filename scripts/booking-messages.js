@@ -15,6 +15,14 @@ export const SERVICE_LABELS = {
   'custom':       'Something else',
 };
 
+export const ADDON_LABELS = {
+  'eyebrows':  'Eyebrows',
+  'hot-towel': 'Hot Towel',
+  'wax':       'Wax',
+  'beard':     'Beard',
+  'facial':    'Facial',
+};
+
 /** How a booked service reads: the label, or for "Something else" the
  *  customer's description and the fact it is priced at the chair. */
 export function serviceLine(serviceSlug, customRequest) {

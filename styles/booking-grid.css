@@ -463,6 +463,33 @@
   line-height: 1.45;
 }
 
+.booking__success-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--bone);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.booking__success-list li {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--rule-gold);
+}
+
+.booking__success-total {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+.booking__success-total .t-mono { color: var(--gold); font-size: 1.125rem; }
+
 .booking__success-actions {
   display: flex;
   gap: 0.6rem;

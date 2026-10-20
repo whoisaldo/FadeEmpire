@@ -18,7 +18,7 @@ import {
   dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
   includedAddons, isUnpricedService,
 } from './booking-helpers.js';
-import { buildBookingMessage, messagingUrl } from './booking-messages.js';
+import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS } from './booking-messages.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
 import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
 
@@ -217,10 +217,25 @@ function linkLabel(mode) {
   return mode === 'sms' ? 'Open Messages →' : 'Open WhatsApp →';
 }
 
-function showSuccess(form, { text, link, mode }) {
+/** The confirmation: who is booked, for what, at what time, and the total.
+ *  `people` is [{ name, service, time }]; without it only `text` is shown. */
+function showSuccess(form, { text, people = [], total = '', link, mode }) {
   hideMessages(form);
   const card = form.querySelector('[data-form-success]');
   card.querySelector('[data-success-text]').textContent = text;
+  const list = card.querySelector('[data-success-list]');
+  if (list) {
+    list.replaceChildren(...people.map(p => {
+      const li = document.createElement('li');
+      li.textContent = `${p.name} · ${p.service} · ${p.time}`;
+      return li;
+    }));
+  }
+  const totalEl = card.querySelector('[data-success-total]');
+  if (totalEl) {
+    totalEl.textContent = total;
+    totalEl.parentElement.hidden = !total;
+  }
   const a = card.querySelector('[data-success-link]');
   if (link) { a.href = link; a.textContent = linkLabel(mode); a.hidden = false; } else { a.hidden = true; }
   card.hidden = false;
@@ -460,18 +475,22 @@ async function submit(form, mode) {
 
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
-  const primaryBooking = bookings.find(b => b.booking_id) || bookings[0];
-  const slotLabel = guests.length > 0
-    ? `${guests.length + 1} chairs · ${dateLabel} · starting ${minutesToLabel(hmsToMinutes(primaryBooking.booking_time))}`
-    : `${dateLabel} at ${minutesToLabel(hmsToMinutes(primaryBooking.booking_time))}`;
+  // One line per person; a multi-slot service's continuation rows have no id.
+  const people = bookings.filter(b => b.booking_id).map(b => ({
+    name:    b.person_name,
+    service: serviceLine(b.service_slug, custom)
+      + (b.addons.length ? ` + ${b.addons.map(a => ADDON_LABELS[a] || a).join(', ')}` : ''),
+    time:    minutesToLabel(hmsToMinutes(b.booking_time)),
+  }));
 
   showSuccess(form, {
-    text: `${slotLabel} — reserved. ${barberName} will be expecting ${
-      guests.length > 0 ? `${guests.length + 1} of you` : 'you'
-    }. Total: ${formatTotal(total, unpriced)}.`,
+    text: `${dateLabel} · ${barberName}`,
+    people,
+    total: formatTotal(total, unpriced),
     link: url,
     mode,
   });
+  setBooked(form, true);
 
   if (isMobile) {
     setTimeout(() => { window.location.href = url; }, 700);
@@ -479,19 +498,32 @@ async function submit(form, mode) {
     try { placeholder.location.href = url; } catch (_) { /* noop */ }
   }
 
-  // Refresh availability so booked slots disappear; reset form for back-button safety.
-  await gridRefresh();
+  // The form stays as submitted next to the confirmation; "Book another"
+  // clears it. Submitting again is not offered until then.
+  submitBtns.forEach(b => (b.disabled = false));
+}
+
+/** While a confirmation is showing, the reserve buttons are put away. */
+function setBooked(form, booked) {
+  const row = form.querySelector('[data-submit-row]');
+  if (row) row.hidden = booked;
+}
+
+/** "Book another": a fresh form, and a grid that shows the slots just taken. */
+function startOver(form) {
   form.reset();
-  clearTime();
-  // remove any dynamically-added guest rows
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
   form.querySelectorAll('input[name="addons"]').forEach(i => { i.dataset.wasChecked = 'false'; });
   syncCustomField(form);       // reset() fires no change event
   syncIncludedAddons(form);
+  hideMessages(form);
+  setBooked(form, false);
+  clearTime();
   updateTotal(form);
   updateTimeline(form);
-  submitBtns.forEach(b => (b.disabled = false));
+  gridRefresh();
+  form.closest('.booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ---------- Phone formatting + custom toggle ---------- */
@@ -539,6 +571,7 @@ export function initBookingSubmit() {
   form.querySelector('input[name="name"]').addEventListener('input', () => updateTimeline(form));
 
   form.querySelector('[data-add-guest]').addEventListener('click', () => addGuest(form));
+  form.querySelector('[data-book-another]')?.addEventListener('click', () => startOver(form));
 
   document.addEventListener('booking:selected', () => updateTimeline(form));
 

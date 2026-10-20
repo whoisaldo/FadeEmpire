@@ -277,16 +277,17 @@ describe('booking submit — success', () => {
       name: 'Test Customer',
       addons: ['beard'],
     }));
-    const text = $('[data-success-text]').textContent;
-    expect(text).toContain('Larry will be expecting you');
-    expect(text).toContain('$40');
+    expect($('[data-success-text]').textContent).toBe('Wednesday, July 8 · Larry');
+    expect($$('[data-success-list] li').map(li => li.textContent))
+      .toEqual(['Test Customer · Hair Cut + Beard · 11:30 AM']);
+    expect($('[data-success-total]').textContent).toBe('$40');
     const link = $('[data-success-link]');
     expect(link.hidden).toBe(false);
     expect(link.href).toContain('wa.me');
     expect(decodeURIComponent(link.href)).toContain('Barber:  Larry');
   });
 
-  it('books a group through book_slot_group and resets guest rows after', async () => {
+  it('books a group, lists every person in the confirmation, and keeps the form until Book another (P15)', async () => {
     rpc.bookSlotGroup.mockResolvedValue([
       { booking_id: 'g1', person_index: 0, person_name: 'Test Customer',
         service_slug: 'hair-cut', booking_time: '11:30:00', total_price_cents: 3000 },
@@ -321,8 +322,27 @@ describe('booking submit — success', () => {
         expect.objectContaining({ name: 'Kiddo', serviceSlug: 'kids-cut' }),
       ],
     }));
-    // Guest rows cleared after success (back-button safety).
+    // The confirmation names everyone, their service and time, and the total.
+    expect($$('[data-success-list] li').map(li => li.textContent)).toEqual([
+      'Test Customer · Hair Cut · 11:30 AM',
+      'Kiddo · Kids Cut · 12:15 PM',
+    ]);
+    expect($('[data-success-total]').textContent).toBe('$55');
+    // The form stays as submitted: no $0 next to a confirmed price, guests kept.
+    expect($('[data-total-display]').textContent).toBe('$55');
+    expect($$('[data-guest-list] [data-guest]')).toHaveLength(1);
+    expect($('input[name="name"]').value).toBe('Test Customer');
+    expect($('[data-submit-row]').hidden).toBe(true);
+
+    const refreshes = rpc.fetchAvailability.mock.calls.length;
+    $('[data-book-another]').click();
+    expect($('[data-form-success]').hidden).toBe(true);
     expect($$('[data-guest-list] [data-guest]')).toHaveLength(0);
+    expect($('input[name="name"]').value).toBe('');
+    expect($('[data-total-display]').textContent).toBe('$0');
+    expect($('[data-submit-row]').hidden).toBe(false);
+    expect($('[data-form-time]').value).toBe('');
+    expect(rpc.fetchAvailability.mock.calls.length).toBeGreaterThan(refreshes);
   });
 });
 
@@ -617,7 +637,7 @@ describe('booking edge cases', () => {
     $('[data-submit-whatsapp]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ time: '17:30:00', serviceSlug: 'vip-haircut' }));
-    expect($('[data-success-text]').textContent).toContain('5:30 PM');
+    expect($('[data-success-list]').textContent).toContain('5:30 PM');
   });
 
   it('a slot that just passed is disabled the moment the grid re-renders', () => {
@@ -709,6 +729,25 @@ describe('booking edge cases', () => {
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: ['wax'] }));
   });
 
+  it('Book another after a VIP booking gives back unticked, priced add-ons (P3, P15)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'v2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 6000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'hair-cut' });
+    $('input[name="addons"][value="beard"]').click();
+    fill('[data-service-select]', 'vip-haircut');
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect($('[data-success-list] li').textContent).toBe('Test Customer · VIP Haircut · 11:30 AM');
+    $('[data-book-another]').click();
+    for (const v of ['beard', 'hot-towel', 'facial', 'eyebrows']) {
+      const input = $(`input[name="addons"][value="${v}"]`);
+      expect(input.checked, v).toBe(false);
+      expect(input.disabled, v).toBe(false);
+    }
+    expect($('input[name="addons"][value="beard"]').closest('.booking__addon').querySelector('.t-mono').textContent).toBe('+$10');
+  });
+
   it('switching away from VIP restores the add-ons as they were (P3)', () => {
     fillPrimary({ service: 'hair-cut' });
     $('input[name="addons"][value="beard"]').click();
@@ -760,13 +799,16 @@ describe('booking edge cases', () => {
       customRequest: 'Mid taper, keep the length on top',
     }));
     const card = $('[data-form-success]').textContent;
-    expect(card).toContain('Price at the chair');
+    expect($('[data-success-list] li').textContent)
+      .toBe('Test Customer · Something else: Mid taper, keep the length on top · price at the chair · 11:30 AM');
+    expect($('[data-success-total]').textContent).toBe('Price at the chair');
     expect(card).not.toContain('$30');
     const msg = decodeURIComponent($('[data-success-link]').href);
     expect(msg).toContain('Something else: Mid taper, keep the length on top · price at the chair');
     expect(msg).toContain('Total:   Price at the chair');
     expect(msg).not.toContain('$30');
-    // The custom box hides again once the form resets.
+    // The custom box hides again once the customer starts over.
+    $('[data-book-another]').click();
     expect($('[data-custom-field]').hidden).toBe(true);
   });
 
