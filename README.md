@@ -77,7 +77,8 @@ FadeEmpire/
 │   ├── booking-validate.js       Pure form validation + duration-aware party planning
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
 │   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map
-│   ├── cover.js                  Nav stamp, hero status, next-open-slot lines, sticky CTA, mobile menu
+│   ├── nav.js                    Mobile menu (loads without the database client)
+│   ├── cover.js                  Nav stamp, hero status, next-open-slot lines, sticky CTA
 │   ├── shop-video.js             Lazy, muted, visibility-paused video + the sound toggle
 │   ├── gallery.js                Lightbox (keys, swipe, focus return) + filmstrip counter
 │   ├── visit.js                  Today's row + live status in the hours card

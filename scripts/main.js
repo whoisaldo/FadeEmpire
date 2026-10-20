@@ -1,10 +1,12 @@
 // main.js — entry point. Boots all feature modules.
 //
-// The page modules that need nothing from the database load statically.
-// cover.js and the booking modules reach the database client, so they load
-// through dynamic imports: if one of them fails, the rest of the page still
-// works, and the booking section says how to book instead.
+// The page modules that need nothing from the database load statically,
+// the mobile menu (nav.js) first. cover.js and the booking modules reach the
+// database client, so they load through dynamic imports: if one of them
+// fails, the rest of the page still works, and the booking section says how
+// to book instead.
 
+import { initMobileNav }      from './nav.js';
 import { initReveals }        from './reveals.js';
 import { initShopVideo }      from './shop-video.js';
 import { initGallery }        from './gallery.js';
@@ -57,6 +59,7 @@ function showBookingUnavailable() {
 
 ready(async () => {
   registerSW();                // before any await: it listens for window load
+  initMobileNav();
   initReveals();
   initShopVideo();
   initGallery();

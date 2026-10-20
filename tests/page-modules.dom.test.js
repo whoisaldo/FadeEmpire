@@ -2,8 +2,9 @@
 //
 // The non-booking page modules against the real index.html markup:
 //   * main.js     booking loads apart from the rest of the page
+//   * nav.js      the mobile menu
 //   * cover.js    the nav stamp, the hero status line, the "next open slot"
-//                 lines, the phone-only compare collapse, the mobile menu
+//                 lines, the phone-only compare collapse
 //   * visit.js    today's row and the status in the hours card
 //   * shop-video.js  the tour video (lazy file, muted default, sound toggle,
 //                 no caption track) and the pause buttons on both clips
@@ -169,14 +170,13 @@ describe('cover.js: live status and next open slot', () => {
   });
 });
 
-/* ================= cover.js: mobile menu ================= */
+/* ================= nav.js: mobile menu ================= */
 
-describe('cover.js: the mobile menu', () => {
+describe('nav.js: the mobile menu', () => {
   async function bootMenu() {
-    vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
     document.body.innerHTML = HEADER + HERO + MOBILE_CTA + '<section id="book"></section>';
-    const { initCover } = await import('../scripts/cover.js');
-    initCover();
+    const { initMobileNav } = await import('../scripts/nav.js');
+    initMobileNav();
   }
   const key = (k, opts = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
   const walled = () => [...document.body.children].filter((el) => !el.matches('[data-nav]'));
@@ -256,6 +256,35 @@ describe('main.js: booking loads apart from the rest of the page', () => {
     // cover.js still ran: the stamp shows the live state, not the shipped text.
     expect($('[data-open-stamp]').classList.contains('stamp--open')).toBe(true);
     vi.doUnmock('../scripts/booking-grid.js');
+  });
+
+  it('if the database client fails to load, the menu still opens, traps focus and closes', async () => {
+    vi.doMock('../scripts/supabase.js', () => { throw new Error('vendor file blocked'); });
+    vi.doUnmock('../scripts/booking-rpc.js');          // the real one, which imports the client
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = HEADER + HERO + MOBILE_CTA + section('book');
+    await import('../scripts/main.js');
+    await vi.waitFor(() => expect($('[data-booking-offline]')).toBeTruthy());
+    expect(warn).toHaveBeenCalledWith('[main] nav and live status failed to start', expect.any(Error));
+    expect($('[data-open-stamp] .stamp__text').textContent).toBe('10–6 · Closed Tue');   // cover.js never ran
+
+    const toggle = $('[data-nav-toggle]');
+    const links = $$('.nav__link');
+    const key = (k, opts = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
+    toggle.click();
+    expect($('[data-nav]').hasAttribute('data-nav-open')).toBe(true);
+    expect(document.activeElement).toBe(links[0]);
+    expect($('#hero').hasAttribute('inert')).toBe(true);
+    links[links.length - 1].focus();
+    key('Tab');
+    expect(document.activeElement).toBe(toggle);
+    key('Tab');
+    expect(document.activeElement).toBe(links[0]);
+    key('Escape');
+    expect($('[data-nav]').hasAttribute('data-nav-open')).toBe(false);
+    expect(document.activeElement).toBe(toggle);
+    expect($('#hero').hasAttribute('inert')).toBe(false);
+    vi.doUnmock('../scripts/supabase.js');
   });
 });
 
