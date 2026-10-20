@@ -27,10 +27,24 @@ let state = {
 };
 let loadSeq = 0;           // drops stale responses when reads overlap
 
+/* ---------- Locked while a confirmation shows ---------- */
+
+// After a booking the picker must not change under the confirmation: its
+// parts go inert (no taps, no focus) and every way in is refused, including
+// the shortcuts from elsewhere on the page and the background refresh.
+// "Book another" unlocks.
+let locked = false;
+const LOCKED_PARTS = ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]'];
+
+export function setLocked(on) {
+  locked = on;
+  LOCKED_PARTS.forEach(sel => document.querySelectorAll(sel).forEach(el => el.toggleAttribute('inert', on)));
+}
+
 /* ---------- Barber picker ---------- */
 
 function selectBarber(slug, { keepDate = false } = {}) {
-  if (!BARBERS[slug]) return;
+  if (!BARBERS[slug] || locked) return;
   const changed = state.barberSlug !== slug;
   state.barberSlug = slug;
 
@@ -130,6 +144,7 @@ function renderDayRow() {
 /* ---------- Slot column ---------- */
 
 function selectDate(iso) {
+  if (locked) return;
   state.selectedDate = iso;
   state.selectedTime = null;
   setSlotsNote('');
@@ -252,6 +267,7 @@ function renderSlots() {
 /** Select a time. Only an open pill can be selected: a taken, passed or
  *  not-yet-read slot is never picked, whoever asks. Returns whether it was. */
 function selectTime(hms) {
+  if (locked) return false;
   const pill = document.querySelector(`[data-slot-grid] .booking__slot[data-time="${hms}"]`);
   if (!pill || pill.disabled) return false;
   setSlotsNote('');
@@ -298,6 +314,7 @@ function syncForm() {
 
 let lastLoad = Promise.resolve();
 function loadAvailability() {
+  if (locked) return lastLoad;         // "Book another" refreshes
   lastLoad = readAvailability();
   return lastLoad;
 }
@@ -336,7 +353,7 @@ function bindExternalPick() {
   // said so; either way nothing is selected.
   document.addEventListener('booking:pick', async (e) => {
     const { date, time, barberSlug } = e.detail || {};
-    if (!date || !time) return;
+    if (!date || !time || locked) return;
     if (barberSlug) selectBarber(barberSlug, { keepDate: true });
     selectDate(date);
     await whenAvailable();
@@ -355,6 +372,7 @@ function bindExternalPick() {
 
 let _cachedToday = null;
 function maybeRolloverDay() {
+  if (locked) return;                  // caught up by the next tick after "Book another"
   const today = isoDate(new Date());
   const todayChip = document.querySelector(`[data-day-row] .booking__day[data-date="${today}"]`);
   if (_cachedToday && _cachedToday !== today) {
@@ -417,6 +435,7 @@ export function getSelection() {
 /** Drop the chosen time but keep the day: the day chip stays highlighted, so
  *  the date it stands for has to stay selected too. */
 export function clearTime() {
+  if (locked) return;
   state.selectedTime = null;
   syncForm();
   document.querySelectorAll('[data-slot-grid] .booking__slot').forEach(b => {

@@ -16,7 +16,7 @@
 //      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable } from './booking-grid.js';
+import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked } from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
@@ -370,6 +370,14 @@ function setFlag(form, key, on) {
   form.querySelectorAll('[data-submit]').forEach(b => { b.disabled = off; });
 }
 
+/** Booked: Reserve off, and the picker and every field locked so nothing on
+ *  screen can change under the confirmation, until "Book another". */
+function setBooked(form, on) {
+  setFlag(form, 'booked', on);
+  setLocked(on);
+  form.querySelectorAll('[data-selected-pill], .booking__grid').forEach(el => el.toggleAttribute('inert', on));
+}
+
 /* ---------- Submit ---------- */
 
 async function submit(form) {
@@ -580,13 +588,19 @@ async function submit(form) {
   // The form stays as submitted next to the confirmation, and Reserve stays
   // off, until "Book another".
   form.dataset.busy = 'false';
-  setFlag(form, 'booked', true);
+  setBooked(form, true);
 }
 
 /** After a shortcut has filled part of the booking (Book with Hassan, Book
  *  the VIP, Reserve it, Take it): focus the next step still to do, so Tab
  *  carries on from there. Times take focus only once availability is read. */
 async function focusNextStep(form) {
+  if (form.dataset.booked === 'true') {          // locked: the confirmation is the next step
+    const card = form.querySelector('[data-form-success]');
+    card.focus({ preventScroll: true });
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   await whenAvailable();
   const sel = getSelection();
   const target = !sel.time
@@ -603,6 +617,7 @@ async function focusNextStep(form) {
 
 /** "Book another": a fresh form, and a grid that shows the slots just taken. */
 function startOver(form) {
+  setBooked(form, false);
   form.reset();
   form.querySelectorAll('[data-guest]').forEach(row => row.remove());
   form.querySelector('[data-add-guest]').disabled = false;
@@ -613,7 +628,6 @@ function startOver(form) {
   clearTime();
   updateTotal(form);
   updateTimeline(form);
-  setFlag(form, 'booked', false);
   gridRefresh();
   form.closest('.booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -671,6 +685,7 @@ export function initBookingSubmit() {
     const link = e.target.closest?.('[data-book-service]');
     if (!link) return;
     e.preventDefault();
+    if (form.dataset.booked === 'true') { focusNextStep(form); return; }
     const select = form.querySelector('[data-service-select]');
     select.value = link.dataset.bookService;
     select.dispatchEvent(new Event('change', { bubbles: true }));

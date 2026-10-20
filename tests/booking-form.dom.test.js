@@ -102,6 +102,14 @@ document.addEventListener = (type, fn, opts) => {
   return realAddListener(type, fn, opts);
 };
 
+/** A second boot inside one test: drop the first instance's listeners first. */
+async function reboot(extraHtml = '') {
+  docListeners.forEach(([type, fn, opts]) => document.removeEventListener(type, fn, opts));
+  docListeners = [];
+  vi.resetModules();
+  await boot(extraHtml);
+}
+
 beforeEach(async () => {
   // Date + intervals are faked (the grid's midnight/refresh timers); timeouts
   // stay real so vi.waitFor and the modules' rAF fallbacks keep working.
@@ -381,6 +389,45 @@ describe('booking submit — success', () => {
     $('[data-add-guest]').click();
     $$('[data-guest-list] [data-remove-guest]')[0].click();
     expect(document.activeElement).toBe($('[data-add-guest]'));
+  });
+
+  it('while the confirmation shows, nothing in the picker or the form can change under it (R2)', async () => {
+    const extras = indexHtml.match(/<button[^>]*data-book-barber="larry"[^>]*>[^<]*<\/button>/)[0]
+      + indexHtml.match(/<a [^>]*class="[^"]*menu__feature-cta[^>]*>[^<]*<\/a>/)[0];
+    await reboot(extras);
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'r2', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    for (const sel of ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]',
+                       '[data-selected-pill]', '.booking__grid']) {
+      expect($(sel).hasAttribute('inert'), sel).toBe(true);
+    }
+    expect($('[data-form-success]').closest('[inert]')).toBeNull();      // the card itself stays usable
+
+    const before = { date: $('[data-form-date]').value, time: $('[data-form-time]').value,
+                     pill: $('[data-selected-text]').textContent, total: $('[data-total-display]').textContent };
+    $('[data-barber-option="larry"]').click();
+    $('[data-day-row] .booking__day[data-date="2026-07-09"]').click();
+    $('[data-slot-grid] .booking__slot[data-time="13:00:00"]').click();
+    $('[data-clear-selected]').click();
+    $('button[data-book-barber="larry"]').click();
+    $('.menu__feature-cta').click();
+    document.dispatchEvent(new CustomEvent('booking:pick', { detail: { date: '2026-07-10', time: '10:00:00', barberSlug: 'larry' } }));
+    await new Promise((r) => setTimeout(r, 30));
+    expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('true');
+    expect({ date: $('[data-form-date]').value, time: $('[data-form-time]').value,
+             pill: $('[data-selected-text]').textContent, total: $('[data-total-display]').textContent }).toEqual(before);
+    expect($('[data-service-select]').value).toBe('hair-cut');
+    expect(document.activeElement).toBe($('[data-form-success]'));      // shortcuts land on the confirmation
+
+    $('[data-book-another]').click();
+    expect(document.querySelector('.booking [inert]')).toBeNull();
+    $('[data-barber-option="larry"]').click();
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
   });
 
   it('one Reserve button books first; the card then offers the message by WhatsApp only on a desktop (D18, D3)', async () => {
@@ -883,8 +930,7 @@ describe('booking edge cases', () => {
 
   it('Book with Larry: focus moves to his first open time once his availability is read (D12)', async () => {
     const bookWith = indexHtml.match(/<button[^>]*data-book-barber="larry"[^>]*>[^<]*<\/button>/)[0];
-    vi.resetModules();                 // a fresh grid that binds the inserted button
-    await boot(bookWith);
+    await reboot(bookWith);            // a fresh grid that binds the inserted button
     $('button[data-book-barber="larry"]').click();
     await vi.waitFor(() => expect(document.activeElement?.classList.contains('booking__slot')).toBe(true));
     expect(document.activeElement.disabled).toBe(false);
@@ -1200,9 +1246,8 @@ describe('booking edge cases', () => {
   });
 
   async function bootAt(iso) {
-    vi.resetModules();
     vi.setSystemTime(new Date(iso));
-    await boot();
+    await reboot();
   }
 
   it('after the last slot, today reads "No slots left" and the next open day is selected (D5)', async () => {

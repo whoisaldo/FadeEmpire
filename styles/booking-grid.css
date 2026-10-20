@@ -480,6 +480,9 @@
   line-height: 1.45;
 }
 
+/* Locked under a confirmation: still readable, visibly not for changing */
+.booking [inert] { opacity: 0.55; }
+
 .booking__error-action {
   display: flex;
   margin-top: 0.75rem;
