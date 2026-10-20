@@ -1,7 +1,8 @@
 // send-reminders logic: reads the due rows from Postgres, texts each one
 // through Twilio, and marks a row sent only after Twilio returns 2xx or
 // rejects the number for good (PERMANENT_ERRORS). Without Twilio credentials
-// it runs dry: logs each message, marks nothing.
+// it runs dry: logs each message, marks nothing. During quiet hours it does
+// nothing at all.
 
 export type Twilio = {
   accountSid: string;
@@ -15,6 +16,8 @@ export type Env = {
   serviceKey: string;
   siteUrl: string;
   twilio: Twilio | null;
+  quietStartHour: number;
+  quietEndHour: number;
 };
 
 export type ReminderRow = {
@@ -36,6 +39,12 @@ type Counts = { due: number; sent: number; failed: number; rejected: number };
 export type Summary = { dry_run: boolean; reminders: Counts; rebooks: Counts };
 
 const DEFAULT_SITE_URL = 'https://chicopeefadeempire.com';
+// No texts from QUIET_START_HOUR until QUIET_END_HOUR, shop time. The hourly
+// schedule keeps running; the due windows absorb the wait (a 10:00 AM
+// appointment's 23-25 hour window is 09:00-11:00 the day before).
+const SHOP_TZ = 'America/New_York';
+export const QUIET_START_HOUR = 20;
+export const QUIET_END_HOUR = 9;
 const ADDRESS = '1193 Memorial Dr, Chicopee';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,7 +74,32 @@ export function readEnv(get: (name: string) => string | undefined): Env {
     serviceKey: get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     siteUrl: (get('SITE_URL') || DEFAULT_SITE_URL).replace(/\/+$/, ''),
     twilio: configured ? { accountSid, authToken, from, messagingServiceSid } : null,
+    quietStartHour: hourFrom(get('QUIET_START_HOUR'), QUIET_START_HOUR),
+    quietEndHour: hourFrom(get('QUIET_END_HOUR'), QUIET_END_HOUR),
   };
+}
+
+// An hour 0-23 from the environment, or the fallback when unset or invalid.
+function hourFrom(raw: string | undefined, fallback: number): number {
+  const s = raw?.trim() ?? '';
+  return /^\d{1,2}$/.test(s) && Number(s) <= 23 ? Number(s) : fallback;
+}
+
+// The reason to send nothing at `now`, or null when texts may go out.
+export function quietHours(env: Env, now: Date): string | null {
+  const clock = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SHOP_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(now);
+  const hour = Number(clock.slice(0, 2));
+  const start = env.quietStartHour;
+  const end = env.quietEndHour;
+  const quiet = start > end ? hour >= start || hour < end : hour >= start && hour < end;
+  if (!quiet) return null;
+  const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
+  return `quiet hours: ${clock} in ${SHOP_TZ}; texts go out ${hh(end)}-${hh(start)}`;
 }
 
 // Stored phones are digits only: 10 digits (US), or 11-15 with a country code.
@@ -227,13 +261,20 @@ export async function run(env: Env): Promise<Summary> {
   };
 }
 
-// Only the service role key may trigger a run.
-export async function handle(req: Request, env: Env): Promise<Response> {
+// Only the service role key may trigger a run. Quiet hours skip it before any
+// query, so nothing is sent or marked.
+export async function handle(req: Request, env: Env, now = new Date()): Promise<Response> {
   if (!env.supabaseUrl || !env.serviceKey) {
     return Response.json({ error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 });
   }
   if (req.headers.get('Authorization') !== `Bearer ${env.serviceKey}`) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  const skipped = quietHours(env, now);
+  if (skipped) {
+    const summary = { dry_run: env.twilio === null, skipped };
+    console.log(JSON.stringify(summary));
+    return Response.json(summary);
   }
   try {
     const summary = await run(env);

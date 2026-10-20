@@ -9,6 +9,8 @@ import {
   formatTime,
   handle,
   PERMANENT_ERRORS,
+  QUIET_END_HOUR,
+  QUIET_START_HOUR,
   readEnv,
   type RebookRow,
   rebookText,
@@ -21,6 +23,8 @@ import {
 const SITE = 'https://chicopeefadeempire.com';
 const SUPABASE_URL = 'http://db.test';
 const KEY = 'service-key';
+// 12:00 in America/New_York (EDT): outside quiet hours.
+const NOON = new Date('2026-10-20T16:00:00Z');
 
 const twilioEnv = {
   SUPABASE_URL,
@@ -53,6 +57,7 @@ type Fake = {
   twilioBody?: unknown;
   twilioThrows?: boolean;
   sms: URLSearchParams[];
+  rpcs: string[];
   marks: { p_booking_ids: string[]; p_kind: string; p_error?: string }[];
 };
 
@@ -64,6 +69,7 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     rebooks: [],
     twilioStatus: 201,
     sms: [],
+    rpcs: [],
     marks: [],
     ...fake,
   };
@@ -76,6 +82,7 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
       const body = state.twilioBody ?? { status: state.twilioStatus };
       return new Response(JSON.stringify(body), { status: state.twilioStatus });
     }
+    if (url.startsWith(`${SUPABASE_URL}/rest/v1/rpc/`)) state.rpcs.push(url.split('/').pop()!);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/reminders_due`) return Response.json(state.reminders);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/rebook_due`) return Response.json(state.rebooks);
     if (url === `${SUPABASE_URL}/rest/v1/rpc/mark_reminder_sent`) {
@@ -344,6 +351,7 @@ Deno.test('handler returns the JSON summary', async () => {
     const res = await handle(
       new Request('http://fn.test', { method: 'POST', headers: { Authorization: `Bearer ${KEY}` } }),
       dryEnv,
+      NOON,
     );
     assertEquals(res.status, 200);
     assertEquals(await res.json(), {
@@ -365,6 +373,7 @@ Deno.test('handler returns 500 when a due query fails', async () => {
     const res = await handle(
       new Request('http://fn.test', { method: 'POST', headers: { Authorization: `Bearer ${KEY}` } }),
       liveEnv,
+      NOON,
     );
     assertEquals(res.status, 500);
     await res.body?.cancel();
@@ -372,4 +381,82 @@ Deno.test('handler returns 500 when a due query fails', async () => {
     restoreConsole();
     globalThis.fetch = original;
   }
+});
+
+// ---------- Quiet hours ----------
+
+const post = () => new Request('http://fn.test', { method: 'POST', headers: { Authorization: `Bearer ${KEY}` } });
+
+// Calls the handler at `at` with one due reminder; returns what happened.
+async function handleAt(env: Env, at: string) {
+  const fake = stubFetch({ reminders: [reminderRow()] });
+  const restoreConsole = quiet();
+  try {
+    const res = await handle(post(), env, new Date(at));
+    return {
+      status: res.status,
+      body: await res.json(),
+      sms: fake.sms.length,
+      marks: fake.marks.length,
+      rpcs: fake.rpcs,
+    };
+  } finally {
+    restoreConsole();
+    fake.restore();
+  }
+}
+
+Deno.test('quiet hours default to 20:00-09:00', () => {
+  assertEquals([QUIET_START_HOUR, QUIET_END_HOUR], [20, 9]);
+  assertEquals([liveEnv.quietStartHour, liveEnv.quietEndHour], [20, 9]);
+});
+
+Deno.test('quiet hours: both sides of 09:00 and 20:00 in America/New_York', async () => {
+  const cases: [string, string, boolean][] = [
+    // [instant, shop time, sends]
+    ['2026-10-20T12:59:00Z', '08:59 EDT', false],
+    ['2026-10-20T13:00:00Z', '09:00 EDT', true],
+    ['2026-10-20T23:59:00Z', '19:59 EDT', true],
+    ['2026-10-21T00:00:00Z', '20:00 EDT', false],
+    ['2026-12-15T13:59:00Z', '08:59 EST', false],
+    ['2026-12-15T14:00:00Z', '09:00 EST', true],
+    ['2026-12-16T00:59:00Z', '19:59 EST', true],
+    ['2026-12-16T01:00:00Z', '20:00 EST', false],
+  ];
+  for (const [at, label, sends] of cases) {
+    const r = await handleAt(liveEnv, at);
+    assertEquals(r.status, 200, label);
+    if (sends) {
+      assertEquals([r.sms, r.marks], [1, 1], label);
+      assertEquals(r.body.reminders, { due: 1, sent: 1, failed: 0, rejected: 0 }, label);
+    } else {
+      assertEquals([r.sms, r.marks, r.rpcs.length], [0, 0, 0], label);
+      assertEquals(r.body, {
+        dry_run: false,
+        skipped: `quiet hours: ${label.slice(0, 5)} in America/New_York; texts go out 09:00-20:00`,
+      }, label);
+    }
+  }
+});
+
+Deno.test('QUIET_START_HOUR and QUIET_END_HOUR override the bounds', async () => {
+  const env = envFrom({ ...twilioEnv, QUIET_START_HOUR: '22', QUIET_END_HOUR: '7' });
+  const cases: [string, string, boolean][] = [
+    ['2026-10-20T10:59:00Z', '06:59 EDT', false],
+    ['2026-10-20T11:00:00Z', '07:00 EDT', true],
+    ['2026-10-21T01:59:00Z', '21:59 EDT', true],
+    ['2026-10-21T02:00:00Z', '22:00 EDT', false],
+  ];
+  for (const [at, label, sends] of cases) {
+    const r = await handleAt(env, at);
+    assertEquals(r.sms, sends ? 1 : 0, label);
+    if (!sends) {
+      assertEquals(r.body.skipped, `quiet hours: ${label.slice(0, 5)} in America/New_York; texts go out 07:00-22:00`);
+    }
+  }
+});
+
+Deno.test('an invalid quiet hour falls back to the default', () => {
+  const env = envFrom({ QUIET_START_HOUR: '24', QUIET_END_HOUR: 'nine' });
+  assertEquals([env.quietStartHour, env.quietEndHour], [20, 9]);
 });
