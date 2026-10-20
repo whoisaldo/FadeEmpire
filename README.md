@@ -147,14 +147,14 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 
 ### Messaging fallback
 
-If the booking RPC fails for any reason other than `slot_taken` (network, RLS misconfiguration, schema mismatch, pg_cron failure, anything), the client:
+If the booking RPC can't be reached or fails with an error the client can't name (network, RLS misconfiguration, anything unmapped), the client:
 
 1. Logs the failure to `booking_errors` table for Hassan to review
 2. Builds a fallback WhatsApp/SMS message with a `⚠ BOOKING SYSTEM ERROR — manual confirm needed` banner
 3. Shows an amber fallback card with the details
 4. Redirects to WhatsApp/SMS anyway
 
-This means a customer is never lost to a transient backend hiccup. `slot_taken` is the one error that hard-fails (otherwise we'd cause real double-bookings).
+This means a customer is never lost to a transient backend hiccup. Known answers from the DB (`slot_taken`, `invalid_phone`, `too_many_active_bookings`, `service_not_found`, and the rest of `ERROR_MESSAGES`) are shown inline with their next step instead: pick another time, fix the field, or cancel a booking. `slot_taken` in particular must never fall back, or the shop would get a real double booking.
 
 ---
 

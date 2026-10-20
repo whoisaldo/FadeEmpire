@@ -229,11 +229,13 @@ export function mapBookingErrorCode(err) {
   return 'unknown';
 }
 
-/** Which error codes should NOT fall back to the messaging path.
- *  `slot_taken` must hard-fail to prevent real double-booking. Everything else
- *  is recoverable — we still want to ping the shop via WhatsApp/SMS.
- */
-export const HARD_FAIL_CODES = new Set(['slot_taken']);
+/** The error codes that fall back to a manual WhatsApp/SMS request: the
+ *  booking system couldn't be reached or failed in a way we can't name.
+ *  Every other code is a known answer from the DB (the slot is taken, the
+ *  phone is invalid, too many active bookings, ...) and is shown inline with
+ *  its own next step; `slot_taken` in particular must never fall back, or the
+ *  shop would get a real double booking. */
+export const FALLBACK_CODES = new Set(['network', 'unknown']);
 
 export const ERROR_MESSAGES = {
   slot_taken:      'That time was just booked. Pick another slot above.',

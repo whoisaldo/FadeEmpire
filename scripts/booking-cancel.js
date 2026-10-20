@@ -194,6 +194,16 @@ export function initBookingCancel() {
 
   root.querySelector('[data-cancel-find]').addEventListener('click', () => lookup(root));
 
+  // "Cancel a booking" under a too-many-bookings error: open the panel with
+  // the phone they just used and list its bookings.
+  document.addEventListener('booking:cancel', (e) => {
+    root.hidden = false;
+    document.querySelectorAll('[data-cancel-open]').forEach(b => b.setAttribute('aria-expanded', 'true'));
+    input.value = formatPhoneDisplay(cleanPhone(e.detail?.phone));
+    root.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    lookup(root);
+  });
+
   // The "Need to cancel?" toggle in the booking fine print.
   document.querySelectorAll('[data-cancel-open]').forEach(btn => {
     btn.addEventListener('click', () => {

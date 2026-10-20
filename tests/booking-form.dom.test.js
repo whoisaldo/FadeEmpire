@@ -452,6 +452,54 @@ describe('booking submit — validation and failures', () => {
     expect(decodeURIComponent(link.href)).toContain('BOOKING SYSTEM ERROR');
   });
 
+  async function submitWithRpcError(code) {
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError(code));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect($('[data-form-fallback]').hidden).toBe(true);     // no manual-message card
+    expect($('[data-form-success]').hidden).toBe(true);
+    expect($('[data-submit-whatsapp]').disabled).toBe(false);
+  }
+
+  it('too_many_active_bookings stays inline and offers Cancel a booking with the phone filled in (P16)', async () => {
+    rpc.findBookingsByPhone.mockResolvedValue([]);
+    await submitWithRpcError('too_many');
+    expect($('[data-form-error]').textContent).toContain('Cancel one first');
+    expect(rpc.logBookingError).toHaveBeenCalledWith(expect.objectContaining({ code: 'too_many' }));
+    const action = $('[data-form-error-action]');
+    expect(action.hidden).toBe(false);
+    expect(action.textContent).toBe('Cancel a booking');
+
+    action.click();
+    expect($('[data-cancel-root]').hidden).toBe(false);
+    expect($('[data-cancel-open]').getAttribute('aria-expanded')).toBe('true');
+    expect($('[data-cancel-phone]').value).toBe('(413) 555-0123');
+    await vi.waitFor(() => expect(rpc.findBookingsByPhone).toHaveBeenCalledWith('4135550123'));
+  });
+
+  it('invalid_phone stays inline and puts the cursor in Phone (P16)', async () => {
+    await submitWithRpcError('bad_phone');
+    expect($('[data-form-error]').textContent).toContain('valid 10-digit phone');
+    expect($('[data-form-error-action]').hidden).toBe(true);
+    expect(document.activeElement).toBe($('input[name="phone"]'));
+  });
+
+  it('service_not_found stays inline and puts the cursor in Service (P16)', async () => {
+    await submitWithRpcError('service_not_found');
+    expect($('[data-form-error]').textContent).toContain("That service isn't available");
+    expect(document.activeElement).toBe($('[data-service-select]'));
+  });
+
+  it('outside_working_hours stays inline and asks for another time on the same day (P16)', async () => {
+    await submitWithRpcError('outside_hours');
+    expect($('[data-form-error]').textContent).toContain('Try a different slot');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-form-date]').value).toBe('2026-07-08');
+  });
+
   it('the fallback request prices add-ons exactly like the on-page total (P4)', async () => {
     rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
     clickDay('2026-07-08');

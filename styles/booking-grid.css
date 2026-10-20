@@ -429,6 +429,12 @@
   border-bottom: 1px solid var(--rule);
 }
 
+.booking__error-action {
+  display: flex;
+  margin-top: 0.75rem;
+  color: var(--bone);
+}
+
 .booking__error {
   padding: 0.85rem 1rem;
   background: rgba(224, 122, 107, 0.08);

@@ -7,7 +7,7 @@ import {
   weekdayFromIso, dateLabelFromIso,
   effectiveHours, slotsForWeekday, serviceDurationMin, serviceSlotCount,
   totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
-  mapBookingErrorCode, HARD_FAIL_CODES, ERROR_MESSAGES,
+  mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES,
 } from '../scripts/booking-helpers.js';
 import { STORE_HOURS, BARBERS } from '../scripts/config.js';
 
@@ -208,7 +208,8 @@ describe('mapBookingErrorCode', () => {
     }
   });
 
-  it('only slot_taken hard-fails (no messaging fallback)', () => {
-    expect([...HARD_FAIL_CODES]).toEqual(['slot_taken']);
+  it('only network and unknown failures fall back to a manual message (P16)', () => {
+    expect([...FALLBACK_CODES].sort()).toEqual(['network', 'unknown']);
+    expect(FALLBACK_CODES.has('slot_taken')).toBe(false);
   });
 });

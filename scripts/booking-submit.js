@@ -5,17 +5,20 @@
 //   2. Open placeholder tab synchronously on desktop (gesture-preserving).
 //   3. Call book_slot or book_slot_group RPC.
 //   4. On success: show success card + redirect to WhatsApp/SMS.
-//   5. On slot_taken: hard-fail (refresh grid, ask user to pick another slot).
-//      This is the ONE error that must not fall back — would cause double-booking.
-//   6. On any other RPC error: log to booking_errors, show amber fallback card,
-//      still build the WhatsApp message (with a ⚠ BOOKING SYSTEM ERROR prefix),
-//      and redirect anyway. We don't lose the customer to a transient backend hiccup.
+//   5. On a known DB answer (slot_taken, invalid_phone, too_many_active_bookings,
+//      ...): show its message inline with its next step (pick another time,
+//      fix the phone, cancel a booking). slot_taken must never fall back —
+//      that would cause a double booking.
+//   6. On a network or unknown failure: log to booking_errors, show the amber
+//      fallback card, still build the WhatsApp message (with a ⚠ BOOKING SYSTEM
+//      ERROR prefix), and redirect anyway. We don't lose the customer to a
+//      transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
 import { getSelection, refreshAvailability as gridRefresh, clearTime } from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
-  dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
+  dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
   includedAddons, isUnpricedService,
 } from './booking-helpers.js';
 import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS } from './booking-messages.js';
@@ -206,11 +209,49 @@ function hideMessages(form) {
   if (fb) fb.hidden = true;
 }
 
-function showError(form, code, override) {
+/** Inline error. `action` is an optional { label, run } button under it. */
+function showError(form, code, override, action = null) {
   hideMessages(form);
-  const el = form.querySelector('[data-form-error]');
-  el.textContent = override || ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown;
+  const el   = form.querySelector('[data-form-error]');
+  const text = el.querySelector('[data-form-error-text]') || el;
+  text.textContent = override || ERROR_MESSAGES[code] || ERROR_MESSAGES.unknown;
+  const btn = el.querySelector('[data-form-error-action]');
+  if (btn) {
+    btn.hidden = !action;
+    btn.textContent = action ? action.label : '';
+    btn.onclick = action ? action.run : null;
+  }
   el.hidden = false;
+}
+
+// Known DB answers that are about the chosen time: the fix is another slot.
+const PICK_ANOTHER_TIME = new Set(['slot_taken', 'outside_hours', 'store_closed', 'closed', 'bad_slot', 'bad_date']);
+// Known DB answers about one field: the fix is that field.
+const FIELD_FOR_CODE = {
+  bad_phone:         'input[name="phone"]',
+  bad_name:          'input[name="name"]',
+  service_not_found: '[data-service-select]',
+  invalid_people:    '[data-guest-name]',
+  too_many_people:   '[data-guest-name]',
+};
+
+/** Show a known DB answer inline and set up its next step. */
+async function showKnownError(form, code, phone) {
+  if (code === 'too_many') {
+    showError(form, code, null, {
+      label: 'Cancel a booking',
+      run: () => document.dispatchEvent(new CustomEvent('booking:cancel', { detail: { phone } })),
+    });
+    return;
+  }
+  showError(form, code);
+  if (PICK_ANOTHER_TIME.has(code)) {
+    clearTime();             // keep the day so the next tap on a time is enough
+    await gridRefresh();
+    return;
+  }
+  const field = FIELD_FOR_CODE[code] && form.querySelector(FIELD_FOR_CODE[code]);
+  if (field) field.focus();
 }
 
 function linkLabel(mode) {
@@ -385,22 +426,8 @@ async function submit(form, mode) {
   /* ===== ERROR PATH ===== */
   if (rpcError) {
     const code = (rpcError instanceof BookingError) ? rpcError.code : 'unknown';
-
-    // 7a. Hard-fail: slot_taken must NOT fall back to messaging (would double-book).
-    if (HARD_FAIL_CODES.has(code)) {
-      if (placeholder) placeholder.close();
-      showError(form, code);
-      clearTime();             // keep the day so the next tap on a time is enough
-      await gridRefresh();
-      submitBtns.forEach(b => (b.disabled = false));
-      return;
-    }
-
-    // 7b. Soft-fail: log to booking_errors, then build a fallback message and
-    //     route the customer to WhatsApp/SMS anyway. We don't lose customers
-    //     to transient backend hiccups.
     const cause = rpcError && rpcError.cause;
-    logBookingError({
+    const logError = () => logBookingError({
       code:    code,
       message: cause && cause.message ? cause.message : (rpcError.message || ''),
       details: cause && cause.details ? cause.details : '',
@@ -413,6 +440,21 @@ async function submit(form, mode) {
       user_agent: navigator.userAgent,
       source: 'web',
     });
+
+    // 7a. A known answer from the DB: inline, with its own next step. Never
+    //     a messaging fallback (for slot_taken that would double-book).
+    if (!FALLBACK_CODES.has(code)) {
+      if (placeholder) placeholder.close();
+      if (code !== 'slot_taken') logError();
+      await showKnownError(form, code, phone);
+      submitBtns.forEach(b => (b.disabled = false));
+      return;
+    }
+
+    // 7b. Network or unknown failure: log to booking_errors, then build a
+    //     fallback message and route the customer to WhatsApp/SMS anyway. We
+    //     don't lose customers to transient backend hiccups.
+    logError();
 
     // Build "pending-ref" so the shop can correlate manual confirmations.
     const pendingRef = 'pending-' +
