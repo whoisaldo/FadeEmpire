@@ -1,4 +1,4 @@
--- 0019_sms_reminders.sql
+-- 0020_sms_reminders.sql
 --
 -- SMS reminders, sent by the send-reminders Edge Function (hourly, pg_cron +
 -- pg_net; the schedule itself is created by tools/deploy-reminders.sh).
@@ -14,7 +14,9 @@
 --      trailing parameters with defaults. The old signatures are dropped so
 --      PostgREST resolves the current client's named-argument calls to the
 --      new functions unambiguously. Bodies are 0016 verbatim plus the two
---      columns, stored on every row the call inserts.
+--      columns, stored on every row the call inserts. 0019 left both
+--      functions as 0016 wrote them: its bookings_set_party trigger fills
+--      party_id and is_guest on insert, so these bodies do not set them.
 --   3. reminders_due(), rebook_due(), claim_reminders(), mark_reminder_sent():
 --      service_role only. claim_reminders runs before each send so two
 --      overlapping runs cannot text the same booking. mark_reminder_sent also
