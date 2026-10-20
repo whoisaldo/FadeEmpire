@@ -88,13 +88,22 @@ function initMobileCta() {
     cta.setAttribute('aria-hidden', v ? 'false' : 'true');
   };
 
-  // Hide while the booking section is on screen (it would be redundant).
+  // Hide while any of the booking section is on screen (it would be
+  // redundant) or a booking control has focus (it would cover the next field
+  // when the keyboard shrinks the view). The section is taller than a short
+  // viewport, so any visible part counts, not a share of it.
+  let bookInView = false;
+  let bookFocused = false;
+  const syncBook = () => cta.classList.toggle('is-in-book', bookInView || bookFocused);
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(([entry]) => {
-      cta.classList.toggle('is-in-book', entry.isIntersecting);
-    }, { threshold: 0.18 });
+      bookInView = entry.isIntersecting;
+      syncBook();
+    }, { threshold: 0 });
     io.observe(book);
   }
+  book.addEventListener('focusin', () => { bookFocused = true; syncBook(); });
+  book.addEventListener('focusout', (e) => { bookFocused = book.contains(e.relatedTarget); syncBook(); });
 
   const onScroll = () => setVisible(window.scrollY > showAfter());
   onScroll();

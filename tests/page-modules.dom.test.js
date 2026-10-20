@@ -172,6 +172,31 @@ describe('cover.js: live status and next open slot', () => {
     expect($('[data-mobile-cta-next]').hidden).toBe(true);
   });
 
+  it('the sticky bar stays away while any of booking shows or a booking field has focus (P17)', async () => {
+    let observe, options;
+    window.IntersectionObserver = class { constructor(cb, opts) { observe = cb; options = opts; } observe() {} disconnect() {} };
+    const { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
+    document.body.querySelector('#book').remove();
+    document.body.insertAdjacentHTML('beforeend', section('book'));
+    initCover();
+    const cta = $('[data-mobile-cta]');
+
+    // A short viewport only ever shows a small share of the tall section.
+    expect(options.threshold).toBe(0);
+    observe([{ isIntersecting: true, intersectionRatio: 0.12 }]);
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    observe([{ isIntersecting: false, intersectionRatio: 0 }]);
+    expect(cta.classList.contains('is-in-book')).toBe(false);
+
+    $('#book input[name="name"]').focus();
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    $('#book input[name="phone"]').focus();                  // moving between fields keeps it away
+    expect(cta.classList.contains('is-in-book')).toBe(true);
+    $('#book input[name="phone"]').blur();
+    expect(cta.classList.contains('is-in-book')).toBe(false);
+    delete window.IntersectionObserver;
+  });
+
   it('collapses "Which one do I book?" on phones and keeps it open on desktop', async () => {
     let { initCover } = await bootCover(new Date('2026-09-09T17:00:00Z'));
     matchMediaMatches = (q) => q.includes('max-width: 600px');
