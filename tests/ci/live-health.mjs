@@ -184,6 +184,14 @@ check('anon cannot read booking PII (RLS lockdown)', async () => {
   return status === 200 ? 'RLS returns zero rows to anon' : `denied with HTTP ${status}`;
 });
 
+check('anon cannot read the people view', async () => {
+  const { status, body } = await rest('v_people?select=phone&limit=1');
+  if (status === 200 && Array.isArray(body) && body.length > 0) {
+    throw new Error('anon read a v_people row — GRANT REGRESSION');
+  }
+  return status === 200 ? 'returns zero rows to anon' : `denied with HTTP ${status}`;
+});
+
 check('anon cannot execute confirm_booking (owner-only RPC)', async () => {
   const { status, body } = await rpc('confirm_booking', {
     p_booking_id: '00000000-0000-0000-0000-000000000000',

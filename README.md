@@ -100,7 +100,8 @@ FadeEmpire/
 │       ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
 │       ├── 0016_45_minute_slots.sql        Appointments every 45 minutes (grid-aware RPCs)
 │       ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
-│       └── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
+│       ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
+│       └── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
 └── assets/
     ├── Haircuts/optimized/             Portfolio plates (mobile/tablet variants)
     ├── Barbers/Hassan/optimized/       Hassan profile photos
@@ -137,6 +138,7 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 
 - `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `bookings` directly (RLS denies all)
 - `SELECT` on `booking_errors` (Hassan-only via Supabase Studio)
+- `SELECT` on `v_people` (one row per person who has booked; service role / Studio only)
 - `EXECUTE` `confirm_booking` (authenticated only)
 
 ### Messaging fallback
@@ -216,6 +218,16 @@ To inspect failed booking attempts:
 
 ```sql
 select * from booking_errors order by occurred_at desc limit 50;
+```
+
+To count the people who have booked, not just phone numbers. A group booking stores one row per person under the booker's phone; `party_id` ties them together, `is_guest` marks the friends and kids, and `v_people` has one row per phone + first name:
+
+```sql
+select count(*)                                    as people,
+       count(*) filter (where is_kid)              as kids,        -- has had a Kids Cut
+       count(*) filter (where booked_as_guest > 0) as came_as_a_guest,
+       count(distinct phone)                       as phones
+  from v_people;
 ```
 
 ---

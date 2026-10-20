@@ -50,6 +50,10 @@ select is(
   tap_table_hidden('booking_errors'),
   true, 'anon cannot read any booking_errors rows (denied or RLS-empty)'
 );
+select is(
+  tap_table_hidden('v_people'),
+  true, 'anon cannot read the people view (denied or RLS-empty)'
+);
 select throws_ok(
   $$ insert into bookings (barber_id, service_id, booking_date, booking_time,
                            customer_name, customer_phone, total_price_cents,
