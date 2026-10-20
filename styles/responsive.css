@@ -242,7 +242,7 @@ input, select, textarea, button {
 
   /* One add-on per row: two columns don't fit "Hot Towel  included" at 360px */
   .booking__addons { padding: 0.5rem 0.9rem; grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .booking__addon  { min-height: 36px; font-size: 0.9375rem; }
+  .booking__addon  { font-size: 0.9375rem; }
   .booking__addon span:first-of-type { white-space: nowrap; }
   .booking__addon .t-mono { font-size: 0.8125rem; }
   .booking__addon input { width: 22px; height: 22px; }

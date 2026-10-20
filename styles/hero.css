@@ -163,13 +163,17 @@
 .hero__next .t-mono { color: var(--bone); font-size: 0.875rem; }
 
 .hero__next-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--gold);
   font-weight: 600;
   letter-spacing: 0.12em;
-  border-bottom: 1px solid var(--rule-gold);
-  padding-bottom: 1px;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-gold);
+  text-underline-offset: 4px;
 }
-.hero__next-cta:hover { color: var(--gold-pale); border-color: var(--gold-pale); }
+.hero__next-cta:hover { color: var(--gold-pale); text-decoration-color: var(--gold-pale); }
 
 /* Facts row: the honest version of a stats strip */
 .hero__facts {

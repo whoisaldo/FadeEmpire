@@ -30,6 +30,10 @@
   border-right: 1px solid var(--rule-gold);
 }
 
+/* Every tap target in the booking flow is at least 44px: the small buttons
+   here (Take it, Retry, the error's next step, the cancel-text links) too. */
+.booking .btn--mini { min-height: 44px; }
+
 /* --- Next-available callout pill --- */
 .booking__callout {
   display: inline-flex;
@@ -273,13 +277,19 @@
 }
 
 .booking__selected-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -0.55rem -0.6rem -0.55rem auto;   /* a 44px target without a taller pill */
   background: transparent;
   border: 0;
   color: var(--gold);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  padding: 0 0.25rem;
+  padding: 0;
 }
 
 /* --- Form fields --- */
@@ -382,6 +392,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  min-height: 44px;
   cursor: pointer;
   color: var(--bone-soft);
   font-size: 0.9375rem;
@@ -633,8 +644,9 @@
 }
 
 .booking__guest-remove {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
+  margin: -0.4rem -0.4rem -0.4rem 0;
   border: 1px solid var(--rule-strong);
   background: transparent;
   color: var(--bone-mute);
@@ -663,6 +675,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 44px;
   align-self: flex-start;
   padding: 0.65rem 0.95rem;
   background: transparent;
@@ -791,9 +804,12 @@
 
 /* --- "Cancel a booking" link in the fine print --- */
 .booking__fine-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   background: none;
   border: none;
-  padding: 0;
+  padding: 0 0.5rem;
   color: var(--gold);
   font: inherit;
   letter-spacing: inherit;
