@@ -105,7 +105,7 @@ input, select, textarea, button {
   .menu__item { padding-bottom: 1rem; }
   .menu__name { font-size: 1.375rem; }
   .menu__price { font-size: 1.125rem; }
-  .menu__note { font-size: 0.6875rem; margin-top: 0.3rem; }
+  .menu__note { font-size: 0.8125rem; letter-spacing: normal; margin-top: 0.3rem; }
   .menu__feature { padding: 1.5rem 1.25rem 1.25rem; gap: 0.6rem; }
   .menu__feature h3 { font-size: 2.25rem; }
   .menu__footnote { margin-top: 2.25rem; padding-top: 1.5rem; }
@@ -253,7 +253,8 @@ input, select, textarea, button {
   .booking__submit { flex-direction: column; gap: 0.6rem; }
   .booking__submit .btn { min-height: 56px; flex: 1; }
 
-  .booking__fine   { font-size: 0.625rem; letter-spacing: 0.10em; line-height: 1.6; }
+  .booking__fine   { font-size: 0.8125rem; letter-spacing: normal; line-height: 1.6; }
+  .booking__barber-hours { font-size: 0.8125rem; letter-spacing: normal; }
 
   /* Room for the floating book bar */
   body { padding-bottom: calc(72px + var(--safe-bottom)); }
