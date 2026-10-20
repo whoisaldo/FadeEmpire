@@ -436,6 +436,7 @@ select is(
   '{}'::uuid[], 'a second claim gets nothing'
 );
 select isnt(tap_reminder_ids('5554442001'), null, 'a claimed row is still due until it is marked');
+update bookings set rebook_sms = true where customer_phone = '5554442001';
 select is(
   array_length(claim_reminders('rebook', tap_reminder_ids('5554442001')), 1),
   2, 'a reminder claim does not block a rebook claim'
@@ -473,6 +474,43 @@ select is(
   claim_reminders('reminder', array[gen_random_uuid()]),
   '{}'::uuid[], 'unknown ids claim nothing'
 );
+-- Eligibility is re-checked at claim time: a row listed by the due query
+-- that is cancelled or opted out before the send is not claimed.
+select tap_book('5554442002', 'Cancel Later', now() + interval '24 hours 56 minutes');
+select tap_book('5554442003', 'Opt Out Later', now() + interval '24 hours 57 minutes');
+create temp table tap_listed on commit drop as
+  select phone, booking_ids from reminders_due() where phone in ('5554442002', '5554442003');
+select is((select count(*)::int from tap_listed), 2, 'both rows are due before the change');
+update bookings set status = 'cancelled', cancelled_at = now(), cancelled_by = 'customer'
+ where customer_phone = '5554442002';
+update bookings set remind_sms = false where customer_phone = '5554442003';
+select is(tap_reminder_ids('5554442002'), null, 'the cancelled row is no longer due');
+select is(tap_reminder_ids('5554442003'), null, 'the opted-out row is no longer due');
+select is(
+  claim_reminders('reminder', (select booking_ids from tap_listed where phone = '5554442002')),
+  '{}'::uuid[], 'a booking cancelled after the due query is not claimed'
+);
+select is(
+  claim_reminders('reminder', (select booking_ids from tap_listed where phone = '5554442003')),
+  '{}'::uuid[], 'a booking opted out of reminders after the due query is not claimed'
+);
+
+select tap_book('5554442004', 'Rebook Cancelled', now() - interval '26 days', 'cancelled', p_rebook => true);
+select tap_book('5554442005', 'Rebook Off',       now() - interval '26 days 1 minute', p_rebook => false);
+select tap_book('5554442006', 'Rebook Done',      now() - interval '26 days 2 minutes', 'completed', p_rebook => true);
+select is(
+  claim_reminders('rebook', (select array_agg(id) from bookings where customer_phone = '5554442004')),
+  '{}'::uuid[], 'a cancelled booking is not claimed for a rebook'
+);
+select is(
+  claim_reminders('rebook', (select array_agg(id) from bookings where customer_phone = '5554442005')),
+  '{}'::uuid[], 'a booking with rebook_sms false is not claimed for a rebook'
+);
+select is(
+  array_length(claim_reminders('rebook', (select array_agg(id) from bookings where customer_phone = '5554442006')), 1),
+  1, 'a completed booking with rebook_sms is claimed for a rebook'
+);
+
 select throws_ok(
   $$ select claim_reminders('other', array[gen_random_uuid()]) $$,
   '22023', 'invalid_kind',

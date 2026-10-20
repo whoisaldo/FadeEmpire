@@ -661,8 +661,10 @@ grant execute on function mark_reminder_sent(uuid[], text, text) to service_role
 -- 8. claim_reminders — p_kind is 'reminder' or 'rebook'
 --
 -- Called right before a send. Sets the matching claimed_at on rows that are
--- not yet sent and are unclaimed or were claimed more than 10 minutes ago,
--- and returns the ids it claimed. Concurrent calls for the same row
+-- still eligible (reminder: confirmed with remind_sms; rebook: confirmed or
+-- completed with rebook_sms), not yet sent, and unclaimed or claimed more
+-- than 10 minutes ago, and returns the ids it claimed. A booking cancelled
+-- or opted out after the due query ran is not claimed. Concurrent calls for the same row
 -- serialize on the row lock; the second re-checks the claim after the first
 -- commits and gets nothing. A claim left by a run that died expires after
 -- 10 minutes.
@@ -682,6 +684,8 @@ begin
       update bookings
          set reminder_claimed_at = now()
        where id = any(p_booking_ids)
+         and status = 'confirmed'
+         and remind_sms
          and reminder_sent_at is null
          and (reminder_claimed_at is null
               or reminder_claimed_at < now() - interval '10 minutes')
@@ -693,6 +697,8 @@ begin
       update bookings
          set rebook_claimed_at = now()
        where id = any(p_booking_ids)
+         and status in ('confirmed', 'completed')
+         and rebook_sms
          and rebook_sent_at is null
          and (rebook_claimed_at is null
               or rebook_claimed_at < now() - interval '10 minutes')
