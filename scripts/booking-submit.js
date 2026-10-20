@@ -380,8 +380,9 @@ let shown = null;
 /** A booking was cancelled in the panel. If the card shows it, that person
  *  is struck off the card, the total and the message to the barber; once
  *  nobody is left the card says "Cancelled." and a locked form opens again
- *  as after "Book another", leaving focus and the cancel status where they are. */
-function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
+ *  as after "Book another", leaving focus and the cancel status where they are.
+ *  A Move opens the form itself (moveBooking), after it has read the name and phone. */
+function onCancelled(form, { bookingId, barberSlug, phone, date, time, move = false } = {}) {
   if (!shown) return;
   // The booking id first; otherwise the same barber, phone, day and time (one
   // barber's slot holds one booking, so that is the same booking too).
@@ -395,7 +396,7 @@ function onCancelled(form, { bookingId, barberSlug, phone, date, time } = {}) {
   const left = shown.rows.filter(b => !shown.cancelled.has(b.booking_id));
   if (!left.some(b => b.booking_id)) {
     setCardCancelled(card, true);
-    if (form.dataset.booked === 'true') unlock(form);
+    if (form.dataset.booked === 'true' && !move) unlock(form);
     return;
   }
   const li = card.querySelector(`[data-success-list] li[data-booking-id="${hit.booking_id}"]`);
@@ -721,6 +722,11 @@ async function focusNextStep(form) {
  *  takes the booking's barber and service, keeps the name and phone (filled
  *  from the lookup when empty), and focus goes to the day row for a new time. */
 function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
+  // What the customer typed wins over the lookup's first name and phone.
+  const name = form.querySelector('input[name="name"]');
+  const tel  = form.querySelector('input[name="phone"]');
+  const typedName = name.value.trim() ? name.value : '';
+  const typedTel  = tel.value.trim() ? tel.value : '';
   if (form.dataset.booked === 'true') unlock(form);
   // One fresh read for the freed slot: a new barber's is already on its way.
   const sameBarber = getSelection().barberSlug === barberSlug;
@@ -731,10 +737,8 @@ function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
     select.value = serviceSlug;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  const name = form.querySelector('input[name="name"]');
-  if (!name.value.trim() && firstName) name.value = firstName;
-  const tel = form.querySelector('input[name="phone"]');
-  if (!tel.value.trim() && phone) tel.value = formatPhoneDisplay(phone);
+  name.value = typedName || firstName || '';
+  tel.value  = typedTel || (phone ? formatPhoneDisplay(phone) : '');
   const day = document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
     || document.querySelector('[data-day-row] .booking__day:not([disabled])');
   if (!day) return;

@@ -1686,13 +1686,41 @@ describe('move a booking (C4)', () => {
     expectOpenForm();
     expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
     expect($('[data-service-select]').value).toBe('line-up');
+    expect($('input[name="name"]').value).toBe('Dana Reyes');     // what was typed, not the lookup's "Dana" (CR2)
+    expect($('input[name="phone"]').value).toBe('(413) 555-0123');
     await vi.waitFor(() => expect(rpc.fetchAvailability.mock.calls.length).toBe(reads + 1));   // one read, for the freed slot
 
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'moved-1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 1000 }]);
     clickSlot('11:30:00');
     $('[data-submit]').click();
     await vi.waitFor(() => expect($('[data-success-head]').textContent).toBe('Chair reserved'));
-    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry', serviceSlug: 'line-up', time: '11:30:00' }));
+    expect(rpc.bookSlot).toHaveBeenLastCalledWith(expect.objectContaining({
+      barberSlug: 'larry', serviceSlug: 'line-up', time: '11:30:00', name: 'Dana Reyes', phone: '(413) 555-0123',
+    }));
+  });
+
+  it('the typed name and phone win over the lookup\'s, and the lookup fills a field left empty (CR2)', async () => {
+    rpc.bookSlot.mockResolvedValue([{ booking_id: larryRow.booking_id, slot_index: 0, booking_time: '10:00:00', total_price_cents: 1000 }]);
+    await pickBarber('larry');
+    clickDay('2026-07-08');
+    clickSlot('10:00:00');
+    fillPrimary({ name: 'Dana Reyes', phone: '(413) 555-9876', service: 'line-up' });
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    await findRow();                                            // looked up with 413-555-0123
+    await confirmMove();
+    expect($('input[name="name"]').value).toBe('Dana Reyes');
+    expect($('input[name="phone"]').value).toBe('(413) 555-9876');
+
+    // An open form with only a phone typed: the lookup's first name fills the name.
+    localStorage.clear();                                       // no remembered customer filling it in
+    await reboot();
+    rpc.cancelBooking.mockResolvedValue(undefined);
+    fill('input[name="phone"]', '4135557777');
+    await findRow();
+    await confirmMove();
+    expect($('input[name="name"]').value).toBe('Dana');
+    expect($('input[name="phone"]').value).toBe('(413) 555-7777');
   });
 
   it('moving one guest of the group on the card strikes that line, opens the form for the guest\'s service, and the card keeps tracking', async () => {
