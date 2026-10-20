@@ -57,18 +57,36 @@ input, select, textarea, button {
   .stamp__text { display: none; }   /* phone: just the coloured dot */
   .stamp .stamp__dot { width: 8px; height: 8px; }
 
-  /* --- Hero: shorter, CTA-forward --- */
+  /* --- Hero: the photo is the first screen under the sticky nav (56px + its
+     1px rule), the head clear in the top half and the text over the cape at
+     the bottom; the status card and the facts follow on the dark page. --- */
   .hero {
-    min-height: 86svh;
-    padding: 5.5rem 0 2.25rem;
+    display: block;
+    min-height: 100svh;
+    padding: 0 0 2.25rem;
   }
+  .hero__bg     { bottom: auto; height: calc(100svh - 57px); }
+  .hero__bg picture { height: calc(100% + 4rem); margin-top: -4rem; }   /* crops the ceiling, lifts his beard clear of the eyebrow */
+  .hero__bg img { object-position: 55% 0; }
   .hero__inner  { gap: 1rem; }
+  .hero__lead {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1rem;
+    min-height: calc(100svh - 57px);
+    padding-bottom: 1.5rem;
+  }
+  /* His beard tip sits at about 52% of the screen height and the text grows up
+     from the bottom, so on shorter screens the title shrinks with the height
+     and the dek keeps to two lines until three fit; tuned so the text clears
+     the beard by 10px or more from 600 to 900px tall. */
   .hero__title  {
-    font-size: clamp(3.5rem, 19vw, 5.75rem);
+    font-size: max(2.25rem, min(clamp(3.5rem, 19vw, 5.75rem), 27svh - 124px));
     line-height: 0.88;
     margin-top: 0.25rem;
   }
-  .hero__dek    { font-size: 1.0625rem; max-width: 30ch; }
+  .hero__dek    { font-size: clamp(0.875rem, 100svh - 813px, 1.0625rem); max-width: none; }
   .hero__ctas   { gap: 0.5rem; }
   .hero__ctas .btn { flex: 1 1 auto; min-height: 52px; padding: 0.95rem 1rem; justify-content: center; }
   .hero__ctas .btn--ghost .t-mono { display: none; }   /* "Call" is enough on a narrow CTA */
@@ -97,7 +115,7 @@ input, select, textarea, button {
   .shop__head { margin-bottom: 0.25rem; }
   .shop__video { aspect-ratio: 2 / 3; }
   .shop__room  { aspect-ratio: 4 / 3; }
-  .shop__room img { object-position: 50% 72%; }
+  .shop__room img { object-position: 50% 100%; }   /* the room, not the ceiling: the car's wheels sit on the bottom edge */
   .shop__sound { left: 0.85rem; bottom: 0.85rem; padding: 0.55rem 0.85rem 0.55rem 0.7rem; font-size: 0.6875rem; }
 
   /* --- Services --- */
@@ -113,7 +131,7 @@ input, select, textarea, button {
   .menu__addons li { padding-bottom: 0.6rem; gap: 0.5rem; }
   .menu__addons li .t-display-sm { font-size: 1rem; }
   .menu__photo { aspect-ratio: 4 / 3; }
-  .menu__photo img { object-position: 50% 22%; }
+  .menu__photo img { object-position: 50% 8%; }    /* his head and the whole price list */
 
   /* Comparison: a collapsed <details> with cards instead of the table */
   .compare { overflow: visible; margin-top: 2.5rem; padding-top: 1.75rem; }
@@ -284,7 +302,8 @@ input, select, textarea, button {
    ≤ 360px  ·  the smallest phones
 ===================================================== */
 @media (max-width: 360px) {
-  .hero__title       { font-size: 3.1rem; }
+  .hero__title       { font-size: max(2.25rem, min(3.1rem, 27svh - 124px)); }
+  .hero__dek         { font-size: clamp(0.875rem, 100svh - 690px, 1.0625rem); }
   .hero__eyebrow     { gap: 0.6rem; font-size: 0.6875rem; letter-spacing: 0.18em; }
   .hero__eyebrow-rule { width: 20px; }
   .hero__facts       { grid-template-columns: 1fr; gap: 0.5rem; }
@@ -303,7 +322,7 @@ input, select, textarea, button {
   .hero__title       { font-size: clamp(4rem, 11vw, 7rem); }
   .booking__slots    { grid-template-columns: repeat(4, 1fr); }
   .menu__photo       { aspect-ratio: 3 / 2; }
-  .menu__photo img   { object-position: 50% 25%; }
+  .menu__photo img   { object-position: 50% 8%; }
   .visit__photo      { aspect-ratio: 3 / 2; }
   body               { padding-bottom: 0; }
 }

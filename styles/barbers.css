@@ -24,6 +24,8 @@
   box-shadow: var(--shadow-plate);
 }
 
+.feature__portrait picture { height: 100%; }
+
 .feature__portrait img {
   width: 100%;
   height: 100%;

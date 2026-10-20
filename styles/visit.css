@@ -29,6 +29,7 @@
   border-radius: 2px;
   pointer-events: none;
 }
+.visit__photo picture { height: 100%; }
 .visit__photo img {
   width: 100%;
   height: 100%;

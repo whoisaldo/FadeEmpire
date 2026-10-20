@@ -12,7 +12,9 @@ Video encodes live in tools/build-video.sh.
 
 Needs Pillow (`pip3 install pillow`). Sizes are chosen per image from how large
 it renders: gallery plates top out around 600 CSS px, the hero fills the
-viewport, so it gets a 2000 px rung for 2x desktop screens.
+viewport, so it gets a 2000 px rung for 2x desktop screens. The interior renders
+about 400 px wide on 1x desktops, so it gets a 480 rung. The booking buttons'
+52 px circles get their own 160 px face crops (FACES), 3x of 52.
 """
 
 import sys
@@ -28,7 +30,7 @@ JPEG_QUALITY = 82
 WEBP_QUALITY = 80
 
 GALLERY = (480, 800, 1200)
-WIDE = (800, 1200, 1600, 2000)
+WIDE = (480, 800, 1200, 1600, 2000)
 PORTRAIT_HERO = (480, 800, 1200, 1600, 2000)
 
 # stem -> (source, widths)
@@ -58,6 +60,15 @@ SOURCES = {
     "cut-high-fade-texture": ("assets/Haircuts/IMG_0063.jpg", GALLERY),
 }
 
+# stem -> square crop box (left, top, right, bottom) in source pixels around the
+# barber's face, written as <stem>-face-160. Hassan's portrait also has a
+# customer in it; the box takes Hassan only.
+FACES = {
+    "hassan": (415, 230, 1095, 910),
+    "larry":  (644, 1151, 1504, 2011),
+}
+FACE_SIZE = 160
+
 LOGO = ROOT / "assets/FadeEmpireStore/fadeempirelogo.png"
 INK = (10, 9, 8)
 BONE = (237, 230, 214)
@@ -82,6 +93,15 @@ def write_variants(stem: str, src: str, widths) -> None:
     print(f"  {stem:<24} {im.width}x{im.height} -> {[w for w in widths if w <= im.width]}")
 
 
+def write_face(stem: str, box) -> None:
+    im = load(ROOT / SOURCES[stem][0])
+    frame = im.crop(box).resize((FACE_SIZE, FACE_SIZE), Image.LANCZOS)
+    frame.save(OUT / f"{stem}-face-{FACE_SIZE}.jpg", "JPEG", quality=JPEG_QUALITY,
+               optimize=True, progressive=True)
+    frame.save(OUT / f"{stem}-face-{FACE_SIZE}.webp", "WEBP", quality=WEBP_QUALITY, method=6)
+    print(f"  {stem + '-face':<24} {box} -> {FACE_SIZE}x{FACE_SIZE}")
+
+
 def logo_alpha() -> Image.Image:
     """The logo PNG is light-grey art on a near-black noisy background.
     Turn luminance into alpha so the mark can sit on any dark surface."""
@@ -101,6 +121,14 @@ def build_brand() -> None:
     full = tinted(alpha, BONE)
     full = full.crop(alpha.getbbox())
     full.save(BRAND / "logo-full.png", optimize=True)
+    # The footer shows it 120-150 px wide: 240 for 1x, 480 up to 3x. The art is
+    # one colour, so a palette PNG of bone at every alpha level is exact and
+    # 40% of the RGBA size.
+    for w in (240, 480):
+        small = full.resize((w, round(full.height * w / full.width)), Image.LANCZOS).getchannel("A")
+        pal = Image.frombytes("P", small.size, small.tobytes())
+        pal.putpalette(list(BONE) * 256)
+        pal.save(BRAND / f"logo-full-{w}.png", optimize=True, transparency=bytes(range(256)))
 
     # The knight helmet alone is the monogram (the wordmark on the site is set
     # in Fraunces, and the pole runs the full height beside the text).
@@ -132,7 +160,7 @@ def build_brand() -> None:
     badge.thumbnail((360, 360), Image.LANCZOS)
     card.alpha_composite(badge, (72, 630 - badge.height - 56))
     card.convert("RGB").save(BRAND / "og-cover.jpg", "JPEG", quality=86, optimize=True, progressive=True)
-    print("  brand: logo-full, logo-mark, icons, apple-touch-icon, og-cover")
+    print("  brand: logo-full(-240, -480), logo-mark, icons, apple-touch-icon, og-cover")
 
 
 def main(argv) -> None:
@@ -144,6 +172,8 @@ def main(argv) -> None:
         if only and stem not in only:
             continue
         write_variants(stem, src, widths)
+        if stem in FACES:
+            write_face(stem, FACES[stem])
     if not only or "brand" in only:
         build_brand()
 

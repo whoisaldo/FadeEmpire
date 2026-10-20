@@ -190,7 +190,7 @@ describe('every asset the page references exists', () => {
       const buf = readFileSync(join(ROOT, 'assets/brand', file));
       return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
     };
-    for (const file of ['logo-mark-240.png', 'logo-full.png']) {
+    for (const file of ['logo-mark-240.png', 'logo-full-480.png']) {
       const tag = html.match(new RegExp(`<img[^>]*${file}[^>]*>`))?.[0];
       expect(tag, `an <img> for ${file}`).toBeTruthy();
       const [w, h] = png(file);

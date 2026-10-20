@@ -71,6 +71,8 @@
   z-index: 2;
 }
 
+.shop__room picture { height: 100%; }
+
 .shop__player,
 .shop__room img {
   width: 100%;
