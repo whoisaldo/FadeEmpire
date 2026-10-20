@@ -1,7 +1,7 @@
 // booking-messages.js — builds the WhatsApp/SMS texts sent to the shop.
 // Pure string building; shared by booking-submit.js and booking-cancel.js.
 
-import { minutesToLabel, hmsToMinutes, formatPrice } from './booking-helpers.js';
+import { minutesToLabel, hmsToMinutes, formatTotal, isUnpricedService } from './booking-helpers.js';
 import { SHOP_PHONE } from './config.js';
 
 export const SERVICE_LABELS = {
@@ -12,8 +12,15 @@ export const SERVICE_LABELS = {
   'military-cut': 'Military Cut',
   'senior-cut':   'Senior Cut',
   'vip-haircut':  'VIP Haircut',
-  'custom':       'Custom Request',
+  'custom':       'Something else',
 };
+
+/** How a booked service reads: the label, or for "Something else" the
+ *  customer's description and the fact it is priced at the chair. */
+export function serviceLine(serviceSlug, customRequest) {
+  if (!isUnpricedService(serviceSlug)) return SERVICE_LABELS[serviceSlug] || serviceSlug;
+  return `${SERVICE_LABELS.custom}${customRequest ? `: ${customRequest}` : ''} · price at the chair`;
+}
 
 /** Deep-link URL that opens WhatsApp or the native SMS app with a prefilled text. */
 export function messagingUrl(mode, message) {
@@ -50,7 +57,7 @@ export function buildBookingMessage({
   bookings.forEach((b, i) => {
     const t = minutesToLabel(hmsToMinutes(b.booking_time));
     lines.push(`${bookings.length > 1 ? '— ' + b.person_name + ' —' : '—'}`);
-    lines.push(`  Service: ${SERVICE_LABELS[b.service_slug] || b.service_slug}`);
+    lines.push(`  Service: ${serviceLine(b.service_slug, customRequest)}`);
     lines.push(`  Time:    ${t}`);
     const ref = b.booking_id ? String(b.booking_id).slice(0, 8) : 'continuation';
     lines.push(`  Ref:     ${ref}`);
@@ -60,12 +67,11 @@ export function buildBookingMessage({
     if (i < bookings.length - 1) lines.push('');
   });
 
-  if (customRequest) { lines.push(''); lines.push(`Custom: ${customRequest}`); }
   if (notes)         { lines.push(''); lines.push(`Notes:  ${notes}`); }
 
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
   lines.push('');
-  lines.push(`Total:   ${formatPrice(total)}`);
+  lines.push(`Total:   ${formatTotal(total, bookings.some(b => isUnpricedService(b.service_slug)))}`);
   lines.push('');
   lines.push(italic(systemError
     ? 'Sent from chicopeefadeempire.com — please reply to confirm the slot.'

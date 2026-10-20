@@ -28,6 +28,17 @@ describe('SERVICE_LABELS', () => {
 });
 
 describe('buildBookingMessage', () => {
+  it('"Something else" reads as the request, priced at the chair (P5)', () => {
+    const msg = buildBookingMessage({
+      name: 'A', phone: '(413) 555-0123', barberName: 'Hassan', dateLabel: 'Wednesday, July 8',
+      bookings: [{ booking_id: 'c1', person_name: 'A', service_slug: 'custom', booking_time: '11:00:00', total_price_cents: 1000, addons: ['beard'] }],
+      customRequest: 'Fade with a part', useMarkdown: false,
+    });
+    expect(msg).toContain('Service: Something else: Fade with a part · price at the chair');
+    expect(msg).toContain('Total:   $10 + price at the chair');
+    expect(msg).not.toContain('Custom:');
+  });
+
   const single = {
     name: 'Test Customer',
     phone: '(413) 555-0123',

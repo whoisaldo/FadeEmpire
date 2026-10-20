@@ -431,6 +431,35 @@ describe('booking submit — validation and failures', () => {
     expect(link.hidden).toBe(false);
     expect(decodeURIComponent(link.href)).toContain('BOOKING SYSTEM ERROR');
   });
+
+  it('the fallback request prices add-ons exactly like the on-page total (P4)', async () => {
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary();
+    $('input[name="addons"][value="hot-towel"]').click();
+    $('input[name="addons"][value="facial"]').click();
+    expect($('[data-total-display]').textContent).toBe('$55');
+    $('[data-submit-sms]').click();
+    await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
+    const msg = decodeURIComponent($('[data-fallback-link]').href);
+    expect(msg).toContain('Total:   $55');
+    expect(msg).not.toContain('$30');
+  });
+
+  it('a fallback "Something else" request says price at the chair, not $30 (P5)', async () => {
+    rpc.bookSlot.mockRejectedValue(new rpc.BookingError('network'));
+    clickDay('2026-07-08');
+    clickSlot('11:30:00');
+    fillPrimary({ service: 'custom' });
+    fill('textarea[name="custom_request"]', 'Design on the side');
+    $('[data-submit-whatsapp]').click();
+    await vi.waitFor(() => expect($('[data-form-fallback]').hidden).toBe(false));
+    const msg = decodeURIComponent($('[data-fallback-link]').href);
+    expect(msg).toContain('Something else: Design on the side · price at the chair');
+    expect(msg).toContain('Total:   Price at the chair');
+    expect(msg).not.toContain('$30');
+  });
 });
 
 /* ================= Cancellation flow ================= */
@@ -713,20 +742,30 @@ describe('booking edge cases', () => {
     expect(rpc.bookSlotGroup.mock.calls[0][0].people[1]).toEqual(expect.objectContaining({ serviceSlug: 'vip-haircut', addons: [] }));
   });
 
-  it('"custom" books a hair cut with the description attached', async () => {
+  it('"Something else" is priced at the chair: never $0, never the $30 of the slot it holds (P5)', async () => {
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'c1', slot_index: 0, booking_time: '11:30:00', total_price_cents: 3000 }]);
     clickDay('2026-07-08');
     clickSlot('11:30:00');
     fillPrimary({ service: 'custom' });
     expect($('[data-custom-field]').hidden).toBe(false);
+    expect($('[data-total-display]').textContent).toBe('Price at the chair');
+    $('input[name="addons"][value="beard"]').click();
+    expect($('[data-total-display]').textContent).toBe('$10 + price at the chair');
+    $('input[name="addons"][value="beard"]').click();
     fill('textarea[name="custom_request"]', 'Mid taper, keep the length on top');
     $('[data-submit-whatsapp]').click();
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(rpc.bookSlot).toHaveBeenCalledWith(expect.objectContaining({
-      serviceSlug: 'hair-cut',
+      serviceSlug: 'hair-cut',                          // the slot is still held through the same mapping
       customRequest: 'Mid taper, keep the length on top',
     }));
-    expect(decodeURIComponent($('[data-success-link]').href)).toContain('Custom: Mid taper');
+    const card = $('[data-form-success]').textContent;
+    expect(card).toContain('Price at the chair');
+    expect(card).not.toContain('$30');
+    const msg = decodeURIComponent($('[data-success-link]').href);
+    expect(msg).toContain('Something else: Mid taper, keep the length on top · price at the chair');
+    expect(msg).toContain('Total:   Price at the chair');
+    expect(msg).not.toContain('$30');
     // The custom box hides again once the form resets.
     expect($('[data-custom-field]').hidden).toBe(true);
   });

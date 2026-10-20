@@ -169,6 +169,18 @@ export function totalCents(serviceSlug, addonSlugs = []) {
   return base + add;
 }
 
+/** "Something else" has no menu price: it is priced at the chair. */
+export function isUnpricedService(serviceSlug) {
+  return serviceSlug === 'custom';
+}
+
+/** A total as the customer reads it. With an unpriced request in it, only the
+ *  priced part is a number ("$10 + price at the chair"). */
+export function formatTotal(cents, unpriced = false) {
+  if (!unpriced) return formatPrice(cents);
+  return cents ? `${formatPrice(cents)} + price at the chair` : 'Price at the chair';
+}
+
 /** Format cents as $30 / $30.50. */
 export function formatPrice(cents) {
   if (!cents) return '$0';

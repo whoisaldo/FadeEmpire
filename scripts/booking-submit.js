@@ -14,9 +14,9 @@
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
 import { getSelection, refreshAvailability as gridRefresh, clearTime } from './booking-grid.js';
 import {
-  totalCents, formatPrice, formatPhoneDisplay, minutesToLabel,
+  totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, HARD_FAIL_CODES, hmsToMinutes, minutesToHms,
-  includedAddons,
+  includedAddons, isUnpricedService,
 } from './booking-helpers.js';
 import { buildBookingMessage, messagingUrl } from './booking-messages.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
@@ -51,6 +51,14 @@ function readGuestsRaw(form) {
 /** Map the form's service value to the slug we book in the DB. */
 function bookableService(service) {
   return service === 'custom' ? 'hair-cut' : service;
+}
+
+/** The primary's booking as the customer asked for it. "Something else" holds
+ *  a hair-cut slot in the DB, but it is priced at the chair, so only its
+ *  add-ons carry a price here. */
+function asRequested(booking, service, addons) {
+  if (!isUnpricedService(service)) return booking;
+  return { ...booking, service_slug: service, total_price_cents: totalCents(service, addons) };
 }
 
 /* ---------- Add-ons the chosen service already includes ---------- */
@@ -88,7 +96,7 @@ function updateTotal(form) {
     cents += SERVICE_PRICES_CENTS[g.serviceSlug] || 0;
   }
 
-  form.querySelector('[data-total-display]').textContent = formatPrice(cents);
+  form.querySelector('[data-total-display]').textContent = formatTotal(cents, isUnpricedService(primaryService));
 }
 
 /** Update the live timeline + return true if every person's chair time fits
@@ -318,6 +326,7 @@ async function submit(form, mode) {
         addons:            i === 0 ? addons : [],
         slot_index:        r.slot_index ?? i,
       }));
+      bookings[0] = asRequested(bookings[0], service, addons);
     } else {
       const people = [
         {
@@ -338,14 +347,17 @@ async function submit(form, mode) {
         source: 'web',
         holdMinutes: 15,
       });
-      bookings = rows.map(r => ({
-        booking_id:        r.booking_id,
-        person_name:       r.person_name,
-        service_slug:      r.service_slug,
-        booking_time:      r.booking_time,
-        total_price_cents: r.total_price_cents,
-        addons:            r.person_index === 0 ? addons : [],
-      }));
+      bookings = rows.map(r => {
+        const b = {
+          booking_id:        r.booking_id,
+          person_name:       r.person_name,
+          service_slug:      r.service_slug,
+          booking_time:      r.booking_time,
+          total_price_cents: r.total_price_cents,
+          addons:            r.person_index === 0 ? addons : [],
+        };
+        return r.person_index === 0 ? asRequested(b, service, addons) : b;
+      });
     }
   } catch (err) {
     rpcError = err;
@@ -392,14 +404,15 @@ async function submit(form, mode) {
       (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).slice(0, 8);
 
     // Reconstruct a bookings-shaped array from the form data for message
-    // building — duration-aware so the times match what was attempted.
+    // building — duration-aware so the times match what was attempted, and
+    // priced exactly like the on-page total (service + paid add-ons).
     const services = [primaryServiceSlug, ...guests.map(g => g.serviceSlug)];
     const plan     = planParty(hmsToMinutes(sel.time), services);
     const fakeBookings = plan.map((p, i) => ({
       person_name:       i === 0 ? name : guests[i - 1].name,
       service_slug:      i === 0 ? service : guests[i - 1].serviceSlug,
       booking_time:      minutesToHms(p.startMin),
-      total_price_cents: SERVICE_PRICES_CENTS[p.serviceSlug] || 0,
+      total_price_cents: i === 0 ? totalCents(service, addons) : totalCents(p.serviceSlug),
       addons:            i === 0 ? addons : [],
       booking_id:        i === 0 ? pendingRef : `${pendingRef}-g${i}`,
     }));
@@ -446,6 +459,7 @@ async function submit(form, mode) {
   const url = messagingUrl(mode, message);
 
   const total = bookings.reduce((s, b) => s + b.total_price_cents, 0);
+  const unpriced = bookings.some(b => isUnpricedService(b.service_slug));
   const primaryBooking = bookings.find(b => b.booking_id) || bookings[0];
   const slotLabel = guests.length > 0
     ? `${guests.length + 1} chairs · ${dateLabel} · starting ${minutesToLabel(hmsToMinutes(primaryBooking.booking_time))}`
@@ -454,7 +468,7 @@ async function submit(form, mode) {
   showSuccess(form, {
     text: `${slotLabel} — reserved. ${barberName} will be expecting ${
       guests.length > 0 ? `${guests.length + 1} of you` : 'you'
-    }. Total: ${formatPrice(total)}.`,
+    }. Total: ${formatTotal(total, unpriced)}.`,
     link: url,
     mode,
   });
