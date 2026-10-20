@@ -623,6 +623,7 @@ describe('gallery.js: lightbox and filmstrip', () => {
   });
 
   const dialogOpen = () => $('[data-lightbox]').hasAttribute('open');
+  const nextTask = () => new Promise((resolve) => setTimeout(resolve));
 
   it('Back closes the open photo instead of leaving the page', async () => {
     await bootGallery();
@@ -677,12 +678,67 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect(dialogOpen()).toBe(false);
   });
 
+  for (const [path, closeIt] of [['Escape', () => $('[data-lightbox]').close()], ['Back', () => history.back()]]) {
+    it(`after Forward restores a later photo, closing by ${path} scrolls its plate into view before focusing it`, async () => {
+      await bootGallery();
+      const first = $$('[data-plate] [data-lightbox-open]')[0];
+      first.focus();
+      first.click();
+      for (let i = 0; i < 6; i++) $('[data-lightbox]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      history.back();
+      history.forward();
+      const target = $$('[data-plate] [data-lightbox-open]')[6];
+      // Only this page's elements: earlier tests' galleries still listen for popstate on detached nodes.
+      const calls = [];
+      Element.prototype.scrollIntoView = vi.fn(function (opts) { if (this.isConnected) calls.push(['scroll', this, opts]); });
+      const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function () { if (this.isConnected) calls.push(['focus', this]); });
+
+      closeIt();
+      expect($('[data-lightbox]').hasAttribute('open')).toBe(false);
+      if (path === 'Escape') {
+        // Its own history.back() lands on the page entry, and the browser
+        // restores that entry's scroll just after popstate: wait past it.
+        expect(calls).toEqual([]);
+        await nextTask();
+      }
+      expect(calls).toEqual([
+        ['scroll', target, { block: 'nearest', inline: 'nearest', behavior: 'smooth' }],
+        ['focus', target],
+      ]);
+      focus.mockRestore();
+    });
+  }
+
+  it('under reduced motion that scroll is instant; closing on the tapped plate does not scroll at all', async () => {
+    matchMediaMatches = (q) => q.includes('prefers-reduced-motion');
+    await bootGallery();
+    const first = $$('[data-plate] [data-lightbox-open]')[0];
+    first.click();
+    $('[data-lightbox-next]').click();
+    history.back();
+    history.forward();
+    Element.prototype.scrollIntoView = vi.fn();
+    $('[data-lightbox-close]').click();
+    await nextTask();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+    expect(document.activeElement).toBe($$('[data-plate] [data-lightbox-open]')[1]);
+
+    Element.prototype.scrollIntoView = vi.fn();
+    first.focus();
+    first.click();
+    for (let i = 0; i < 6; i++) $('[data-lightbox-next]').click();
+    $('[data-lightbox-close]').click();               // no history trip: focus goes back to the tapped plate
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(first);
+  });
+
   it('a reload on a photo entry shows that photo, so the entry never sits there empty', async () => {
     await bootGallery(['previous page', null, { lightbox: 'cut-low-fade' }]);
     expect(dialogOpen()).toBe(true);
     expect($('[data-lightbox-img]').getAttribute('src')).toBe('./assets/img/cut-low-fade-1200.jpg');
     $('[data-lightbox-close]').click();
     expect(hist.at).toBe(1);
+    await nextTask();
     expect(document.activeElement).toBe($('[data-plate="cut-low-fade"] [data-lightbox-open]'));
   });
 

@@ -40,7 +40,8 @@ function initLightbox(root) {
   const count = dialog.querySelector('[data-lightbox-count]');
   const items = plateImages(root);
   let index = 0;
-  let returnTo = null;
+  let returnTo = null;     // the plate that gets focus on close
+  let openedBy = null;     // the plate the visitor tapped to open the viewer
   const onOurEntry = () => Boolean(history.state?.lightbox);
 
   const show = (i) => {
@@ -63,6 +64,7 @@ function initLightbox(root) {
   const open = (stem, opener, { fromHistory = false } = {}) => {
     const i = items.findIndex((it) => it.stem === stem);
     if (i < 0) return;
+    if (opener) openedBy = opener;
     returnTo = opener || plateButton(stem);
     show(i);
     if (!dialog.open) dialog.showModal();
@@ -85,11 +87,30 @@ function initLightbox(root) {
     document.body.style.overflow = '';
     img.removeAttribute('src');
     img.removeAttribute('srcset');
-    returnTo?.focus?.({ preventScroll: true });
+    // A plate other than the one tapped (the photo came back through Forward
+    // or a reload) may be far down the page or along the filmstrip: bring it
+    // into view first, so its focus ring is on screen.
+    const target = returnTo;
+    const moved = Boolean(target) && target !== openedBy;
+    const refocus = () => {
+      if (moved) {
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      }
+      target?.focus?.({ preventScroll: true });
+    };
     // Closed with the button, Escape or the backdrop: our entry is still on
     // top, so drop it and the next Back leaves the page as usual. (Closed by
-    // Back, the browser has already left it.)
-    if (onOurEntry()) history.back();
+    // Back, the browser has already left the entry.) Landing on the page's
+    // entry restores its old scroll position just after popstate, so a plate
+    // that needs scrolling waits one task past it.
+    if (onOurEntry()) {
+      if (moved) window.addEventListener('popstate', () => setTimeout(refocus), { once: true });
+      else refocus();
+      history.back();
+    } else {
+      refocus();
+    }
   });
 
   dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
