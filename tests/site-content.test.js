@@ -227,6 +227,16 @@ describe('every asset the page references exists', () => {
   });
 });
 
+describe('the booking section is never hidden behind a scroll reveal (D1)', () => {
+  it('nothing in #book carries the reveal class, so a jump to #book lands on a visible form', () => {
+    const open = html.match(/<section[^>]*\sid="book"[^>]*>/);
+    const book = html.slice(open.index, html.indexOf('</section>', open.index));
+    expect(book).not.toMatch(/class="[^"]*\breveal\b/);
+    expect(book).not.toContain('data-reveal-delay');
+    expect(html).toMatch(/class="[^"]*\breveal\b/);          // reveals elsewhere stay
+  });
+});
+
 describe('the copy is free of the old placeholders', () => {
   it('has no fake magazine chrome or invented statistics', () => {
     for (const tell of ['Issue No.', 'Chapter I', 'Plate 01', '2,000+', '★ 5.0', 'No filters', 'no AI hair']) {

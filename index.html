@@ -720,13 +720,15 @@
   <div class="container">
     <header class="section__head">
       <p class="t-eyebrow">Book a chair</p>
-      <h2 class="t-display reveal">Pick a barber, a day, a time.</h2>
-      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+      <h2 class="t-display">Pick a barber, a day, a time.</h2>
+      <p class="section__dek t-italic">
         The slot is yours the moment you reserve. We confirm the details by WhatsApp or text.
       </p>
     </header>
 
-    <div class="booking reveal" data-reveal-delay="200">
+    <!-- Never a scroll reveal: #book is where Book, Book a chair and the skip
+         link land, and a tall block behind a reveal threshold stayed invisible. -->
+    <div class="booking">
 
       <!-- Next open slot, filled by cover.js -->
       <div class="booking__callout" data-next-available-callout hidden>
