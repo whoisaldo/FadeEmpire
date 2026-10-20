@@ -69,7 +69,7 @@ FadeEmpire/
 ├── scripts/
 │   ├── main.js                   Entry point: boots every module, registers the SW
 │   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS / prices
-│   ├── supabase.js               Singleton Supabase client (loaded from esm.sh)
+│   ├── supabase.js               Singleton Supabase client (postgrest-js, vendored in scripts/vendor/)
 │   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable
 │   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
 │   ├── booking-submit.js         Form submit, group flow, WhatsApp/SMS redirect, fallback path

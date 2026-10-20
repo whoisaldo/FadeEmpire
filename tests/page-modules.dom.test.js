@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 //
 // The non-booking page modules against the real index.html markup:
+//   * main.js     booking loads apart from the rest of the page
 //   * cover.js    the nav stamp, the hero status line, the "next open slot"
 //                 lines, the phone-only compare collapse
 //   * visit.js    today's row and the status in the hours card
@@ -142,6 +143,29 @@ describe('cover.js: live status and next open slot', () => {
     matchMediaMatches = () => false;
     initCover();
     expect($('[data-compare]').open).toBe(true);
+  });
+
+});
+
+/* ================= main.js ================= */
+
+describe('main.js: booking loads apart from the rest of the page', () => {
+  it('if the booking modules fail to load, the nav still starts and #book says how to book', async () => {
+    vi.useFakeTimers({ now: new Date('2026-09-09T17:00:00Z'), toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.doMock('../scripts/booking-grid.js', () => { throw new Error('offline'); });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = HEADER + HERO + section('book');
+    await import('../scripts/main.js');
+    await vi.waitFor(() => expect($('[data-booking-offline]')).toBeTruthy());
+
+    const note = $('[data-booking-offline]');
+    expect(note.textContent).toBe("Online booking isn't loading. Call 413·885·4440 or walk in.");
+    expect(note.querySelector('a').getAttribute('href')).toBe('tel:+14138854440');
+    expect($('#book .container').firstElementChild).toBe(note);
+    expect(warn).toHaveBeenCalledWith('[main] booking failed to start', expect.any(Error));
+    // cover.js still ran: the stamp shows the live state, not the shipped text.
+    expect($('[data-open-stamp]').classList.contains('stamp--open')).toBe(true);
+    vi.doUnmock('../scripts/booking-grid.js');
   });
 });
 
@@ -373,4 +397,5 @@ describe('reveals.js: scroll reveals', () => {
     expect(dek.classList.contains('is-visible')).toBe(true);
     delete window.IntersectionObserver;
   });
+
 });

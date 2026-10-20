@@ -6,7 +6,7 @@
 //   * Same-origin images      → cache-first (the pipeline never rewrites a file in place)
 //   * Video                   → left to the browser (range requests need the real server)
 //   * Supabase REST / RPC     → network-only (always-fresh availability)
-//   * Fonts CDN, esm.sh       → bypass; they manage their own caching
+//   * Fonts CDN               → bypass; they manage their own caching
 //
 // Bump VERSION on every client release. The new worker skips waiting and
 // claims open tabs; scripts/main.js reloads a tab that was already controlled
@@ -21,6 +21,7 @@ const PRECACHE = [
   '/index.html',
   '/404.html',
   '/manifest.webmanifest',
+  '/scripts/vendor/postgrest-js-1.16.3.mjs',
 ];
 
 self.addEventListener('install', (event) => {
@@ -62,8 +63,7 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache Supabase or anything cross-origin from CDNs we don't manage.
   if (url.hostname.endsWith('supabase.co')) return;
-  if (url.hostname.includes('esm.sh') ||
-      url.hostname.includes('fonts.googleapis.com') ||
+  if (url.hostname.includes('fonts.googleapis.com') ||
       url.hostname.includes('fonts.gstatic.com') ||
       url.hostname.includes('fontshare.com')) {
     return;

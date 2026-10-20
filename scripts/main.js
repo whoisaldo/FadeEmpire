@@ -1,13 +1,15 @@
 // main.js — entry point. Boots all feature modules.
+//
+// The page modules that need nothing from the database load statically.
+// cover.js and the booking modules reach the database client, so they load
+// through dynamic imports: if one of them fails, the rest of the page still
+// works, and the booking section says how to book instead.
 
-import { initCover }          from './cover.js';
 import { initReveals }        from './reveals.js';
 import { initShopVideo }      from './shop-video.js';
 import { initGallery }        from './gallery.js';
-import { initBookingGrid }    from './booking-grid.js';
-import { initBookingSubmit }  from './booking-submit.js';
-import { initBookingCancel }  from './booking-cancel.js';
 import { initVisit }          from './visit.js';
+import { SHOP_PHONE }         from './config.js';
 
 function ready(fn) {
   if (document.readyState === 'loading') {
@@ -39,14 +41,48 @@ function registerSW() {
   });
 }
 
-ready(() => {
-  initCover();
+function showBookingUnavailable() {
+  const container = document.querySelector('#book .container');
+  if (!container || container.querySelector('[data-booking-offline]')) return;
+  const note = document.createElement('p');
+  note.className = 'booking-offline';
+  note.dataset.bookingOffline = '';
+  note.setAttribute('role', 'status');
+  const call = document.createElement('a');
+  call.href = `tel:+${SHOP_PHONE}`;
+  call.textContent = '413·885·4440';
+  note.append("Online booking isn't loading. Call ", call, ' or walk in.');
+  container.prepend(note);
+}
+
+ready(async () => {
+  registerSW();                // before any await: it listens for window load
   initReveals();
   initShopVideo();
   initGallery();
   initVisit();
-  initBookingSubmit();
-  initBookingCancel();
-  initBookingGrid();           // async; loads availability in the background
-  registerSW();
+
+  const cover   = import('./cover.js');
+  const booking = Promise.all([
+    import('./booking-grid.js'),
+    import('./booking-submit.js'),
+    import('./booking-cancel.js'),
+  ]);
+  booking.catch(() => {});     // handled below; stops an early "unhandled rejection" report
+
+  try {
+    (await cover).initCover();
+  } catch (err) {
+    console.warn('[main] nav and live status failed to start', err);
+  }
+
+  try {
+    const [grid, submit, cancel] = await booking;
+    submit.initBookingSubmit();
+    cancel.initBookingCancel();
+    grid.initBookingGrid();    // async; loads availability in the background
+  } catch (err) {
+    console.warn('[main] booking failed to start', err);
+    showBookingUnavailable();
+  }
 });

@@ -227,6 +227,16 @@ describe('every asset the page references exists', () => {
   });
 });
 
+describe('the page before (or without) its scripts', () => {
+  it('the nav stamp ships the hours, not a live state it cannot know yet', () => {
+    const stamp = html.match(/<span class="([^"]*)" data-open-stamp[^>]*>([\s\S]*?)<\/span>\s*<\/span>/);
+    expect(stamp).toBeTruthy();
+    expect(stamp[1]).toBe('stamp');                      // no stamp--open / --closed class
+    expect(stamp[2]).toMatch(/<span class="stamp__text">10–6 · Closed Tue$/);
+  });
+
+});
+
 describe('the copy is free of the old placeholders', () => {
   it('has no fake magazine chrome or invented statistics', () => {
     for (const tell of ['Issue No.', 'Chapter I', 'Plate 01', '2,000+', '★ 5.0', 'No filters', 'no AI hair']) {

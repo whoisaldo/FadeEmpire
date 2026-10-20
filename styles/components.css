@@ -366,6 +366,27 @@
 }
 
 /* =====================================================
+   Booking unavailable: main.js shows this at the top of #book when the
+   booking scripts fail to load.
+===================================================== */
+.booking-offline {
+  margin: 0 0 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--rule-gold);
+  border-radius: var(--r-md);
+  background: var(--gold-faint);
+  color: var(--bone);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+.booking-offline a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+/* =====================================================
    Misc
 ===================================================== */
 [hidden] { display: none !important; }
