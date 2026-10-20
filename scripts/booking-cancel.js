@@ -158,14 +158,15 @@ function renderBookings(root, bookings, phoneDigits) {
       setStatus(root, `Cancelled. Let ${barber || 'the shop'} know:`, 'ok');
     });
 
-    // "Move it": the same cancel, then the form takes this booking's barber
-    // and service and the day row is next (booking-submit.js).
+    // "Move it": the same cancel, then the form takes this booking's barber,
+    // service and day, and the day row is next (booking-submit.js).
     const day = dateLabelFromIso(b.booking_date, { weekday: 'short' });
     twoTap(moveBtn, 'Move it', `Yes, move ${day} ${timeLabel}`, async (disarm) => {
       if (!await cancelIt(moveBtn, disarm, { move: true })) return;
       setStatus(root, 'Cancelled. Pick a new time.', 'ok');
       document.dispatchEvent(new CustomEvent('booking:move', { detail: {
-        barberSlug: b.barber_slug, serviceSlug: b.service_slug, firstName: b.first_name, phone: phoneDigits,
+        barberSlug: b.barber_slug, serviceSlug: b.service_slug, date: b.booking_date,
+        firstName: b.first_name, phone: phoneDigits,
       } }));
     });
   });

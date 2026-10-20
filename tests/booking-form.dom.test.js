@@ -1762,6 +1762,37 @@ describe('move a booking (C4)', () => {
     expect($('[data-service-select]').value).toBe('line-up');
     await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'larry' })));
   });
+
+  /* --- The moved booking's day (CR3) --- */
+
+  it('a Move to another barber keeps the booking\'s own day selected, not the grid\'s first day', async () => {
+    clickDay('2026-07-12');                                     // Hassan, Sunday
+    await findRow({ ...larryRow, booking_date: '2026-07-10', booking_time: '14:00:00' });
+    await confirmMove();
+    expect($('[data-barber-option="larry"]').getAttribute('aria-checked')).toBe('true');
+    const sel = () => $('[data-day-row] .booking__day[aria-selected="true"]');
+    expect(sel().dataset.date).toBe('2026-07-10');
+    expect(document.activeElement).toBe(sel());
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    expect(sel().dataset.date).toBe('2026-07-10');              // still open once read
+    expect(document.activeElement).toBe(sel());
+    expect($('[data-form-date]').value).toBe('2026-07-10');
+  });
+
+  it('when the booking\'s day has no open time left, the next day with one is selected and focused', async () => {
+    const fullFriday = [];
+    for (let m = 10 * 60; m <= 17 * 60 + 30; m += 45) {
+      const hms = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`;
+      fullFriday.push({ barber_slug: 'larry', booking_date: '2026-07-10', booking_time: hms, status: 'confirmed' });
+    }
+    rpc.fetchAvailability.mockImplementation(async ({ barberSlug }) => (barberSlug === 'larry' ? fullFriday : []));
+    await findRow({ ...larryRow, booking_date: '2026-07-10', booking_time: '14:00:00' });
+    await confirmMove();
+    const sel = () => $('[data-day-row] .booking__day[aria-selected="true"]');
+    await vi.waitFor(() => expect(sel().dataset.date).toBe('2026-07-11'));
+    expect(document.activeElement).toBe(sel());
+    expect($('[data-slot-grid] .booking__slot:not([disabled])')).toBeTruthy();
+  });
 });
 
 /* ================= The price list books itself (C5) ================= */

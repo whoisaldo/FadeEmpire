@@ -439,6 +439,33 @@ function bindExternalPick() {
   document.querySelector('[data-clear-selected]')?.addEventListener('click', () => { cancelPick(); clearTime(); });
 }
 
+/* ---------- A moved booking's day ---------- */
+
+/** Whether this barber has a time on `iso` that is neither booked nor past. */
+function hasOpenSlot(iso) {
+  const todayIso = isoDate(new Date());
+  const nowMin   = nowMinutesInShopTz();
+  return slotsForWeekday(weekdayFromIso(iso), state.barberSlug).some(m =>
+    !(iso === todayIso && m <= nowMin) && !state.takenSet.has(`${iso}|${minutesToHms(m).slice(0, 5)}`));
+}
+
+/** After a Move: the booking's day is selected at once if this barber works
+ *  it, and once his availability is read it stays if it still has an open
+ *  time; otherwise the next day in the picker that has one. A choice made by
+ *  hand meanwhile wins. Resolves to the day selected, or null if none was. */
+export async function selectDayFrom(iso) {
+  if (locked || !iso) return null;
+  const pick = ++pickSeq;
+  if (document.querySelector(`[data-day-row] .booking__day[data-date="${iso}"]:not([disabled])`)) selectDate(iso);
+  await whenAvailable();
+  if (pick !== pickSeq || locked) return null;
+  const day = [...document.querySelectorAll('[data-day-row] .booking__day:not([disabled])')]
+    .map(b => b.dataset.date).find(d => d >= iso && hasOpenSlot(d));
+  if (!day) return null;
+  if (day !== state.selectedDate) selectDate(day);
+  return day;
+}
+
 /* ---------- Auto-refresh: tab visibility + midnight rollover ---------- */
 
 let _cachedToday = null;

@@ -16,7 +16,9 @@
 //      lose the customer to a transient backend hiccup.
 
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
-import { getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked, chooseBarber } from './booking-grid.js';
+import {
+  getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked, chooseBarber, selectDayFrom,
+} from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
   dateLabelFromIso, ERROR_MESSAGES, FALLBACK_CODES, hmsToMinutes, minutesToHms,
@@ -720,8 +722,9 @@ async function focusNextStep(form) {
  *  off the confirmation, if it is on it). A locked form opens again the way
  *  "Book another" opens it, the card staying as the record; then the form
  *  takes the booking's barber and service, keeps the name and phone (filled
- *  from the lookup when empty), and focus goes to the day row for a new time. */
-function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
+ *  from the lookup when empty), and focus goes to the day row for a new time:
+ *  the booking's own day if it still has an open time, otherwise the next. */
+async function moveBooking(form, { barberSlug, serviceSlug, date, firstName, phone } = {}) {
   // What the customer typed wins over the lookup's first name and phone.
   const name = form.querySelector('input[name="name"]');
   const tel  = form.querySelector('input[name="phone"]');
@@ -739,11 +742,20 @@ function moveBooking(form, { barberSlug, serviceSlug, firstName, phone } = {}) {
   }
   name.value = typedName || firstName || '';
   tel.value  = typedTel || (phone ? formatPhoneDisplay(phone) : '');
-  const day = document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
+
+  const selectedDay = () => document.querySelector('[data-day-row] .booking__day[aria-selected="true"]')
     || document.querySelector('[data-day-row] .booking__day:not([disabled])');
-  if (!day) return;
-  day.focus({ preventScroll: true });
-  day.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const settled = selectDayFrom(date);          // the booking's day now, checked once read
+  const first = selectedDay();
+  if (!first) return;
+  first.focus({ preventScroll: true });
+  first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await settled;
+  // A full day moved the selection on: focus follows unless the customer moved it.
+  const now = selectedDay();
+  if (now === first || ![first, document.body].includes(document.activeElement)) return;
+  now.focus({ preventScroll: true });
+  now.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /** Out of the booked state: the picker and fields open and emptied. */
