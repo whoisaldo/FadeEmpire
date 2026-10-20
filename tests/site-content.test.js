@@ -247,6 +247,24 @@ describe('the page before (or without) its scripts', () => {
   });
 });
 
+describe('the gallery styles', () => {
+  /** Every top-level rule in a stylesheet, as [selectors[], body]. */
+  const rules = (file) => [...readFileSync(join(ROOT, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    .matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].split(',').map((s) => s.trim()), m[2]]);
+
+  it('gallery photos fill their plates; only the pause button sits absolutely in a corner', () => {
+    const css = rules('styles/gallery.css');
+    const fill = css.find(([sel]) => sel.includes('.plate img'));
+    expect(fill[0]).toEqual(['.plate img', '.plate__video']);
+    expect(fill[1]).toMatch(/width:\s*100%/);
+    expect(fill[1]).toMatch(/object-fit:\s*cover/);
+    for (const [sel, body] of css) {
+      if (sel.includes('.plate img')) expect(body).not.toMatch(/position:\s*absolute/);
+    }
+    expect(css.find(([sel]) => sel.join() === '.plate__pause')[1]).toMatch(/position:\s*absolute/);
+  });
+});
+
 describe('the copy is free of the old placeholders', () => {
   it('has no fake magazine chrome or invented statistics', () => {
     for (const tell of ['Issue No.', 'Chapter I', 'Plate 01', '2,000+', '★ 5.0', 'No filters', 'no AI hair']) {
