@@ -554,18 +554,38 @@ describe('shop-video.js: pause buttons and the sound toggle', () => {
 /* ================= gallery.js ================= */
 
 describe('gallery.js: lightbox and filmstrip', () => {
-  let api;
-  async function bootGallery() {
+  let api, hist;
+
+  /** A session history the test can see: entry 0 is the page we came from,
+      entry 1 this page. back() and forward() fire popstate like a browser. */
+  function fakeHistory(entries = ['previous page', null]) {
+    const stack = [...entries];
+    let at = stack.length - 1;
+    const go = (step) => {
+      at += step;
+      window.dispatchEvent(new PopStateEvent('popstate', { state: stack[at] }));
+    };
+    vi.spyOn(History.prototype, 'state', 'get').mockImplementation(() => stack[at]);
+    vi.spyOn(history, 'pushState').mockImplementation((state) => { stack.splice(at + 1); stack.push(state); at += 1; });
+    vi.spyOn(history, 'replaceState').mockImplementation((state) => { stack[at] = state; });
+    vi.spyOn(history, 'back').mockImplementation(() => go(-1));
+    vi.spyOn(history, 'forward').mockImplementation(() => go(1));
+    return { stack, get at() { return at; } };
+  }
+
+  async function bootGallery(entries) {
     // jsdom has no <dialog> methods; give it the two the module uses.
     HTMLElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     HTMLElement.prototype.close = function () {
       this.removeAttribute('open');
       this.dispatchEvent(new Event('close'));
     };
+    hist = fakeHistory(entries);
     document.body.innerHTML = GALLERY;
     const { initGallery } = await import('../scripts/gallery.js');
     api = initGallery();
   }
+  afterEach(() => vi.restoreAllMocks());
 
   it('opens the tapped photo at full size with its caption and position', async () => {
     await bootGallery();
@@ -602,35 +622,68 @@ describe('gallery.js: lightbox and filmstrip', () => {
     expect(document.activeElement).toBe(opener);
   });
 
+  const dialogOpen = () => $('[data-lightbox]').hasAttribute('open');
+
   it('Back closes the open photo instead of leaving the page', async () => {
     await bootGallery();
-    const push = vi.spyOn(history, 'pushState');
-    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
     const opener = $('[data-plate="cut-low-fade"] [data-lightbox-open]');
     opener.focus();
     opener.click();
-    expect(push).toHaveBeenCalledWith({ lightbox: true }, '');
-    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
-    expect($('[data-lightbox]').hasAttribute('open')).toBe(false);
-    expect(back).not.toHaveBeenCalled();               // the browser already went back
+    expect(hist.stack).toEqual(['previous page', null, { lightbox: 'cut-low-fade' }]);
+    history.back();
+    expect(dialogOpen()).toBe(false);
+    expect(hist.at).toBe(1);                           // still on this page
     expect(document.activeElement).toBe(opener);
-    push.mockRestore(); back.mockRestore();
+  });
+
+  it('Back, Forward, Back: Forward reopens the same photo, and the second Back closes it again', async () => {
+    await bootGallery();
+    const opener = $('[data-plate="cut-low-fade"] [data-lightbox-open]');
+    opener.focus();
+    opener.click();
+    $('[data-lightbox-next]').click();                 // the entry follows the photo on screen
+    const seen = $('[data-lightbox-cap]').textContent;
+    history.back();
+    expect(dialogOpen()).toBe(false);
+
+    history.forward();
+    expect(dialogOpen()).toBe(true);
+    expect($('[data-lightbox-cap]').textContent).toBe(seen);
+    expect(hist.stack).toHaveLength(3);                // reopened without a new entry
+
+    history.back();
+    expect(dialogOpen()).toBe(false);
+    expect(hist.at).toBe(1);
+    // Focus lands on the plate of the photo that was on screen.
+    const shown = $$('[data-plate]').find((f) => f.querySelector('.plate__cap')?.textContent.trim() === seen);
+    expect(document.activeElement).toBe(shown.querySelector('[data-lightbox-open]'));
+    history.back();
+    expect(hist.at).toBe(0);                           // and the next Back leaves the page
   });
 
   it('closing with the button or Escape takes the entry back off, so the next Back leaves', async () => {
     await bootGallery();
-    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
     $('[data-plate="cut-low-fade"] [data-lightbox-open]').click();
     $('[data-lightbox-close]').click();
-    expect(back).toHaveBeenCalledTimes(1);
-    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));   // that back() landing
-    expect(back).toHaveBeenCalledTimes(1);
-    expect($('[data-lightbox]').hasAttribute('open')).toBe(false);
+    expect(dialogOpen()).toBe(false);
+    expect(hist.at).toBe(1);
 
     $('[data-plate="cut-low-fade"] [data-lightbox-open]').click();
     $('[data-lightbox]').close();                      // what Escape ends in on a modal <dialog>
-    expect(back).toHaveBeenCalledTimes(2);
-    back.mockRestore();
+    expect(hist.at).toBe(1);
+    expect(history.back).toHaveBeenCalledTimes(2);
+    history.back();
+    expect(hist.at).toBe(0);
+    expect(dialogOpen()).toBe(false);
+  });
+
+  it('a reload on a photo entry shows that photo, so the entry never sits there empty', async () => {
+    await bootGallery(['previous page', null, { lightbox: 'cut-low-fade' }]);
+    expect(dialogOpen()).toBe(true);
+    expect($('[data-lightbox-img]').getAttribute('src')).toBe('./assets/img/cut-low-fade-1200.jpg');
+    $('[data-lightbox-close]').click();
+    expect(hist.at).toBe(1);
+    expect(document.activeElement).toBe($('[data-plate="cut-low-fade"] [data-lightbox-open]'));
   });
 
   it('the caption and the count are announced when the photo changes', async () => {
