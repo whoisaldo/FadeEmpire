@@ -23,6 +23,8 @@ has to differ, change this file in the same commit and say so in the report.
 
 Rule from 0010: every new function gets explicit `revoke execute ... from public, anon` (and from
 `authenticated` where it is not meant for the app). Every SECURITY DEFINER function sets `search_path = public`.
+0022 also revokes `confirm_booking` (0001) from `authenticated`: it is `service_role` only, so no app login can
+confirm a pending booking.
 
 ### Tables
 
@@ -58,8 +60,9 @@ followed by an ordinary `book_slot` / `book_slot_group`, so the database cannot 
 records `moved` instead of `booked` when its booker (not a guest) cancelled one of their own bookings within the last
 30 minutes, matched on the phone with or without the leading 1. The cancellation stays a `cancelled` event.
 
-RLS: `bookings` gets a select policy for `authenticated` using `app_can_view(barber_id)`. All writes go through the
-RPCs below. `booking_links` allows select/insert/delete where `app_can_manage(barber_id)`. `barbers` gains a select
+RLS: `bookings` gets a select policy for `authenticated` using `app_can_manage(barber_id)`: a view-only chair is read
+through `app_bookings`, which leaves out customer phones (a booking id plus its phone is all the site's
+`cancel_booking` asks for). All writes go through the RPCs below. `booking_links` allows select/insert/delete where `app_can_manage(barber_id)`. `barbers` gains a select
 policy for managers that includes inactive rows. Storage bucket `barber-photos` is public-read, and only managers
 can write to it.
 
@@ -86,11 +89,11 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 | RPC | Returns | Notes |
 | --- | --- | --- |
 | `app_me()` | one row: `user_id, role, display_name, barber_id, barber_slug, must_change_password, notify_bookings, notify_cancellations, notify_viewed_chairs, chairs jsonb` | `chairs` = `[{barber_id, slug, display_name, title, is_active, can_manage}]` the caller may see, own chair first, then `sort_order`. The manager gets every barber. **No row** when the caller has no access: no staff row, a disabled login, or a barber whose chair is inactive. The manager's `barber_id` / `barber_slug` are null. |
-| `app_bookings(p_barber_id uuid, p_from date, p_to date)` | rows: `id, barber_id, barber_slug, booking_date, booking_time, end_time, service_slug, service_name, duration_minutes, addons text[] (display names), custom_request, customer_notes, customer_name, customer_phone, total_price_cents, status, source, is_guest, party_id, party_size, created_at, cancelled_at, cancelled_by, can_manage` | Primary rows only. Includes cancelled and no-show rows so the day shows what happened (expired holds are left out). Raises `forbidden` unless `app_can_view`; `invalid_range` when `p_to < p_from` or the range is over 62 days. `end_time` is the end of the chair time on the grid (a 30-minute cut in a 45-minute slot ends 45 minutes after it starts). `addons` keeps the booked order. `party_size` counts the party's primaries. Ordered by date, time. |
-| `app_free_slots(p_barber_id uuid, p_date date)` | rows: `slot_time time` | The same rule the site uses: store hours ∩ barber schedule, minus closures, minus taken slots, 45-minute grid from open, no past slots today. Empty outside `book_slot`'s window (today to +60 days) and for an inactive barber, so every slot listed books. One-slot starts (every current service is one slot). Raises `forbidden` unless `app_can_view`. |
-| `app_book(p_barber_id uuid, p_service_slug text, p_date date, p_time time, p_customer_name text, p_customer_phone text, p_addon_slugs text[] default '{}', p_notes text default null)` | `booking_id uuid` | Requires `app_can_manage`. Goes through `book_slot` logic with `source = 'app'`: `book_slot` and `app_book` both call `book_slot_at`, one copy of the rules. Raises the same error codes as `book_slot` (`slot_taken`, etc.). Two differences, on purpose: the anon per-phone limit (6 active future bookings) does not apply to staff, and app bookings store `remind_sms = false` (the customer never ticked the site's SMS consent box). `p_notes` is stored as `customer_notes`. |
+| `app_bookings(p_barber_id uuid, p_from date, p_to date)` | rows: `id, barber_id, barber_slug, booking_date, booking_time, end_time, service_slug, service_name, duration_minutes, addons text[] (display names), custom_request, customer_notes, customer_name, customer_phone, total_price_cents, status, source, is_guest, party_id, party_size, created_at, cancelled_at, cancelled_by, can_manage` | Primary rows only. Includes cancelled and no-show rows so the day shows what happened (expired holds are left out). `customer_phone` is null when `can_manage` is false (a chair the caller only views). Raises `forbidden` unless `app_can_view`; `invalid_range` when `p_to < p_from` or the range is over 62 days. `end_time` is the end of the chair time on the grid (a 30-minute cut in a 45-minute slot ends 45 minutes after it starts). `addons` keeps the booked order. `party_size` counts the party's primaries. Ordered by date, time. |
+| `app_free_slots(p_barber_id uuid, p_date date)` | rows: `slot_time time` | The same rule the site uses: store hours ∩ barber schedule, minus closures, minus slots that overlap an active booking (pending, confirmed or completed; a booking left off the grid by a schedule change blocks every slot it overlaps), 45-minute grid from open, no past slots today. Empty outside `book_slot`'s window (today to +60 days) and for an inactive barber, so every slot listed books. One-slot starts (every current service is one slot). Raises `forbidden` unless `app_can_view`. |
+| `app_book(p_barber_id uuid, p_service_slug text, p_date date, p_time time, p_customer_name text, p_customer_phone text, p_addon_slugs text[] default '{}', p_notes text default null)` | `booking_id uuid` | Requires `app_can_manage`. Goes through `book_slot` logic with `source = 'app'`: `book_slot` and `app_book` both call `book_slot_at`, one copy of the rules. Raises the same error codes as `book_slot` (`slot_taken`, etc.). `slot_taken` also means the slot overlaps another active booking on the chair: no two active bookings on one chair ever overlap, on any booking path. Two differences, on purpose: the anon per-phone limit (6 active future bookings) does not apply to staff, and app bookings store `remind_sms = false` (the customer never ticked the site's SMS consent box). `p_notes` is stored as `customer_notes`. |
 | `app_cancel_booking(p_booking_id uuid)` | one row: `booking_id, customer_name, customer_phone, booking_date, booking_time` | Requires `app_can_manage`. Sets `cancelled`, `cancelled_by = 'barber' \| 'manager'` (`manager` when a manager cancels on a chair that is not their own), and frees linked continuation slots. Returns the data the app needs to prefill a text to the customer. `cannot_cancel` unless pending or confirmed; `not_primary` for a continuation row. |
-| `app_set_status(p_booking_id uuid, p_status text)` | void | `p_status` in `no_show`, `confirmed` (undo a no-show). Requires `app_can_manage`. `no_show` from pending, confirmed or completed; `confirmed` only from `no_show`, else `invalid_status_change`; anything else `invalid_status`. Undo raises `slot_taken` if the slot was rebooked meanwhile. Continuation rows follow the primary. |
+| `app_set_status(p_booking_id uuid, p_status text)` | void | `p_status` in `no_show`, `confirmed` (undo a no-show). Requires `app_can_manage`. `no_show` from pending, confirmed or completed; `confirmed` only from `no_show`, else `invalid_status_change`; anything else `invalid_status`. Undo raises `slot_taken` if the slot, or a time overlapping it, was booked meanwhile. Continuation rows follow the primary. |
 | `app_activity(p_before bigint default null, p_limit int default 50)` | rows: `event_id, kind, actor, occurred_at, booking_id, barber_id, barber_slug, barber_name, customer_name, booking_date, booking_time, service_name, is_unread` | Chairs the caller can view, newest first. `is_unread` = after `activity_seen_at` and not caused by the caller. Page with `p_before` = the last `event_id` seen; `p_limit` is clamped to 1-200. No rows when the caller has no access. |
 | `app_mark_activity_seen()` | void | |
 | `app_days_off(p_barber_id uuid)` | rows: `closure_date, reason, bookings_that_day int` | Today onward. Requires `app_can_view`. |
@@ -106,7 +109,7 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 | --- | --- | --- |
 | `manager_staff()` | rows: `user_id, email, role, display_name, barber_id, last_sign_in_at, is_disabled` | Reads `auth.users`. |
 | `manager_save_barber(p_id uuid, p_slug text, p_display_name text, p_title text, p_bio text, p_photo_url text)` | `barber_id uuid` | `p_id` null creates the barber (active, no hours yet). The slug is lowercased, `[a-z0-9-]`, 2-30 characters (`invalid_slug`), unique (`slug_taken`), not one of the site's own top-level paths (`assets`, `docs`, `ios`, `scripts`, `styles`, `supabase`, `tests`, `tools`, `index`, `robots`, `sitemap`, `manifest`, `sw`: `slug_reserved`), and immutable once bookings exist (`slug_locked`). Name 1-40 characters (`invalid_name`). Empty title, bio, photo are stored as null. A new barber gets `sort_order` after the last one. |
-| `manager_set_schedule(p_barber_id uuid, p_days jsonb)` | void | `[{weekday 0-6, open "HH:MM", close "HH:MM"}]` replaces the week. Each day must sit inside `store_hours` for that weekday; otherwise it raises `outside_store_hours` (a weekday the store is closed, e.g. Tuesday, always does). A malformed entry, a repeated weekday, or open not before close raises `invalid_schedule`. Slots are 45 minutes. |
+| `manager_set_schedule(p_barber_id uuid, p_days jsonb)` | `affected_bookings int` | `[{weekday 0-6, open "HH:MM", close "HH:MM"}]` replaces the week. It always saves. `affected_bookings` counts the chair's upcoming pending, confirmed or completed bookings that the new week strands: on a weekday it no longer works, starting before open or at or after close, or off the new 45-minute grid. They stay booked, and no new booking can overlap them; when the count is above 0 the app warns that those customers need a call. Each day must sit inside `store_hours` for that weekday; otherwise it raises `outside_store_hours` (a weekday the store is closed, e.g. Tuesday, always does). A malformed entry, a repeated weekday, or open not before close raises `invalid_schedule`. Slots are 45 minutes. |
 | `manager_set_active(p_barber_id uuid, p_active boolean)` | `upcoming_bookings int` | Deactivating hides the barber from the site and the booking RPCs at once. The count is the chair's upcoming pending or confirmed bookings, which stay booked. |
 | `manager_set_view_grant(p_viewer_barber_id uuid, p_barber_id uuid, p_granted boolean)` | void | `invalid_grant` when both are the same chair. |
 | `manager_barber_schedule(p_barber_id uuid)` | rows: `weekday, open_time, close_time` | Includes inactive barbers. |
@@ -191,17 +194,17 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
   - Sign in, then a forced new password when required.
   - **Schedule**: a chair switcher when the user can see more than one chair, with "View only" on granted chairs.
     It has a day strip (today plus 4 weeks) and the day's appointments. Closed days and days off show as such.
-  - **Appointment** detail: Call, Text, service, add-ons, request, notes, price, party, and when and how it was
-    booked. Actions when `can_manage`: Cancel (confirm, then offer a prefilled text to the customer), Mark no-show
-    or Undo.
+  - **Appointment** detail: service, add-ons, request, notes, price, party, and when and how it was booked. Call and
+    Text only when `can_manage` (a view-only chair has no phone). Actions when `can_manage`: Cancel (confirm, then
+    offer a prefilled text to the customer), Mark no-show or Undo.
   - **New appointment**: service, date, free slot, name, phone, add-ons, notes.
   - **Days off**: list, add, and remove, with a warning when bookings exist that day.
   - **Activity**: booked, cancelled, no-show, and moved events, with an unread badge on the tab.
   - **Links**: the plain link and custom links, with Copy, Share, QR, add, and delete.
   - **Settings**: notification toggles, change password, sign out.
-  - Manager only, **Barbers**: list, add or edit (name, slug, title, bio, photo, weekly hours), deactivate (upcoming
-    bookings shown first), reactivate, app login (create, reset password, disable or enable), and "Can also view"
-    grants.
+  - Manager only, **Barbers**: list, add or edit (name, slug, title, bio, photo, weekly hours; after saving hours, a warning
+    when `affected_bookings` is above 0), deactivate (upcoming bookings shown first), reactivate, app login (create,
+    reset password, disable or enable), and "Can also view" grants.
 - Data refreshes on launch, foregrounding, pull-to-refresh, and every 60 s while visible. Push notifications use
   the APNs token through `app_register_device`.
 - Copy rule for the whole app: every string tells the barber something they need. No decorative or filler text.

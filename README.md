@@ -189,7 +189,7 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 - `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `bookings` directly (RLS denies all)
 - `SELECT` on `booking_errors` (Hassan-only via Supabase Studio)
 - `SELECT` on `v_people` (one row per person who has booked; service role / Studio only)
-- `EXECUTE` `confirm_booking` (authenticated only)
+- `EXECUTE` `confirm_booking` (service_role only; signed-in app users cannot either, since 0022)
 
 ### Messaging fallback
 
@@ -292,6 +292,8 @@ tools/deploy-barber-app.sh --dry-run
 SUPABASE_SERVICE_ROLE_KEY=eyJ... MANAGER_EMAIL=you@example.com \
 APNS_KEY_ID=... APNS_TEAM_ID=9X79V37Q89 APNS_KEY_FILE=~/AuthKey_XXXXXXXXXX.p8 \
 CONFIRM_PROD=1 tools/deploy-barber-app.sh   # db push, two functions, APNs secrets, Vault, manager login
+SUPABASE_SERVICE_ROLE_KEY=<local service role key> MANAGER_EMAIL=you@example.com \
+tools/deploy-barber-app.sh --local          # the manager login step only, against the local stack
 ```
 
 Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. Then, in the dashboard, turn off **Allow new users to sign up**: the app has no sign-up. The APNs variables can come later; until then pushes run dry.

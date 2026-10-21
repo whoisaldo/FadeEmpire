@@ -14,8 +14,10 @@
 --   4. book_slot is split: book_slot_at(barber_id, ...) holds 0020's body verbatim
 --      (store hours, barber schedule, closures, the 45-minute grid, slot_taken via
 --      the partial unique index, server-side price) and book_slot is a wrapper that
---      resolves the slug. app_book calls book_slot_at, so the app and the site share
---      one set of booking rules. The per-phone limit (6 active future bookings) is
+--      resolves the slug. A trigger on bookings (tg_booking_no_overlap) rejects any
+--      active booking that overlaps another on the same chair, with slot_taken, so
+--      a grid moved by manager_set_schedule cannot double-book a chair. app_book
+--      calls book_slot_at, so the app and the site share one set of booking rules. The per-phone limit (6 active future bookings) is
 --      the anon anti-spam rule; app_book skips it, because a barber booking a
 --      regular's standing appointments, or walk-ins under the shop's phone, is not
 --      spam. App bookings store remind_sms = false: the customer never ticked the
@@ -50,7 +52,9 @@
 -- anon explicitly (and from authenticated where the app must not call it); every
 -- new table revokes everything from anon and authenticated, then grants exactly
 -- what the app needs. bookings gains a select grant for authenticated, limited by
--- the RLS policy to the chairs the caller can view.
+-- the RLS policy to the chairs the caller can manage. A view-only chair is read
+-- through app_bookings, without customer phones. confirm_booking (0001) is closed
+-- to authenticated: service_role only.
 --
 -- Errors are raised as messages the app matches on, with the same SQLSTATEs as the
 -- booking RPCs: forbidden (42501), barber_not_found / booking_not_found (P0002),
@@ -284,11 +288,15 @@ revoke execute on function app_clear_actor()   from public, anon, authenticated;
 -- 4. RLS for the app
 -- =============================================================================
 
+-- Direct reads are for chairs the caller can manage. A view-only chair is read
+-- through app_bookings, which leaves out the customer's phone: a booking id plus
+-- its phone is all cancel_booking (the site's customer path) asks for.
 grant select on bookings to authenticated;
 
 drop policy if exists "staff read viewable bookings" on bookings;
-create policy "staff read viewable bookings" on bookings
-  for select to authenticated using (app_can_view(barber_id));
+drop policy if exists "staff read managed bookings" on bookings;
+create policy "staff read managed bookings" on bookings
+  for select to authenticated using (app_can_manage(barber_id));
 
 drop policy if exists "managers read all barbers" on barbers;
 create policy "managers read all barbers" on barbers
@@ -304,9 +312,17 @@ create policy "staff add own links" on booking_links
 create policy "staff delete own links" on booking_links
   for delete to authenticated using (app_can_manage(barber_id));
 
+-- confirm_booking (0001) flips a pending booking to confirmed. 0010 left it granted
+-- to authenticated for owner tooling, but nothing calls it as authenticated (owner
+-- tooling uses the service role key), and with the app every login is
+-- authenticated, staff row or not.
+revoke execute on function confirm_booking(uuid) from public, anon, authenticated;
+grant  execute on function confirm_booking(uuid) to service_role;
+
 -- =============================================================================
 -- 5. book_slot_at — 0020's book_slot body, by barber id, with the phone limit
 --    switchable. book_slot keeps its signature and behavior and calls it.
+--    Then the overlap trigger every booking path goes through.
 -- =============================================================================
 
 create or replace function book_slot_at(
@@ -555,6 +571,73 @@ $$;
 revoke all on function book_slot(text, text, date, time, text, text, text[], text, text, text, int, boolean, boolean) from public;
 grant execute on function book_slot(text, text, date, time, text, text, text[], text, text, text, int, boolean, boolean)
   to anon, authenticated;
+
+-- No two active bookings (pending, confirmed, completed) on one chair overlap in
+-- time. 0001's unique index compares start times only: once manager_set_schedule
+-- moves a day's grid (open 10:00 → 10:15), a 10:15 slot passes it on top of a
+-- 10:00 booking. Each row holds one grid slot, [booking_time, booking_time +
+-- slot_minutes), with that weekday's slot_minutes (45 without a schedule row).
+-- The check runs before every insert, and every update that makes a row active or
+-- moves it, under a transaction lock on (chair, date): a second booking for that
+-- chair and day waits until the first commits, then sees it (each statement in a
+-- volatile function takes a new snapshot). It raises slot_taken as a
+-- unique_violation, which book_slot_at, 0020's book_slot_group and app_set_status
+-- already catch and raise as slot_taken, so every booking path has the rule.
+create or replace function tg_booking_no_overlap()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_step  int;
+  v_other time;
+begin
+  if new.status not in ('pending', 'confirmed', 'completed') then
+    return new;
+  end if;
+  if tg_op = 'UPDATE'
+     and old.status in ('pending', 'confirmed', 'completed')
+     and new.barber_id    = old.barber_id
+     and new.booking_date = old.booking_date
+     and new.booking_time = old.booking_time then
+    return new;   -- pending → confirmed → completed keeps the same chair time
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended('fe.chair_day:' || new.barber_id::text || ':' || new.booking_date::text, 0));
+
+  select s.slot_minutes into v_step
+    from barber_schedules s
+   where s.barber_id = new.barber_id
+     and s.weekday   = extract(dow from new.booking_date)::smallint;
+  v_step := coalesce(v_step, 45);
+
+  select o.booking_time into v_other
+    from bookings o
+   where o.barber_id    = new.barber_id
+     and o.booking_date = new.booking_date
+     and o.id          <> new.id
+     and o.status in ('pending', 'confirmed', 'completed')
+     and new.booking_date + o.booking_time
+           < new.booking_date + new.booking_time + make_interval(mins => v_step)
+     and new.booking_date + new.booking_time
+           < new.booking_date + o.booking_time + make_interval(mins => v_step)
+   limit 1;
+  if found then
+    raise exception 'slot_taken' using errcode = '23505',
+      detail = format('%s overlaps the active booking at %s', new.booking_time, v_other);
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function tg_booking_no_overlap() from public, anon, authenticated;
+
+drop trigger if exists bookings_no_overlap on bookings;
+create trigger bookings_no_overlap
+  before insert or update of status, barber_id, booking_date, booking_time on bookings
+  for each row execute function tg_booking_no_overlap();
 
 -- =============================================================================
 -- 6. booking_events, written by triggers on bookings
@@ -848,7 +931,9 @@ begin
   v_manage := app_can_manage(p_barber_id);
 
   -- end_time is the end of the chair time on the grid: a 30-minute cut in a
-  -- 45-minute slot ends 45 minutes after it starts.
+  -- 45-minute slot ends 45 minutes after it starts. customer_phone is null on a
+  -- chair the caller only views: with it, the booking id would cancel through
+  -- cancel_booking as the customer.
   return query
   select bk.id, bk.barber_id, b.slug, bk.booking_date, bk.booking_time,
          (bk.booking_time + make_interval(mins =>
@@ -858,7 +943,8 @@ begin
          coalesce((select array_agg(a.display_name order by x.ord)
                      from unnest(bk.selected_addons) with ordinality as x(addon_slug, ord)
                      join addons a on a.slug = x.addon_slug), '{}'::text[]),
-         bk.custom_request, bk.customer_notes, bk.customer_name, bk.customer_phone,
+         bk.custom_request, bk.customer_notes, bk.customer_name,
+         case when v_manage then bk.customer_phone end,
          bk.total_price_cents, bk.status::text, bk.source, bk.is_guest, bk.party_id,
          (select count(*)::int from bookings p
            where p.party_id = bk.party_id and p.linked_to is null and p.status <> 'expired'),
@@ -879,8 +965,9 @@ $$;
 
 -- The site's rule (scripts/booking-helpers.js slotsForWeekday + booking-grid.js):
 -- from the barber's open time in slot_minutes steps while the slot starts before
--- the barber's close, inside store hours, not a day off, not taken, not already
--- started. Out of book_slot's date window (today .. +60 days) or for an inactive
+-- the barber's close, inside store hours, not a day off, not already started, and
+-- not overlapping an active booking (one left off the grid by a schedule change
+-- blocks the slots it overlaps, as tg_booking_no_overlap does). Out of book_slot's date window (today .. +60 days) or for an inactive
 -- barber there are no slots, so every slot listed is one book_slot accepts.
 create or replace function app_free_slots(p_barber_id uuid, p_date date)
 returns table (slot_time time)
@@ -922,8 +1009,9 @@ begin
        select 1 from bookings bk
         where bk.barber_id    = p_barber_id
           and bk.booking_date = p_date
-          and bk.booking_time = g.t::time
-          and bk.status in ('pending', 'confirmed', 'completed'))
+          and bk.status in ('pending', 'confirmed', 'completed')
+          and p_date + bk.booking_time < g.t + make_interval(mins => v_sched.slot_minutes)
+          and g.t < p_date + bk.booking_time + make_interval(mins => v_sched.slot_minutes))
    order by 1;
 end;
 $$;
@@ -1378,9 +1466,13 @@ $$;
 
 -- p_days: [{weekday 0-6, open "HH:MM", close "HH:MM"}], one entry per working
 -- day; it replaces the barber's whole week. Each day must sit inside that
--- weekday's store hours (a weekday the store is closed has none).
-create or replace function manager_set_schedule(p_barber_id uuid, p_days jsonb)
-returns void
+-- weekday's store hours (a weekday the store is closed has none). Returns how
+-- many upcoming bookings the new week leaves stranded: on a day it no longer
+-- works, outside its hours, or off its 45-minute grid. They stay booked (no new
+-- booking can overlap them); the app warns.
+drop function if exists manager_set_schedule(uuid, jsonb);
+create function manager_set_schedule(p_barber_id uuid, p_days jsonb)
+returns int
 language plpgsql
 security definer
 set search_path = public
@@ -1429,6 +1521,20 @@ begin
     insert into barber_schedules (barber_id, weekday, open_time, close_time, slot_minutes)
     values (p_barber_id, v_wd, v_open, v_close, 45);
   end loop;
+
+  return (
+    select count(distinct coalesce(bk.linked_to, bk.id))::int
+      from bookings bk
+      left join barber_schedules s
+        on s.barber_id = bk.barber_id
+       and s.weekday   = extract(dow from bk.booking_date)::smallint
+     where bk.barber_id = p_barber_id
+       and bk.status in ('pending', 'confirmed', 'completed')
+       and bk.slot_at >= now()
+       and (s.barber_id is null
+            or bk.booking_time <  s.open_time
+            or bk.booking_time >= s.close_time
+            or (extract(epoch from bk.booking_time - s.open_time)::int / 60) % s.slot_minutes <> 0));
 end;
 $$;
 

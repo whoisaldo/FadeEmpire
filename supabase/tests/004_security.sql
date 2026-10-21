@@ -119,6 +119,15 @@ select throws_ok(
 reset role;
 
 select is(
+  has_function_privilege('authenticated', 'confirm_booking(uuid)', 'execute'),
+  false, 'authenticated cannot execute confirm_booking either (0022: any app login is authenticated)'
+);
+select is(
+  has_function_privilege('service_role', 'confirm_booking(uuid)', 'execute'),
+  true, 'service_role can execute confirm_booking (owner tooling)'
+);
+
+select is(
   (select count(*)::int from bookings where customer_phone in ('5553330001', '5553330002')),
   2, 'the rows really exist — RLS (not absence of data) hid them from anon'
 );
