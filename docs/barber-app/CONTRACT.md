@@ -130,6 +130,12 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 | `manager_view_grants()` | rows: `viewer_barber_id uuid, barber_id uuid` | Every view grant: `viewer_barber_id` may view `barber_id`'s chair read-only. Ordered by viewer, then chair. Raises `forbidden` unless the caller is a manager. |
 | `manager_barber_schedule(p_barber_id uuid)` | rows: `weekday, open_time, close_time` | Includes inactive barbers. |
 
+### Tables the app reads directly
+
+`barbers` (`id, slug, display_name, title, bio, photo_url, is_active, sort_order`; managers also see inactive rows),
+`barber_schedules` (`weekday, open_time, close_time` by `barber_id`, for closed days on the Schedule), and
+`booking_links`. Barber photos upload to `barber-photos/<slug>/<uuid>.jpg` and are saved as the public URL.
+
 ### Edge Function `staff-admin` (POST, caller's JWT, caller must be a manager)
 
 `{action: "create_login", email, display_name, role: "barber"|"manager", barber_id?}` returns `{user_id, temporary_password}`.

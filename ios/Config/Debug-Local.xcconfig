@@ -1,0 +1,7 @@
+// Local Supabase stack (CONTRACT.md, "Local stack"): API on 56321.
+// "//" starts an xcconfig comment, so URLs are written as http:/$()/host.
+SUPABASE_URL = http:/$()/127.0.0.1:56321
+// The local stack's anon key (`tools/local-stack.sh env`): the Supabase CLI's demo key,
+// local only. Never a production key.
+SUPABASE_PUBLISHABLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+PUSH_ENVIRONMENT = sandbox

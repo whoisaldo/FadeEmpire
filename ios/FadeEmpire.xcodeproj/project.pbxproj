@@ -1,0 +1,991 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00A91CECDA7D4E0656699898 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDCF74BFBE33930B196D7DF /* ActivityView.swift */; };
+		060CFECE29C88D068EBEF530 /* MockBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075CCF3A1285A29FE6868A62 /* MockBackend.swift */; };
+		094404D7E5824279D3AA75EC /* AppointmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE00226B6ABC8986591FC2E /* AppointmentDetailView.swift */; };
+		0B6428F316E2EF227A2DA7E7 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED37A4ECD92A4BD8B81CDB7C /* ScreenshotTests.swift */; };
+		0BED0B2C45F4560C0AB241C8 /* DaysOffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55770985DF4BE0562A16F92F /* DaysOffView.swift */; };
+		21A1E2FD8B23214808F1064E /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 585FF6C69B7C29D92156494E /* Supabase */; };
+		23BF903E3C2AA2122A9A9F50 /* FlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83446ECD0885BB3C017A33F /* FlowTests.swift */; };
+		28110D01E5FA7ED692FC9D63 /* SupabaseBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139E4366A18FB33B2F1FA079 /* SupabaseBackend.swift */; };
+		33CFC7C800FFF7AEFE9C7A5C /* NewAppointmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB55F29B4FFA58ACE9311DEA /* NewAppointmentView.swift */; };
+		3BDE48BCE616BA71EFEE834F /* LocalStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */; };
+		45E294AF731E6BB89B04F1BE /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF5C9E16D2F86B40D8FDAF6 /* RootView.swift */; };
+		60A632426A438FE63FE5A26E /* MockSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DBED97EE05E036515181509 /* MockSeed.swift */; };
+		659520A1D238991D68A1029F /* ShopTimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3BB66A9231FD46074A75FDA /* ShopTimeTests.swift */; };
+		6D9599AE8687195833F369B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3C7635B57C6C9F5CEEED3235 /* Assets.xcassets */; };
+		6FD0752111F0AD9D190C175F /* LocalStackScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */; };
+		7269097B91379E8E640A6D59 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A30B68192C352F6445FDCE /* ScheduleView.swift */; };
+		778473F8088DD5F17E15F1F6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4398B5482ABB0FCE70E8497 /* SettingsView.swift */; };
+		78E18D47D5FA6281C01426C9 /* LinksAndErrorsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D89417A02B1F3411C7EBEC /* LinksAndErrorsTests.swift */; };
+		7BE732200FF8DD8D22E63EA5 /* LinksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1949FE81A5AC0CCA4066E7E8 /* LinksView.swift */; };
+		7D20CEA10722923BE8CF111B /* Fraunces-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5CCE147517C7D7AB6A57A315 /* Fraunces-OFL.txt */; };
+		8A6B44EAAA359E3CC2B9DE95 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C91676F2716DA56ACBE536 /* Theme.swift */; };
+		8F279E247C2BC4F5F1B65078 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E5B6F3C331A473DD7ACD9D /* AppModel.swift */; };
+		8FEBE4C2A0B3EF677B56750F /* MockUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641D17901CC619F01391B6C5 /* MockUITestCase.swift */; };
+		A770722B89D656E0CFC740FB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3FCAB54369F2485D386BF1 /* Models.swift */; };
+		AB788A74E04394649CD7C558 /* Catalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1C60B9152A9616B9C4C121 /* Catalog.swift */; };
+		AD02C11E2A8BB7552EA00BD2 /* BarbersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66E42D63CC85E3D825637D1 /* BarbersView.swift */; };
+		B2670232CB8EE1A3D29B6BAF /* ViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD572C5455A815D1572843D /* ViewModelTests.swift */; };
+		B359AEB611652ACF5459DF8F /* Fraunces72pt-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BF854695B0C84FBC056173F /* Fraunces72pt-SemiBold.ttf */; };
+		B5C8CBCE9E529B1D5EABF447 /* ShopTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E48EBBCFF62B8E19B3067A1 /* ShopTime.swift */; };
+		B64C08A746F64000E63D6D00 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21316EA441D4B6D5C69E9585 /* Backend.swift */; };
+		CBE531ACFDA0EF2EB47D9856 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD4B179C9A509177BC66FA1 /* SignInView.swift */; };
+		EAE6C5FE81104B7009D4E0B4 /* MockBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3A4B378D2193C8F3DBF121 /* MockBackendTests.swift */; };
+		EFD801DF69B7C89FFCFFD555 /* BarbersModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F0A0119D8C9683D8F7AAD4 /* BarbersModel.swift */; };
+		F2D5E0D60760D5BA9BCD5E5E /* Links.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AA80FF92E0F8FE04245948 /* Links.swift */; };
+		F8D99726210E4AB71789BA89 /* FadeEmpireApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469FA99464FA102F0AEAAFB9 /* FadeEmpireApp.swift */; };
+		F999C61989FF40309FA72E64 /* ScheduleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45E93D5F2C071B4E9ACCB90 /* ScheduleModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0461332052294E93A9A66EA5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F4151D36D640582B2D02C2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBBA71BBF1C0D4BDC7C396A0;
+			remoteInfo = FadeEmpire;
+		};
+		6B5282B08E006121179FEB15 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F4151D36D640582B2D02C2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBBA71BBF1C0D4BDC7C396A0;
+			remoteInfo = FadeEmpire;
+		};
+		7B8D38844247F8D1D9C54857 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F4151D36D640582B2D02C2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBBA71BBF1C0D4BDC7C396A0;
+			remoteInfo = FadeEmpire;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStackScreenshotTests.swift; sourceTree = "<group>"; };
+		075CCF3A1285A29FE6868A62 /* MockBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBackend.swift; sourceTree = "<group>"; };
+		139E4366A18FB33B2F1FA079 /* SupabaseBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseBackend.swift; sourceTree = "<group>"; };
+		1949FE81A5AC0CCA4066E7E8 /* LinksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksView.swift; sourceTree = "<group>"; };
+		1DDCF74BFBE33930B196D7DF /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
+		21316EA441D4B6D5C69E9585 /* Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backend.swift; sourceTree = "<group>"; };
+		26E5B6F3C331A473DD7ACD9D /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		2DBED97EE05E036515181509 /* MockSeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSeed.swift; sourceTree = "<group>"; };
+		2E1C60B9152A9616B9C4C121 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
+		2E3A4B378D2193C8F3DBF121 /* MockBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBackendTests.swift; sourceTree = "<group>"; };
+		358C47923F3A60C918880F98 /* FadeEmpireTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FadeEmpireTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C7635B57C6C9F5CEEED3235 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		469FA99464FA102F0AEAAFB9 /* FadeEmpireApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FadeEmpireApp.swift; sourceTree = "<group>"; };
+		47D89417A02B1F3411C7EBEC /* LinksAndErrorsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksAndErrorsTests.swift; sourceTree = "<group>"; };
+		55770985DF4BE0562A16F92F /* DaysOffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaysOffView.swift; sourceTree = "<group>"; };
+		5CCE147517C7D7AB6A57A315 /* Fraunces-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Fraunces-OFL.txt"; sourceTree = "<group>"; };
+		641D17901CC619F01391B6C5 /* MockUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockUITestCase.swift; sourceTree = "<group>"; };
+		6D3FCAB54369F2485D386BF1 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		763EF296323DCB99CAE0B3C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FadeEmpireIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BF854695B0C84FBC056173F /* Fraunces72pt-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces72pt-SemiBold.ttf"; sourceTree = "<group>"; };
+		7CAB7034E841B243A2CE255C /* FadeEmpire.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FadeEmpire.entitlements; sourceTree = "<group>"; };
+		83AA80FF92E0F8FE04245948 /* Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Links.swift; sourceTree = "<group>"; };
+		8E48EBBCFF62B8E19B3067A1 /* ShopTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopTime.swift; sourceTree = "<group>"; };
+		A2E9C80BE36BBDCB2E4FFA3A /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		A4398B5482ABB0FCE70E8497 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A45E93D5F2C071B4E9ACCB90 /* ScheduleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleModel.swift; sourceTree = "<group>"; };
+		AA2CCC78988F765A9B2E4FEE /* FadeEmpire.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FadeEmpire.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B320A750C51389B0A1541D54 /* FadeEmpireUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FadeEmpireUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStackTests.swift; sourceTree = "<group>"; };
+		BCD4B179C9A509177BC66FA1 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		C0A30B68192C352F6445FDCE /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
+		C2F0A0119D8C9683D8F7AAD4 /* BarbersModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbersModel.swift; sourceTree = "<group>"; };
+		C3C91676F2716DA56ACBE536 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		C6666902C46F56742F86B173 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		CAE00226B6ABC8986591FC2E /* AppointmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppointmentDetailView.swift; sourceTree = "<group>"; };
+		D3BB66A9231FD46074A75FDA /* ShopTimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopTimeTests.swift; sourceTree = "<group>"; };
+		D83446ECD0885BB3C017A33F /* FlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowTests.swift; sourceTree = "<group>"; };
+		DDF5C9E16D2F86B40D8FDAF6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		EB55F29B4FFA58ACE9311DEA /* NewAppointmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewAppointmentView.swift; sourceTree = "<group>"; };
+		ED37A4ECD92A4BD8B81CDB7C /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
+		ED39EF4A87642B92AC7EFEDD /* Debug-Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Debug-Local.xcconfig"; sourceTree = "<group>"; };
+		F66E42D63CC85E3D825637D1 /* BarbersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbersView.swift; sourceTree = "<group>"; };
+		FDD572C5455A815D1572843D /* ViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7B840206CD7BBFCEF47E326E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21A1E2FD8B23214808F1064E /* Supabase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0C5756A94AC24FF52C57F236 /* FadeEmpireTests */ = {
+			isa = PBXGroup;
+			children = (
+				47D89417A02B1F3411C7EBEC /* LinksAndErrorsTests.swift */,
+				2E3A4B378D2193C8F3DBF121 /* MockBackendTests.swift */,
+				D3BB66A9231FD46074A75FDA /* ShopTimeTests.swift */,
+				FDD572C5455A815D1572843D /* ViewModelTests.swift */,
+			);
+			path = FadeEmpireTests;
+			sourceTree = "<group>";
+		};
+		20BE8A8CA6D023AFEF559928 /* FadeEmpireIntegrationTests */ = {
+			isa = PBXGroup;
+			children = (
+				BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */,
+			);
+			path = FadeEmpireIntegrationTests;
+			sourceTree = "<group>";
+		};
+		3A80BE9176D8D6BEF956A1FE /* Backend */ = {
+			isa = PBXGroup;
+			children = (
+				21316EA441D4B6D5C69E9585 /* Backend.swift */,
+				075CCF3A1285A29FE6868A62 /* MockBackend.swift */,
+				2DBED97EE05E036515181509 /* MockSeed.swift */,
+				139E4366A18FB33B2F1FA079 /* SupabaseBackend.swift */,
+			);
+			path = Backend;
+			sourceTree = "<group>";
+		};
+		5FEE4462327CBF5391022333 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				2E1C60B9152A9616B9C4C121 /* Catalog.swift */,
+				83AA80FF92E0F8FE04245948 /* Links.swift */,
+				8E48EBBCFF62B8E19B3067A1 /* ShopTime.swift */,
+				C3C91676F2716DA56ACBE536 /* Theme.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		6E36C1F3AE10F7EDDD22EF2A = {
+			isa = PBXGroup;
+			children = (
+				B450EFD9F5993430CB739373 /* Config */,
+				BC0F72087F00D41660E5DB89 /* FadeEmpire */,
+				20BE8A8CA6D023AFEF559928 /* FadeEmpireIntegrationTests */,
+				0C5756A94AC24FF52C57F236 /* FadeEmpireTests */,
+				C8F0F7B14C76D8F6EE8A4944 /* FadeEmpireUITests */,
+				9DC21C3B0812E8F24974E73A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7E390C755CF17C43C7967C79 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				6D3FCAB54369F2485D386BF1 /* Models.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		8CAD5457961C312D433F5378 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				26E5B6F3C331A473DD7ACD9D /* AppModel.swift */,
+				469FA99464FA102F0AEAAFB9 /* FadeEmpireApp.swift */,
+				DDF5C9E16D2F86B40D8FDAF6 /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		8E56EEED3FD866F678A739A9 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				1DDCF74BFBE33930B196D7DF /* ActivityView.swift */,
+				CAE00226B6ABC8986591FC2E /* AppointmentDetailView.swift */,
+				C2F0A0119D8C9683D8F7AAD4 /* BarbersModel.swift */,
+				F66E42D63CC85E3D825637D1 /* BarbersView.swift */,
+				55770985DF4BE0562A16F92F /* DaysOffView.swift */,
+				1949FE81A5AC0CCA4066E7E8 /* LinksView.swift */,
+				EB55F29B4FFA58ACE9311DEA /* NewAppointmentView.swift */,
+				A45E93D5F2C071B4E9ACCB90 /* ScheduleModel.swift */,
+				C0A30B68192C352F6445FDCE /* ScheduleView.swift */,
+				A4398B5482ABB0FCE70E8497 /* SettingsView.swift */,
+				BCD4B179C9A509177BC66FA1 /* SignInView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		9DC21C3B0812E8F24974E73A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA2CCC78988F765A9B2E4FEE /* FadeEmpire.app */,
+				7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */,
+				358C47923F3A60C918880F98 /* FadeEmpireTests.xctest */,
+				B320A750C51389B0A1541D54 /* FadeEmpireUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AE2111780409ACAC9394E1A0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3C7635B57C6C9F5CEEED3235 /* Assets.xcassets */,
+				BF5DF77EFA1463D945269FFA /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		B450EFD9F5993430CB739373 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				ED39EF4A87642B92AC7EFEDD /* Debug-Local.xcconfig */,
+				C6666902C46F56742F86B173 /* Debug.xcconfig */,
+				A2E9C80BE36BBDCB2E4FFA3A /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		BC0F72087F00D41660E5DB89 /* FadeEmpire */ = {
+			isa = PBXGroup;
+			children = (
+				7CAB7034E841B243A2CE255C /* FadeEmpire.entitlements */,
+				763EF296323DCB99CAE0B3C9 /* Info.plist */,
+				8CAD5457961C312D433F5378 /* App */,
+				3A80BE9176D8D6BEF956A1FE /* Backend */,
+				8E56EEED3FD866F678A739A9 /* Features */,
+				7E390C755CF17C43C7967C79 /* Model */,
+				AE2111780409ACAC9394E1A0 /* Resources */,
+				5FEE4462327CBF5391022333 /* Support */,
+			);
+			path = FadeEmpire;
+			sourceTree = "<group>";
+		};
+		BF5DF77EFA1463D945269FFA /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				5CCE147517C7D7AB6A57A315 /* Fraunces-OFL.txt */,
+				7BF854695B0C84FBC056173F /* Fraunces72pt-SemiBold.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		C8F0F7B14C76D8F6EE8A4944 /* FadeEmpireUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D83446ECD0885BB3C017A33F /* FlowTests.swift */,
+				004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */,
+				641D17901CC619F01391B6C5 /* MockUITestCase.swift */,
+				ED37A4ECD92A4BD8B81CDB7C /* ScreenshotTests.swift */,
+			);
+			path = FadeEmpireUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		826BDE1F7934A97FCC786B3D /* FadeEmpireIntegrationTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F9EB63991FFF1DD3DA41293B /* Build configuration list for PBXNativeTarget "FadeEmpireIntegrationTests" */;
+			buildPhases = (
+				27BF19C9B044530A03DAFB01 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				64F10A800816080218B0071D /* PBXTargetDependency */,
+			);
+			name = FadeEmpireIntegrationTests;
+			packageProductDependencies = (
+			);
+			productName = FadeEmpireIntegrationTests;
+			productReference = 7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		8A1C6C5CDD4ACA50A72675DB /* FadeEmpireUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB5A5DFFA837EC03FED0EF07 /* Build configuration list for PBXNativeTarget "FadeEmpireUITests" */;
+			buildPhases = (
+				151D98127295138BD8450FF5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				11923EFEFFB209F56FB7A335 /* PBXTargetDependency */,
+			);
+			name = FadeEmpireUITests;
+			packageProductDependencies = (
+			);
+			productName = FadeEmpireUITests;
+			productReference = B320A750C51389B0A1541D54 /* FadeEmpireUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		D539B4C3163052D7EF0BC6FF /* FadeEmpireTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0C1317352966DF4BC9A82174 /* Build configuration list for PBXNativeTarget "FadeEmpireTests" */;
+			buildPhases = (
+				EE9EBDEAA492E6429993C2B4 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AF5CB642BBB05C041B9C22A4 /* PBXTargetDependency */,
+			);
+			name = FadeEmpireTests;
+			packageProductDependencies = (
+			);
+			productName = FadeEmpireTests;
+			productReference = 358C47923F3A60C918880F98 /* FadeEmpireTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9FBBA98AA0DECEEDEE90A35F /* Build configuration list for PBXNativeTarget "FadeEmpire" */;
+			buildPhases = (
+				4166C5698659B2B530232D14 /* Sources */,
+				C89468F04547B50CEAC4DFB2 /* Resources */,
+				7B840206CD7BBFCEF47E326E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FadeEmpire;
+			packageProductDependencies = (
+				585FF6C69B7C29D92156494E /* Supabase */,
+			);
+			productName = FadeEmpire;
+			productReference = AA2CCC78988F765A9B2E4FEE /* FadeEmpire.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8F4151D36D640582B2D02C2B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					826BDE1F7934A97FCC786B3D = {
+						DevelopmentTeam = 9X79V37Q89;
+					};
+					8A1C6C5CDD4ACA50A72675DB = {
+						DevelopmentTeam = 9X79V37Q89;
+						TestTargetID = EBBA71BBF1C0D4BDC7C396A0;
+					};
+					D539B4C3163052D7EF0BC6FF = {
+						DevelopmentTeam = 9X79V37Q89;
+					};
+					EBBA71BBF1C0D4BDC7C396A0 = {
+						DevelopmentTeam = 9X79V37Q89;
+					};
+				};
+			};
+			buildConfigurationList = DB4CCF024B2CB1F13D8AF317 /* Build configuration list for PBXProject "FadeEmpire" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6E36C1F3AE10F7EDDD22EF2A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B1F31F6507BF574B812E507B /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9DC21C3B0812E8F24974E73A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */,
+				D539B4C3163052D7EF0BC6FF /* FadeEmpireTests */,
+				8A1C6C5CDD4ACA50A72675DB /* FadeEmpireUITests */,
+				826BDE1F7934A97FCC786B3D /* FadeEmpireIntegrationTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C89468F04547B50CEAC4DFB2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D9599AE8687195833F369B2 /* Assets.xcassets in Resources */,
+				7D20CEA10722923BE8CF111B /* Fraunces-OFL.txt in Resources */,
+				B359AEB611652ACF5459DF8F /* Fraunces72pt-SemiBold.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		151D98127295138BD8450FF5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				23BF903E3C2AA2122A9A9F50 /* FlowTests.swift in Sources */,
+				6FD0752111F0AD9D190C175F /* LocalStackScreenshotTests.swift in Sources */,
+				8FEBE4C2A0B3EF677B56750F /* MockUITestCase.swift in Sources */,
+				0B6428F316E2EF227A2DA7E7 /* ScreenshotTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		27BF19C9B044530A03DAFB01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3BDE48BCE616BA71EFEE834F /* LocalStackTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4166C5698659B2B530232D14 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00A91CECDA7D4E0656699898 /* ActivityView.swift in Sources */,
+				8F279E247C2BC4F5F1B65078 /* AppModel.swift in Sources */,
+				094404D7E5824279D3AA75EC /* AppointmentDetailView.swift in Sources */,
+				B64C08A746F64000E63D6D00 /* Backend.swift in Sources */,
+				EFD801DF69B7C89FFCFFD555 /* BarbersModel.swift in Sources */,
+				AD02C11E2A8BB7552EA00BD2 /* BarbersView.swift in Sources */,
+				AB788A74E04394649CD7C558 /* Catalog.swift in Sources */,
+				0BED0B2C45F4560C0AB241C8 /* DaysOffView.swift in Sources */,
+				F8D99726210E4AB71789BA89 /* FadeEmpireApp.swift in Sources */,
+				F2D5E0D60760D5BA9BCD5E5E /* Links.swift in Sources */,
+				7BE732200FF8DD8D22E63EA5 /* LinksView.swift in Sources */,
+				060CFECE29C88D068EBEF530 /* MockBackend.swift in Sources */,
+				60A632426A438FE63FE5A26E /* MockSeed.swift in Sources */,
+				A770722B89D656E0CFC740FB /* Models.swift in Sources */,
+				33CFC7C800FFF7AEFE9C7A5C /* NewAppointmentView.swift in Sources */,
+				45E294AF731E6BB89B04F1BE /* RootView.swift in Sources */,
+				F999C61989FF40309FA72E64 /* ScheduleModel.swift in Sources */,
+				7269097B91379E8E640A6D59 /* ScheduleView.swift in Sources */,
+				778473F8088DD5F17E15F1F6 /* SettingsView.swift in Sources */,
+				B5C8CBCE9E529B1D5EABF447 /* ShopTime.swift in Sources */,
+				CBE531ACFDA0EF2EB47D9856 /* SignInView.swift in Sources */,
+				28110D01E5FA7ED692FC9D63 /* SupabaseBackend.swift in Sources */,
+				8A6B44EAAA359E3CC2B9DE95 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE9EBDEAA492E6429993C2B4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				78E18D47D5FA6281C01426C9 /* LinksAndErrorsTests.swift in Sources */,
+				EAE6C5FE81104B7009D4E0B4 /* MockBackendTests.swift in Sources */,
+				659520A1D238991D68A1029F /* ShopTimeTests.swift in Sources */,
+				B2670232CB8EE1A3D29B6BAF /* ViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		11923EFEFFB209F56FB7A335 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
+			targetProxy = 0461332052294E93A9A66EA5 /* PBXContainerItemProxy */;
+		};
+		64F10A800816080218B0071D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
+			targetProxy = 7B8D38844247F8D1D9C54857 /* PBXContainerItemProxy */;
+		};
+		AF5CB642BBB05C041B9C22A4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
+			targetProxy = 6B5282B08E006121179FEB15 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		031C46E7BC97B2262BB4CC63 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Debug;
+		};
+		04199EDB6A817A3F6B9DAF4B /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = "Debug-Local";
+		};
+		1D454EDF013CB3012656873F /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FadeEmpire/FadeEmpire.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FadeEmpire/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers;
+				PRODUCT_NAME = FadeEmpire;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Debug-Local";
+		};
+		1DA69081318A030A3F68C7E7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Debug;
+		};
+		26968D88A4F81DD71FAB48DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Release;
+		};
+		28D2527DBF927291CCF98002 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6666902C46F56742F86B173 /* Debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 9X79V37Q89;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		3687293FCBFBD2C959B118CB /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = ED39EF4A87642B92AC7EFEDD /* Debug-Local.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 9X79V37Q89;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = "Debug-Local";
+		};
+		3B0B5002011EAF3915EC1E8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Release;
+		};
+		3E44F2B8D6DC4FD7F18B8F38 /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = "Debug-Local";
+		};
+		404DFB831EC18709712324E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A2E9C80BE36BBDCB2E4FFA3A /* Release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 9X79V37Q89;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4DF16194AE624ADA63752BE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FadeEmpire/FadeEmpire.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FadeEmpire/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers;
+				PRODUCT_NAME = FadeEmpire;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BAC4662C155EDCF3FE86A0D4 /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FadeEmpire;
+			};
+			name = "Debug-Local";
+		};
+		C49F9AAAF6924ECA649D8D20 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FadeEmpire/FadeEmpire.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FadeEmpire/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers;
+				PRODUCT_NAME = FadeEmpire;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CF72718DACB937A2D2F95510 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FadeEmpire;
+			};
+			name = Release;
+		};
+		D7E423493B4F932861420705 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FadeEmpire;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0C1317352966DF4BC9A82174 /* Build configuration list for PBXNativeTarget "FadeEmpireTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DA69081318A030A3F68C7E7 /* Debug */,
+				3E44F2B8D6DC4FD7F18B8F38 /* Debug-Local */,
+				3B0B5002011EAF3915EC1E8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9FBBA98AA0DECEEDEE90A35F /* Build configuration list for PBXNativeTarget "FadeEmpire" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C49F9AAAF6924ECA649D8D20 /* Debug */,
+				1D454EDF013CB3012656873F /* Debug-Local */,
+				4DF16194AE624ADA63752BE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DB4CCF024B2CB1F13D8AF317 /* Build configuration list for PBXProject "FadeEmpire" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				28D2527DBF927291CCF98002 /* Debug */,
+				3687293FCBFBD2C959B118CB /* Debug-Local */,
+				404DFB831EC18709712324E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F9EB63991FFF1DD3DA41293B /* Build configuration list for PBXNativeTarget "FadeEmpireIntegrationTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				031C46E7BC97B2262BB4CC63 /* Debug */,
+				04199EDB6A817A3F6B9DAF4B /* Debug-Local */,
+				26968D88A4F81DD71FAB48DE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FB5A5DFFA837EC03FED0EF07 /* Build configuration list for PBXNativeTarget "FadeEmpireUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D7E423493B4F932861420705 /* Debug */,
+				BAC4662C155EDCF3FE86A0D4 /* Debug-Local */,
+				CF72718DACB937A2D2F95510 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B1F31F6507BF574B812E507B /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 2.55.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		585FF6C69B7C29D92156494E /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1F31F6507BF574B812E507B /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 8F4151D36D640582B2D02C2B /* Project object */;
+}
