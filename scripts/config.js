@@ -109,7 +109,7 @@ export const ADDON_PRICES_CENTS = {
   'hot-towel':  500,
   'facial':     2000,
   'wax':        500,
-  'beard':      1000,
+  'beard':      1500,
 };
 
 // Add-ons a service already includes: they show as included, cost nothing,

@@ -114,12 +114,13 @@ FadeEmpire/
 │   │   ├── 0012_hassan_sundays.sql         Hassan works Sundays → store open 7 days
 │   │   ├── 0013_retire_javier_add_larry.sql  Javier retired (unbookable), Larry added 10–6 daily
 │   │   ├── 0014_store_hours_follow_barbers.sql  Store window → 10–6 daily (earliest barber)
-│   │   ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stays +$10)
+│   │   ├── 0015_beard_trim_price.sql       Standalone beard trim $15 (beard add-on stayed +$10 until 0021)
 │   │   ├── 0016_45_minute_slots.sql        Appointments every 45 minutes (grid-aware RPCs)
 │   │   ├── 0017_closed_tuesdays.sql        Shop closed Tuesdays (store_hours + Larry's schedule)
 │   │   ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
 │   │   ├── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
-│   │   └── 0020_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
+│   │   ├── 0020_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
+│   │   └── 0021_beard_addon_15.sql         Beard add-on $10 → $15
 │   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
 │   └── tests/                    pgTAP suites
 └── assets/

@@ -137,7 +137,7 @@ describe('service durations', () => {
 describe('pricing', () => {
   it('totalCents sums service + addons from the price mirrors', () => {
     expect(totalCents('hair-cut')).toBe(3000);
-    expect(totalCents('hair-cut', ['beard'])).toBe(4000);
+    expect(totalCents('hair-cut', ['beard'])).toBe(4500);
     expect(totalCents('vip-haircut', ['wax'])).toBe(6500);
     expect(totalCents('nope', ['nope-addon'])).toBe(0);
   });

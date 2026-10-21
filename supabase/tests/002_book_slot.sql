@@ -153,8 +153,8 @@ select is(
   (select max(total_price_cents)::int
      from book_slot('larry', 'hair-cut', tap_next_dow(3), '12:15', 'Price Check', '5551110019',
                     array['beard', 'facial'])),
-  6000,
-  'hair cut + beard + facial totals $60 from DB prices'
+  6500,
+  'hair cut + beard + facial totals $65 from DB prices'
 );
 select is(
   (select max(total_price_cents)::int
