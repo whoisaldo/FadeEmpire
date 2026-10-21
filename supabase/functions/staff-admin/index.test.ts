@@ -14,7 +14,7 @@ const HASSAN = '00000000-0000-4000-a000-000000000002';
 const LARRY_BARBER = '10000000-0000-4000-a000-000000000003';
 const HASSAN_BARBER = '10000000-0000-4000-a000-000000000002';
 const NEW_USER = '00000000-0000-4000-a000-000000000009';
-const PASSWORD_RE = /^[a-z]+-[a-z]+-[a-z]+-[a-z]+-\d{2}$/;
+const PASSWORD_RE = /^[A-Z][a-z]+-[a-z]+-[a-z]+-[a-z]+-\d{2}$/;
 
 type Staff = { user_id: string; role: string; barber_id: string | null; display_name?: string; must_change_password?: boolean };
 type Fake = {
@@ -24,6 +24,8 @@ type Fake = {
   devices: { token: string; user_id: string }[];
   createStatus?: number;
   createBody?: unknown;
+  updateStatus?: number;
+  updateBody?: unknown;
   staffInsertStatus?: number;
   staffInsertBody?: unknown;
   calls: { method: string; url: string; body?: unknown }[];
@@ -78,6 +80,7 @@ function stubFetch(fake: Partial<Fake> = {}): Fake & { restore: () => void } {
     }
     const userPath = url.pathname.match(/^\/auth\/v1\/admin\/users\/(.+)$/);
     if (userPath && method === 'PUT') {
+      if (state.updateStatus) return Response.json(state.updateBody ?? {}, { status: state.updateStatus });
       if (!state.staff.some((s) => s.user_id === userPath[1]) && userPath[1] !== NEW_USER) {
         return Response.json({ msg: 'User not found' }, { status: 404 });
       }
@@ -131,10 +134,11 @@ function post(body: unknown, jwt: string | null = 'jwt-ali'): Request {
 async function call(fake: Partial<Fake>, body: unknown, jwt: string | null = 'jwt-ali') {
   const stub = stubFetch(fake);
   const { error } = console;
-  console.error = () => {};
+  const logged: string[] = [];
+  console.error = (...args: unknown[]) => logged.push(args.map(String).join(' '));
   try {
     const res = await handle(post(body, jwt), env);
-    return { status: res.status, json: await res.json(), stub };
+    return { status: res.status, json: await res.json(), stub, logged };
   } finally {
     console.error = error;
     stub.restore();
@@ -151,12 +155,12 @@ const createBarber = {
 
 // ---------- Temporary passwords ----------
 
-Deno.test('temporary password: four short words and two digits', () => {
+Deno.test('temporary password: four short words, the first capitalised, and two digits', () => {
   for (let i = 0; i < 50; i++) {
     const pw = temporaryPassword();
     assertMatch(pw, PASSWORD_RE);
     const words = pw.split('-').slice(0, 4);
-    assert(words.every((w) => WORDS.includes(w)), pw);
+    assert(words.every((w) => WORDS.includes(w.toLowerCase())), pw);
   }
   assertNotEquals(temporaryPassword(), temporaryPassword());
 });
@@ -169,7 +173,20 @@ Deno.test('temporary password: the word list is short words, no repeats', () => 
 
 Deno.test('temporary password: digits pad to two', () => {
   // A random source that always returns 0 picks the first word and "00".
-  assertEquals(temporaryPassword((a) => a.fill(0)), `${WORDS[0]}-${WORDS[0]}-${WORDS[0]}-${WORDS[0]}-00`);
+  const first = WORDS[0][0].toUpperCase() + WORDS[0].slice(1);
+  assertEquals(temporaryPassword((a) => a.fill(0)), `${first}-${WORDS[0]}-${WORDS[0]}-${WORDS[0]}-00`);
+});
+
+Deno.test('temporary password: meets the strictest password requirement Auth offers', () => {
+  // "Lowercase, uppercase letters, digits and symbols", with Auth's symbol set, and
+  // longer than any minimum the shop would set.
+  const symbols = '!@#$%^&*()_+-=[]{};\'\\:"|<>?,./`~';
+  for (let i = 0; i < 200; i++) {
+    const pw = temporaryPassword();
+    assert(/[a-z]/.test(pw) && /[A-Z]/.test(pw) && /[0-9]/.test(pw), pw);
+    assert([...pw].some((c) => symbols.includes(c)), pw);
+    assert(pw.length >= 16, pw);
+  }
 });
 
 // ---------- The caller ----------
@@ -282,6 +299,38 @@ Deno.test('create_login: an email already in use is 409 email_taken', async () =
   assertEquals([status, json], [409, { error: 'email_taken' }]);
 });
 
+Deno.test('create_login: Auth\'s other "already registered" codes are email_taken too', async () => {
+  for (const createBody of [
+    { code: 422, error_code: 'user_already_exists', msg: 'User already registered' },
+    { code: 'email_exists', message: 'already registered' }, // Auth's 2024-01-01 API format
+  ]) {
+    const { status, json } = await call({ createStatus: 422, createBody }, createBarber);
+    assertEquals([status, json], [409, { error: 'email_taken' }], JSON.stringify(createBody));
+  }
+});
+
+Deno.test('create_login: a password the project\'s policy rejects is weak_password, not email_taken', async () => {
+  const { status, json, logged } = await call(
+    {
+      createStatus: 422,
+      createBody: { code: 422, error_code: 'weak_password', msg: 'Password should contain...', weak_password: { reasons: ['characters'] } },
+    },
+    createBarber,
+  );
+  assertEquals([status, json], [422, { error: 'weak_password' }]);
+  assertEquals(logged, []);
+});
+
+Deno.test('create_login: any other 422 from Auth is internal, and Auth\'s answer is logged', async () => {
+  for (const createBody of [{ code: 422, error_code: 'validation_failed', msg: 'Unable to validate' }, { code: 422, msg: 'x' }]) {
+    const { status, json, stub, logged } = await call({ createStatus: 422, createBody }, createBarber);
+    assertEquals([status, json], [500, { error: 'internal' }], JSON.stringify(createBody));
+    assertEquals(logged.length, 1);
+    assert(logged[0].includes('auth create marco@example.com: 422') && logged[0].includes(JSON.stringify(createBody)), logged[0]);
+    assertEquals(stub.staff.length, 2); // no staff row written
+  }
+});
+
 Deno.test('create_login: if the staff row fails, the new login is deleted again', async () => {
   const { status, json, stub } = await call({ staffInsertStatus: 500 }, createBarber);
   assertEquals([status, json], [500, { error: 'internal' }]);
@@ -306,6 +355,15 @@ Deno.test('reset_password: a new temporary password, and the change is forced ag
   assertMatch(json.temporary_password, PASSWORD_RE);
   assertEquals(stub.updates, [{ id: HASSAN, attrs: { password: json.temporary_password } }]);
   assertEquals(stub.staff.find((s) => s.user_id === HASSAN)?.must_change_password, true);
+});
+
+Deno.test('reset_password: a password the project\'s policy rejects is weak_password, and nothing is forced', async () => {
+  const { status, json, stub } = await call(
+    { updateStatus: 422, updateBody: { code: 422, error_code: 'weak_password', msg: 'Password is too weak' } },
+    { action: 'reset_password', user_id: HASSAN },
+  );
+  assertEquals([status, json], [422, { error: 'weak_password' }]);
+  assertEquals(stub.staff.find((s) => s.user_id === HASSAN)?.must_change_password, undefined);
 });
 
 Deno.test('reset_password: user_id must be a staff login', async () => {

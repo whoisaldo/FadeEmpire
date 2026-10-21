@@ -25,7 +25,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Short, common, unambiguous words for temporary passwords: 4 words plus 2
-// digits, e.g. "lamp-river-oak-mint-42", read out or typed on a phone once.
+// digits, e.g. "Lamp-river-oak-mint-42", read out or typed on a phone once. The
+// capital, the digits and the hyphens (a symbol to Auth) meet the strictest
+// password requirement the project can set.
 export const WORDS = [
   'acorn', 'amber', 'anchor', 'apple', 'arrow', 'aspen', 'atlas', 'bacon', 'badge', 'bagel',
   'basil', 'beach', 'bean', 'bear', 'bell', 'berry', 'birch', 'bison', 'blade', 'bloom',
@@ -66,6 +68,7 @@ export function temporaryPassword(
   random: (a: Uint32Array) => Uint32Array = (a) => crypto.getRandomValues(a),
 ): string {
   const words = Array.from({ length: 4 }, () => WORDS[randomBelow(WORDS.length, random)]);
+  words[0] = words[0][0].toUpperCase() + words[0].slice(1);
   const digits = String(randomBelow(100, random)).padStart(2, '0');
   return `${words.join('-')}-${digits}`;
 }
@@ -141,13 +144,29 @@ async function requireStaff(env: Env, userId: string): Promise<void> {
   if (rows.length === 0) throw new AdminError(404, 'user_not_found');
 }
 
+// A failed Auth admin call as the error the app is given: a password the project's
+// policy rejects is weak_password, an email with a login already is email_taken, and
+// anything else is internal, with Auth's answer logged.
+async function authFailure(res: Response, what: string): Promise<Error> {
+  const text = await res.text();
+  let code: unknown;
+  try {
+    // error_code, or code in Auth's 2024-01-01 API format (otherwise code is the HTTP status).
+    const body = JSON.parse(text);
+    code = body?.error_code ?? body?.code;
+  } catch { /* not JSON */ }
+  if (code === 'weak_password') return new AdminError(422, 'weak_password');
+  if (code === 'email_exists' || code === 'user_already_exists') return new AdminError(409, 'email_taken');
+  return new Error(`${what}: ${res.status} ${text}`);
+}
+
 async function updateUser(env: Env, userId: string, attrs: Record<string, unknown>): Promise<void> {
   const res = await authAdmin(env, 'PUT', `users/${userId}`, attrs);
   if (res.status === 404) {
     await res.body?.cancel();
     throw new AdminError(404, 'user_not_found');
   }
-  if (!res.ok) throw new Error(`auth update ${userId}: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw await authFailure(res, `auth update ${userId}`);
   await res.body?.cancel();
 }
 
@@ -177,17 +196,7 @@ async function createLogin(env: Env, body: Record<string, unknown>) {
     email_confirm: true,
     user_metadata: { display_name: displayName },
   });
-  if (!res.ok) {
-    const text = await res.text();
-    let code = '';
-    try {
-      code = JSON.parse(text)?.error_code ?? JSON.parse(text)?.code ?? '';
-    } catch { /* not JSON */ }
-    if (code === 'email_exists' || code === 'user_already_exists' || res.status === 422) {
-      throw new AdminError(409, 'email_taken');
-    }
-    throw new Error(`auth create ${email}: ${res.status} ${text}`);
-  }
+  if (!res.ok) throw await authFailure(res, `auth create ${email}`);
   const user = await res.json() as { id: string };
 
   try {

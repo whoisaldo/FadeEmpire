@@ -143,7 +143,8 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 `{action: "disable_login", user_id}` and `{action: "enable_login", user_id}` return `{ok: true}`. Disabling bans the
 auth user and deletes their device tokens.
 Users are created with `email_confirm: true`, so no email goes out. A temporary password is 4 short words plus 2 digits,
-lowercase, joined by hyphens: `lamp-river-oak-mint-42`. `create_login` and `reset_password` set `must_change_password`.
+joined by hyphens, the first word capitalised: `Lamp-river-oak-mint-42` (upper and lower case, a digit and a symbol, so it
+meets the strictest password requirement Auth offers). `create_login` and `reset_password` set `must_change_password`.
 
 Call it at `POST <SUPABASE_URL>/functions/v1/staff-admin` with `Authorization: Bearer <the manager's access token>`
 (supabase-swift's `functions.invoke` does this). The caller must have a working login and a `manager` staff row.
@@ -157,8 +158,9 @@ for `manager`. Errors are `{error: code}`:
 | 403 | `forbidden` (not a manager, or the manager's login is disabled) |
 | 404 | `barber_not_found`, `user_not_found` (no staff row for that `user_id`) |
 | 405 | `method_not_allowed` |
-| 409 | `email_taken`, `barber_has_login` (that chair already has a login) |
-| 500 | `internal`, `not_configured` |
+| 409 | `email_taken` (Auth's `email_exists` or `user_already_exists`), `barber_has_login` (that chair already has a login) |
+| 422 | `weak_password` (the project's password policy rejected the temporary password) |
+| 500 | `internal` (any other Auth or PostgREST failure; Auth's answer is in the function's log), `not_configured` |
 
 If the staff row cannot be written, the new auth user is deleted again, so a failed `create_login` can be retried
 with the same email.
