@@ -117,16 +117,44 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 `{action: "reset_password", user_id}` returns `{temporary_password}`.
 `{action: "disable_login", user_id}` and `{action: "enable_login", user_id}` return `{ok: true}`. Disabling bans the
 auth user and deletes their device tokens.
-Users are created with `email_confirm: true`, so no email goes out. A temporary password is 4 short words plus 2 digits.
+Users are created with `email_confirm: true`, so no email goes out. A temporary password is 4 short words plus 2 digits,
+lowercase, joined by hyphens: `lamp-river-oak-mint-42`. `create_login` and `reset_password` set `must_change_password`.
+
+Call it at `POST <SUPABASE_URL>/functions/v1/staff-admin` with `Authorization: Bearer <the manager's access token>`
+(supabase-swift's `functions.invoke` does this). The caller must have a working login and a `manager` staff row.
+`email` is trimmed and lowercased; `display_name` is 1-60 characters; `barber_id` is required for `barber` and allowed
+for `manager`. Errors are `{error: code}`:
+
+| Status | `error` |
+| --- | --- |
+| 400 | `invalid_request` (body is not a JSON object), `invalid_action`, `invalid_email`, `invalid_display_name`, `invalid_role`, `invalid_barber_id`, `barber_required`, `invalid_user_id`, `cannot_disable_self` |
+| 401 | `unauthorized` (no or invalid JWT) |
+| 403 | `forbidden` (not a manager, or the manager's login is disabled) |
+| 404 | `barber_not_found`, `user_not_found` (no staff row for that `user_id`) |
+| 405 | `method_not_allowed` |
+| 409 | `email_taken`, `barber_has_login` (that chair already has a login) |
+| 500 | `internal`, `not_configured` |
+
+If the staff row cannot be written, the new auth user is deleted again, so a failed `create_login` can be retried
+with the same email.
 
 ### Edge Function `notify-booking-event`
 
 A trigger on `booking_events` posts to it through `pg_net`, using a Vault-held URL and key, following 0020's
 pattern. It sends an APNs alert to every device whose user can view the chair and wants that kind:
-own chair → `notify_bookings` / `notify_cancellations`; a granted chair → also `notify_viewed_chairs`. The
-manager is treated like a granted viewer for every chair. It skips the user whose action caused the event. Without
-the `APNS_*` secrets it logs and returns 200. Push copy: title `New booking` / `Cancelled` / `No-show`, body
-`Marcus · Thu Oct 23, 2:15 PM · Hair Cut` (+ ` · Larry's chair` when it is not the user's own chair).
+own chair → `notify_bookings` (booked, moved) / `notify_cancellations` (cancelled, no-show); a granted chair → also
+`notify_viewed_chairs`. The manager is treated like a granted viewer for every chair. It skips the user whose action
+caused the event. Without the `APNS_*` secrets it logs and returns 200. Push copy: title `New booking` / `Moved` /
+`Cancelled` / `No-show`, body `Marcus · Thu Oct 22, 2:15 PM · Hair Cut` (+ ` · Larry's chair` when it is not the
+user's own chair). The name is the customer's first name. A group booking pushes once, from the booker:
+`Andre + 2 · …`; the guests' own `booked` events make no push (their cancellations do).
+
+The notification's custom keys, for opening the right day: `event_id` (number), `kind`, `booking_id`, `barber_id`,
+`booking_date` (`YYYY-MM-DD`). `aps.thread-id` is the `barber_id`, so iOS groups a chair's pushes. The provider
+token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 contents); `APNS_TOPIC` defaults to
+`com.chicopeefadeempire.barbers`. A device registered as `sandbox` is sent through `api.sandbox.push.apple.com`,
+`production` through `api.push.apple.com`. Tokens APNs answers with 410, `BadDeviceToken`, or
+`DeviceTokenNotForTopic` are deleted.
 
 ## Booking links (app → website)
 
