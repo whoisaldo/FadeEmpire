@@ -1,15 +1,16 @@
 // Unit tests for the pure booking helpers: time math, per-barber scheduling,
 // store-hours intersection, formatting, and RPC error mapping.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   isoDate, minutesToHms, minutesToLabel, hmsToMinutes,
   weekdayFromIso, dateLabelFromIso, addDaysIso,
-  effectiveHours, slotsForWeekday, serviceDurationMin, serviceSlotCount,
+  effectiveHours, slotsForWeekday, slotsForDate, barberHoursLabel, serviceDurationMin, serviceSlotCount,
   totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
   mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES,
 } from '../scripts/booking-helpers.js';
 import { STORE_HOURS, BARBERS } from '../scripts/config.js';
+import { setRoster, resetRoster, rosterFromRows } from '../scripts/roster.js';
 
 describe('time + date helpers', () => {
   it('minutesToHms formats minutes-from-midnight', () => {
@@ -121,6 +122,56 @@ describe('store hours + barber schedules', () => {
   it('unknown or retired barbers have no bookable slots', () => {
     expect(slotsForWeekday(1, 'nobody')).toEqual([]);
     expect(slotsForWeekday(1, 'javier')).toEqual([]); // retired July 2026
+  });
+});
+
+describe('any barber from the database (roster.js)', () => {
+  afterEach(() => resetRoster());
+  const days = (open, close, list) => list.map(weekday => ({ weekday, open_time: open, close_time: close }));
+  const roster = (...rows) => setRoster(rosterFromRows(rows.map(r => ({ barber_closures: [], ...r }))));
+
+  it('a third barber\'s slots are the store-hours intersection of the barber\'s week', () => {
+    // Marcus: 9 to 7 asked, but the shop is open 10 to 6; Wed to Sat only.
+    roster({ slug: 'marcus', display_name: 'Marcus', barber_schedules: days('09:00:00', '19:00:00', [2, 3, 4, 5, 6]) });
+    expect(effectiveHours(3, 'marcus')).toEqual({ open: 600, close: 1080 });
+    expect(slotsForWeekday(3, 'marcus')[0]).toBe(600);
+    expect(slotsForWeekday(3, 'marcus').at(-1)).toBe(1050);
+    expect(slotsForWeekday(2, 'marcus')).toEqual([]);    // the shop's closed Tuesday wins
+    expect(slotsForWeekday(1, 'marcus')).toEqual([]);    // Marcus's own day off
+    expect(slotsForWeekday(1, 'hassan')).toEqual([]);    // not in the roster any more
+  });
+
+  it('slotsForDate drops a barber\'s day off and nobody else\'s', () => {
+    roster(
+      { slug: 'hassan', display_name: 'Hassan', barber_schedules: days('10:00:00', '18:00:00', [0, 1, 3, 4, 5, 6]),
+        barber_closures: [{ closure_date: '2026-07-08' }] },
+      { slug: 'larry', display_name: 'Larry', barber_schedules: days('10:00:00', '18:00:00', [0, 1, 3, 4, 5, 6]) },
+    );
+    expect(slotsForDate('2026-07-08', 'hassan')).toEqual([]);
+    expect(slotsForDate('2026-07-08', 'larry')).toHaveLength(11);
+    expect(slotsForDate('2026-07-09', 'hassan')).toHaveLength(11);
+    expect(slotsForDate('2026-07-07', 'larry')).toEqual([]);   // Tuesday
+  });
+
+  it('the hours line for config.js\'s barbers is the one index.html ships', () => {
+    for (const slug of Object.keys(BARBERS)) {
+      expect(barberHoursLabel(slug)).toBe('10 to 6 · Closed Tue');
+      expect(barberHoursLabel(slug, { long: true })).toBe('10 AM to 6 PM · Closed Tuesdays');
+    }
+  });
+
+  it('the hours line says which days a barber is off, and the times only when they are the same every day', () => {
+    roster(
+      { slug: 'marcus', display_name: 'Marcus', barber_schedules: days('12:00:00', '18:00:00', [3, 4, 5, 6]) },
+      { slug: 'dre', display_name: 'Dre', barber_schedules: [
+        ...days('10:00:00', '14:00:00', [0, 1]), ...days('12:00:00', '18:00:00', [3, 4, 5, 6])] },
+      { slug: 'sam', display_name: 'Sam', barber_schedules: days('10:30:00', '17:15:00', [0, 1, 3, 4, 5, 6]) },
+    );
+    expect(barberHoursLabel('marcus')).toBe('12 to 6 · Off Sun, Mon, Tue');
+    expect(barberHoursLabel('marcus', { long: true })).toBe('12 PM to 6 PM · Off Sundays, Mondays and Tuesdays');
+    expect(barberHoursLabel('dre')).toBe('Closed Tue');
+    expect(barberHoursLabel('sam', { long: true })).toBe('10:30 AM to 5:15 PM · Closed Tuesdays');
+    expect(barberHoursLabel('nobody')).toBe('Off Sun, Mon, Tue, Wed, Thu, Fri, Sat');
   });
 });
 

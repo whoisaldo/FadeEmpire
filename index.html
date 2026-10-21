@@ -81,21 +81,21 @@
   }
   </script>
 
-  <link rel="stylesheet" href="./styles/tokens.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/type.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/layout.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/components.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/hero.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/shop.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/menu.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/gallery.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/barbers.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/visit.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/motion.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/responsive.css?v=20261020-2">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/type.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/layout.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/components.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/hero.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/shop.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/menu.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/gallery.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/barbers.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/visit.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/motion.css?v=20261020-3">
+  <link rel="stylesheet" href="./styles/responsive.css?v=20261020-3">
 
-  <script type="module" src="./scripts/main.js?v=20261020-2"></script>
+  <script type="module" src="./scripts/main.js?v=20261020-3"></script>
 </head>
 <body>
 
@@ -678,13 +678,13 @@
   <div class="container">
     <header class="section__head">
       <p class="t-eyebrow">The barbers</p>
-      <h2 class="t-display reveal">Hassan and Larry.</h2>
-      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+      <h2 class="t-display reveal" data-barbers-head>Hassan and Larry.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="100" data-barbers-dek>
         Book whichever chair is open. Prices are the same with either barber.
       </p>
     </header>
 
-    <div class="feature" id="hassan">
+    <div class="feature" id="hassan" data-barber-spread="hassan">
       <figure class="feature__portrait reveal">
         <picture>
           <source media="(max-width: 430px)" type="image/webp"
@@ -715,7 +715,7 @@
       </div>
     </div>
 
-    <div class="feature feature--flip" id="larry">
+    <div class="feature feature--flip" id="larry" data-barber-spread="larry">
       <figure class="feature__portrait reveal">
         <picture>
           <source media="(max-width: 430px)" type="image/webp"

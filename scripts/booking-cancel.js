@@ -21,7 +21,7 @@ import {
 } from './booking-helpers.js';
 import { buildCancelMessage, messagingUrl, SERVICE_LABELS } from './booking-messages.js';
 import { canText } from './booking-submit.js';
-import { BARBERS } from './config.js';
+import { getBarber } from './roster.js';
 
 const ARM_TIMEOUT_MS = 5000;   // "tap again to confirm" window
 
@@ -59,7 +59,7 @@ function markPhone(root, invalid) {
 
 function bookingLine(b) {
   const service = SERVICE_LABELS[b.service_slug] || b.service_name || b.service_slug;
-  const barber  = BARBERS[b.barber_slug]?.name || b.barber_name || '';
+  const barber  = getBarber(b.barber_slug)?.name || b.barber_name || '';
   const when    = `${dateLabelFromIso(b.booking_date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${minutesToLabel(hmsToMinutes(b.booking_time))}`;
   return { service, barber, when };
 }

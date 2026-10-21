@@ -100,4 +100,9 @@ export function initCover() {
   initMobileCta();
   updateNextAvailable();
   setInterval(updateNextAvailable, 5 * 60_000);
+  // The barbers arrived after the lines were filled (a slow read): the next
+  // slot may belong to a barber who is new, or gone.
+  document.addEventListener('booking:barbers', () => {
+    if (document.documentElement.hasAttribute('data-booking-ready')) updateNextAvailable();
+  });
 }

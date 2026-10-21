@@ -16,7 +16,7 @@ import { chooseBarber } from './booking-grid.js';
 import { resetForm } from './booking-submit.js';
 import { formatPhoneDisplay } from './booking-helpers.js';
 import { SERVICE_LABELS, ADDON_LABELS } from './booking-messages.js';
-import { BARBERS } from './config.js';
+import { getBarber } from './roster.js';
 
 const KEY = 'fe.lastBooking';
 
@@ -31,7 +31,7 @@ export function loadLastBooking() {
   }
   if (!saved || typeof saved.name !== 'string' || !saved.name.trim()
     || !/^\d{10}$/.test(saved.phone || '')
-    || !BARBERS[saved.barberSlug] || !SERVICE_LABELS[saved.serviceSlug]) return null;
+    || !getBarber(saved.barberSlug) || !SERVICE_LABELS[saved.serviceSlug]) return null;
   return { ...saved, addons: (saved.addons || []).filter(a => ADDON_LABELS[a]) };
 }
 
@@ -56,7 +56,7 @@ export function clearLastBooking() {
 /** "Same as last time: Hassan, Hair Cut + Beard, Wax." */
 export function sameAsLastTime(saved) {
   const addons = saved.addons.length ? ` + ${saved.addons.map(a => ADDON_LABELS[a]).join(', ')}` : '';
-  return `Same as last time: ${BARBERS[saved.barberSlug].name}, ${SERVICE_LABELS[saved.serviceSlug]}${addons}.`;
+  return `Same as last time: ${getBarber(saved.barberSlug).name}, ${SERVICE_LABELS[saved.serviceSlug]}${addons}.`;
 }
 
 /* ---------- The page ---------- */
@@ -74,7 +74,7 @@ function setStickyLabel(saved) {
   const label = document.querySelector('[data-mobile-cta-label]');
   if (!label) return;
   label.dataset.label ??= label.textContent;
-  label.textContent = saved ? `Rebook · ${BARBERS[saved.barberSlug].name}` : label.dataset.label;
+  label.textContent = saved ? `Rebook · ${getBarber(saved.barberSlug).name}` : label.dataset.label;
 }
 
 /** The form as last time: barber, service, add-ons, name, phone, text boxes.

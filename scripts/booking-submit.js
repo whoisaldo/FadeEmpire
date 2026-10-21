@@ -27,7 +27,8 @@ import {
 import { buildBookingMessage, messagingUrl, serviceLine, ADDON_LABELS, SERVICE_LABELS } from './booking-messages.js';
 import { buildIcs, icsDataUrl } from './booking-calendar.js';
 import { validateBookingInput, partyFits, planParty } from './booking-validate.js';
-import { SERVICE_PRICES_CENTS, BARBERS } from './config.js';
+import { SERVICE_PRICES_CENTS } from './config.js';
+import { getBarber } from './roster.js';
 
 const MAX_GUESTS = 5;          // primary + 5 guests = 6, book_slot_group's limit (too_many_people)
 
@@ -508,7 +509,7 @@ async function submit(form) {
     return;
   }
 
-  const barber     = BARBERS[sel.barberSlug];
+  const barber     = getBarber(sel.barberSlug);
   const barberName = barber ? barber.name : 'the shop';
 
   // 4. Call the appropriate RPC
@@ -646,7 +647,7 @@ async function submit(form) {
     }));
 
     showFallback(form, {
-      text: `Couldn't reach the booking system, so this time isn't reserved yet. ${barberName} will reply to confirm once he has your details.`,
+      text: `Couldn't reach the booking system, so this time isn't reserved yet. ${barberName} will reply to confirm once your details arrive.`,
       send: sendLinks(fakeBookings, { systemError: true, errorCode: code }),
     });
     setFlag(form, 'busy', false);
@@ -687,7 +688,7 @@ async function submit(form) {
     text: `${dateLabel} · ${barberName}`,
     people,
     total: formatTotal(total, unpriced),
-    next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details; he'll reply to confirm.`,
+    next: `${people.length > 1 ? 'Your chairs are reserved.' : 'Your chair is reserved.'} Send the message so ${barberName} has your details and can reply to confirm.`,
     send: sendLinks(bookings),
     calendar: calendar(bookings),
   });

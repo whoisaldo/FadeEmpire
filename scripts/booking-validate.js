@@ -2,10 +2,9 @@
 // booking form. No DOM access: booking-submit.js feeds it plain data, and the
 // unit tests exercise it directly.
 
-import {
-  slotsForWeekday, weekdayFromIso, serviceSlotCount, cleanPhone,
-} from './booking-helpers.js';
-import { BARBERS, SLOT_MINUTES } from './config.js';
+import { slotsForDate, serviceSlotCount, cleanPhone } from './booking-helpers.js';
+import { SLOT_MINUTES } from './config.js';
+import { getBarber } from './roster.js';
 
 /**
  * Lay out a party (primary + guests) starting at `startMin`, duration-aware:
@@ -32,8 +31,7 @@ export function planParty(startMin, services) {
  * on a closed day).
  */
 export function partyFits({ date, barberSlug, startMin, services }) {
-  const weekday    = weekdayFromIso(date);
-  const validSlots = new Set(slotsForWeekday(weekday, barberSlug));
+  const validSlots = new Set(slotsForDate(date, barberSlug));
   const offenders  = [];
   planParty(startMin, services).forEach((person, idx) => {
     if (!person.slotMins.every(m => validSlots.has(m))) offenders.push(idx);
@@ -52,7 +50,7 @@ export function validateBookingInput({
   if (!date || !time) {
     return { ok: false, code: 'no_slot', message: 'Pick a day and a time slot above first.' };
   }
-  if (!barberSlug || !BARBERS[barberSlug]) {
+  if (!barberSlug || !getBarber(barberSlug)) {
     return { ok: false, code: 'no_barber', message: 'Pick a barber above first.' };
   }
   if (!name || name.trim().length < 2) {
