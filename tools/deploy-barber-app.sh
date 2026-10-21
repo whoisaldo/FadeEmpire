@@ -13,8 +13,14 @@
 #
 # Steps (each one is safe to repeat):
 #   1. supabase link        only if this checkout is not linked to PROJECT_REF
-#   2. supabase migration list --linked, then supabase db push without --yes, so the CLI
-#      lists the pending migrations (0022_barber_app.sql) and asks before applying them.
+#   2. The pending-migration guard, then supabase db push without --yes, so the CLI lists the
+#      pending migrations (0022_barber_app.sql) and asks before applying them. Production's
+#      older migrations were partly applied by hand in the SQL editor, so its migration history
+#      may lack them, and a push would run them again: 0001_init.sql starts by dropping the
+#      bookings table. The guard reads `supabase migration list --linked` and stops before any
+#      push unless every pending migration is in SAFE_PENDING (0021 sets a price and is safe to
+#      run again; 0022 is the barber app), or if it cannot read the list. It prints the
+#      `supabase migration repair` that marks hand-applied migrations, and runs nothing.
 #      Then tools/service-role-check.sql: every table, column and RPC privilege the
 #      functions use with the service role key. It only reads, and stops the deploy, before
 #      the functions go out, if one is missing (the hosted project's grants partly come from
@@ -95,6 +101,8 @@ fi
 PROJECT_URL="https://$PROJECT_REF.supabase.co"
 [[ $LOCAL -eq 1 ]] && PROJECT_URL="http://127.0.0.1:56321"
 FUNCTIONS=(staff-admin notify-booking-event)
+# The only migrations a push from this script may run (see step 2).
+SAFE_PENDING="0021 0022"
 MANAGER_NAME="${MANAGER_NAME:-Ali}"
 
 if [[ $LOCAL -eq 0 && $DRY_RUN -eq 0 && "$CONFIRM" != "1" ]]; then
@@ -349,6 +357,85 @@ PW
   fi
 }
 
+# migration_guard: reads the linked project's migration history and exits unless every
+# migration a push would run is in SAFE_PENDING. The CLI prints JSON with
+# --output-format=json (and to agents), a table otherwise; both are read, and the
+# local versions in it must be exactly supabase/migrations', or the list is not trusted.
+migration_guard() {
+  local out
+  echo "+ supabase migration list --linked --output-format=json"
+  if ! out="$(supabase migration list --linked --output-format=json)"; then
+    echo "+ supabase migration list --linked"
+    out="$(supabase migration list --linked)" || out=""
+  fi
+  LIST_OUT="$out" SAFE_PENDING="$SAFE_PENDING" python3 - <<'PY'
+import json, os, re, sys
+
+out = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", os.environ["LIST_OUT"])
+safe = os.environ["SAFE_PENDING"].split()
+files = sorted(m.group(1) for f in os.listdir("supabase/migrations")
+               if (m := re.fullmatch(r"(\d+)_.*\.sql", f)))
+
+
+def refuse(lines):
+    print("\n".join(["ERROR: " + lines[0]] + ["  " + l for l in lines[1:]]
+                     + ["Nothing was pushed."]), file=sys.stderr)
+    sys.exit(1)
+
+
+def rows():
+    """[(local, remote)] from the CLI's JSON or table, or None when it is neither."""
+    try:
+        doc = json.loads(out)
+    except ValueError:
+        doc = None
+    if doc is not None:
+        found = doc.get("migrations") if isinstance(doc, dict) else None
+        if not isinstance(found, list) or not all(
+                isinstance(r, dict) and isinstance(r.get("local"), str)
+                and isinstance(r.get("remote"), str) for r in found):
+            return None
+        return [(r["local"].strip(), r["remote"].strip()) for r in found]
+    found, header = [], False
+    for line in out.splitlines():
+        cells = [c.strip().strip("`").strip() for c in re.split(r"[|│]", line)]
+        if len(cells) < 2 or re.fullmatch(r"[\s|│┼+─-]*", line):
+            continue
+        if cells[:2] == ["Local", "Remote"]:
+            header = True
+        elif header and len(cells) == 3:
+            found.append((cells[0], cells[1]))
+        else:
+            return None
+    return found if header else None
+
+
+table = rows()
+if table is None or not all(re.fullmatch(r"\d*", v) for row in table for v in row) \
+        or sorted(l for l, _ in table if l) != files:
+    refuse(["could not read the project's migration history, so it is not safe to push.",
+            "Run `supabase migration list --linked` and check that every migration in",
+            "supabase/migrations has a row, then run this again."])
+
+pending = [l for l, r in table if l and not r]
+remote_only = [r for l, r in table if r and not l]
+unsafe = [v for v in pending if v not in safe]
+if remote_only:
+    refuse([f"the project has migrations with no file here: {' '.join(remote_only)}.",
+            "This checkout is not the one production was migrated from; use the branch that has them."])
+if unsafe:
+    refuse([f"a push would run {' '.join(pending)}; only {' and '.join(safe)} may run.",
+            "These are missing from production's migration history, probably because they were",
+            "applied by hand in the SQL editor. A push would run them again, and 0001_init.sql",
+            "starts by dropping the bookings table: every booking would be lost.",
+            "Check in the dashboard that each one is applied (its tables, columns or functions",
+            "exist), then record them as applied without running them:",
+            f"  supabase migration repair --linked --status applied {' '.join(unsafe)}",
+            "Never mark one that is not in production. Then run this again."])
+print(f"# pending migrations: {' '.join(pending) or 'none'} (only {' and '.join(safe)} may be)")
+PY
+}
+
 cd "$REPO_DIR"
 
 if [[ $LOCAL -eq 1 ]]; then
@@ -368,13 +455,12 @@ else
   step supabase link --project-ref "$PROJECT_REF"
 fi
 
-# 2. Pending migrations, then the push (the CLI asks before applying)
-echo "+ supabase migration list --linked"
+# 2. The pending-migration guard, then the push (the CLI asks before applying)
 if [[ $DRY_RUN -eq 0 || $LINKED -eq 1 ]]; then
-  supabase migration list --linked
-  echo "# pending: rows with a Local version and an empty Remote column"
+  migration_guard
 else
-  echo "# not linked yet: the list is shown in the real run, after linking"
+  echo "+ supabase migration list --linked --output-format=json"
+  echo "# not linked yet: the real run checks the pending migrations after linking, before the push"
 fi
 step supabase db push --linked
 
@@ -468,15 +554,22 @@ manager_login
 # 7. Checklist
 cat <<EOF
 
-# Checklist (dashboard only, $PROJECT_REF):
-#   [ ] Authentication -> Sign In / Providers -> turn OFF "Allow new users to sign up".
-#       The app has no sign-up; logins are made by the manager. A self-made login has no staff row and
-#       sees nothing, but it is still 'authenticated' and can call whatever that role may.
-#   [ ] Authentication -> Email: leave email confirmation on; staff-admin confirms its own users.
-#   [ ] Edge Functions: staff-admin and notify-booking-event show as deployed.
-#   [ ] APNs: Apple Developer -> Keys -> an APNs key for team 9X79V37Q89; set APNS_KEY_ID, APNS_TEAM_ID,
-#       APNS_KEY_FILE and run this again. Until then pushes run dry (function logs only).
-#   [ ] Storage: the barber-photos bucket exists and is public.
+# Rollout, in this order (README.md, Deploy). 0022 is safe under the old site, so steps 1-2 come first:
+#   1. tools/deploy-barber-app.sh --dry-run, then this run with CONFIRM_PROD=1.
+#   2. The privilege check above passed. Then, in the dashboard ($PROJECT_REF):
+#      [ ] Authentication -> Sign In / Providers -> turn OFF "Allow new users to sign up".
+#          The app has no sign-up; logins are made by the manager. A self-made login has no staff row and
+#          sees nothing, but it is still 'authenticated' and can call whatever that role may.
+#      [ ] Authentication -> Sign In / Providers -> Email: check the password policy (minimum length,
+#          required characters). Temporary passwords have upper and lower case letters, a digit and
+#          hyphens; a new password the policy rejects is shown in the app as too weak.
+#          Leave email confirmation on; staff-admin confirms its own users.
+#      [ ] Storage: the barber-photos bucket exists and is public.
+#      [ ] Edge Functions: staff-admin and notify-booking-event show as deployed.
+#   3. Merge the pull request. The new site reads barbers.title, which 0022 adds.
+#   4. APNs: Apple Developer -> Keys -> an APNs key for team 9X79V37Q89; set APNS_KEY_ID, APNS_TEAM_ID,
+#      APNS_KEY_FILE and run this again (until then pushes run dry, function logs only). Then
+#      TestFlight (ios/README.md).
 EOF
 
 print_password
