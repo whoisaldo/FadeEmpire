@@ -6,10 +6,12 @@ import Supabase
 final class SupabaseBackend: Backend {
     let client: SupabaseClient
 
-    init(url: URL, key: String) {
-        client = SupabaseClient(
-            supabaseURL: url, supabaseKey: key,
-            options: SupabaseClientOptions(auth: .init(emitLocalSessionAsInitialSession: true)))
+    /// `persistsSession: false` keeps the session in memory only, so several logins can be signed
+    /// in side by side (the integration tests); the app also keeps it in the keychain.
+    init(url: URL, key: String, persistsSession: Bool = true) {
+        let storage: AuthLocalStorage = persistsSession ? KeychainOrMemoryStorage() : MemoryAuthStorage()
+        let auth = SupabaseClientOptions.AuthOptions(storage: storage, emitLocalSessionAsInitialSession: true)
+        client = SupabaseClient(supabaseURL: url, supabaseKey: key, options: SupabaseClientOptions(auth: auth))
     }
 
     /// Runs one call and turns whatever it throws into a `BackendError`.
@@ -290,4 +292,35 @@ final class SupabaseBackend: Backend {
         struct Reply: Decodable { let ok: Bool }
         let _: Reply = try await staffAdmin(["action": .string(disabled ? "disable_login" : "enable_login"), "user_id": Self.id(userId)])
     }
+}
+
+/// The session in memory, with a copy in the keychain for the next launch. An unsigned
+/// simulator build has no keychain entitlement and every keychain call fails; the session
+/// then still works until the app quits, instead of every call going out signed out.
+private final class KeychainOrMemoryStorage: AuthLocalStorage, @unchecked Sendable {
+    private let keychain = KeychainLocalStorage()
+    private let memory = MemoryAuthStorage()
+
+    func store(key: String, value: Data) throws {
+        try memory.store(key: key, value: value)
+        try? keychain.store(key: key, value: value)
+    }
+
+    func retrieve(key: String) throws -> Data? {
+        try memory.retrieve(key: key) ?? (try? keychain.retrieve(key: key))
+    }
+
+    func remove(key: String) throws {
+        try memory.remove(key: key)
+        try? keychain.remove(key: key)
+    }
+}
+
+private final class MemoryAuthStorage: AuthLocalStorage, @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: Data] = [:]
+
+    func store(key: String, value: Data) throws { lock.withLock { values[key] = value } }
+    func retrieve(key: String) throws -> Data? { lock.withLock { values[key] } }
+    func remove(key: String) throws { lock.withLock { values[key] = nil } }
 }
