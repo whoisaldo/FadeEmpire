@@ -12,7 +12,8 @@
 #                   reminder queries (0020), and the barber app's access
 #                   rules, RPCs and booking events (0022). Then
 #                   tools/service-role-check.sql: the privileges the Edge
-#                   Functions use with the service role key.
+#                   Functions use with the service role key, and
+#                   tools/service-role-check-test.sql: that it catches each.
 #   function-tests  deno test for the send-reminders, staff-admin and
 #                   notify-booking-event Edge Functions (fetch stubbed).
 #
@@ -76,6 +77,9 @@ jobs:
 
       - name: service_role has every privilege the Edge Functions use
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -q -v ON_ERROR_STOP=1 -f tools/service-role-check.sql
+
+      - name: The check names a revoked privilege, and a missing migration as not applied
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -q -f tools/service-role-check-test.sql
 
   function-tests:
     name: Edge Function tests (Deno)

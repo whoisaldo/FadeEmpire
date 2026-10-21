@@ -108,6 +108,7 @@ FadeEmpire/
 │   ├── local-stack.sh            Local Supabase stack for the barber app (own Colima VM)
 │   ├── local-stack-check.py      Its staff-admin login flow check (local-stack.sh check)
 │   ├── service-role-check.sql    The privileges the Edge Functions need as service_role (CI, check, deploy)
+│   ├── service-role-check-test.sql  That the check names each revoked privilege, and a missing migration (CI)
 │   ├── booking-lock-check.sh     Two-session check of the booking overlap lock on the local stack
 │   └── local-stack-seed.sql      Its sample logins and week of bookings
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs

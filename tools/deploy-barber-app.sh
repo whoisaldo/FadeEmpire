@@ -15,10 +15,12 @@
 #   1. supabase link        only if this checkout is not linked to PROJECT_REF
 #   2. supabase migration list --linked, then supabase db push without --yes, so the CLI
 #      lists the pending migrations (0022_barber_app.sql) and asks before applying them.
-#      Then tools/service-role-check.sql: every table and RPC privilege the functions use
-#      with the service role key. It only reads, and stops the deploy, before the functions
-#      go out, if one is missing (the hosted project's grants partly come from Supabase's
-#      old default privileges, so they are checked, not assumed).
+#      Then tools/service-role-check.sql: every table, column and RPC privilege the
+#      functions use with the service role key. It only reads, and stops the deploy, before
+#      the functions go out, if one is missing (the hosted project's grants partly come from
+#      Supabase's old default privileges, so they are checked, not assumed), or if a table
+#      or function is not there at all: "migration not applied". --dry-run prints it without
+#      running it, since a dry run pushes nothing and production has no 0022 until the push.
 #   3. supabase functions deploy staff-admin and notify-booking-event
 #   4. supabase secrets set --env-file <mode-600 temp file> with APNS_KEY_ID, APNS_TEAM_ID,
 #      APNS_PRIVATE_KEY (read from APNS_KEY_FILE, the .p8 from Apple) and APNS_TOPIC when
@@ -377,14 +379,19 @@ fi
 step supabase db push --linked
 
 echo "+ supabase db query --linked -f tools/service-role-check.sql"
-if [[ $DRY_RUN -eq 0 || $LINKED -eq 1 ]]; then
-  if ! supabase db query --linked -f tools/service-role-check.sql; then
+if [[ $DRY_RUN -eq 1 ]]; then
+  # Not even when linked: it checks 0022's functions, which a dry run does not push.
+  echo "# dry run: not run. The real run checks service_role's privileges after the push"
+elif ! CHECK_OUT="$(supabase db query --linked -f tools/service-role-check.sql 2>&1)"; then
+  printf '%s\n' "$CHECK_OUT" >&2
+  if grep -q 'not applied:' <<<"$CHECK_OUT"; then
+    echo "ERROR: migration not applied: production lacks a table or function the Edge Functions use (above). Run this again and accept the push." >&2
+  else
     echo "ERROR: service_role lacks a privilege the Edge Functions use (above). Grant it in a migration." >&2
-    exit 1
   fi
-  echo "# service_role has every privilege the functions use"
+  exit 1
 else
-  echo "# not linked yet: the real run checks service_role's privileges after the push"
+  echo "# service_role has every privilege the functions use"
 fi
 
 # 3. Functions. JWT verification stays on: staff-admin gets the manager's JWT, the push

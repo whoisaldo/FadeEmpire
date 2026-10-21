@@ -463,6 +463,27 @@ select throws_ok($$ select manager_save_barber(null, 'xss', e'Mar\tco', null, nu
 select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\nBold', null, null, null) $$, '22023', 'invalid_text', 'a line break in a name is refused');
 select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u0085ber', null, null) $$, '22023', 'invalid_text', 'a C1 control in a title is refused');
 select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u0007two', null) $$, '22023', 'invalid_text', 'a control character in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\ttwo', null) $$, '22023', 'invalid_text', 'a tab in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u0085two', null) $$, '22023', 'invalid_text', 'a C1 control in a bio is refused');
+-- Unicode format characters (Cf) and line/paragraph separators (Zl, Zp): a U+202E shows
+-- the rest of the name reversed on the site, in pushes and in texts.
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u202Eocram', null, null, null) $$, '22023', 'invalid_text', 'a right-to-left override (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'\u202AMarco', null, null, null) $$, '22023', 'invalid_text', 'a left-to-right embedding (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2067ber', null, null) $$, '22023', 'invalid_text', 'a right-to-left isolate (Cf) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'Fades\u2069 tapers', null) $$, '22023', 'invalid_text', 'a pop directional isolate (Cf) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Mar\u200Bco', null, null, null) $$, '22023', 'invalid_text', 'a zero-width space (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'\uFEFFMarco', null, null, null) $$, '22023', 'invalid_text', 'a byte order mark (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u00ADber', null, null) $$, '22023', 'invalid_text', 'a soft hyphen (Cf) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Barber\U000E0041', null, null) $$, '22023', 'invalid_text', 'a tag character (Cf, outside the BMP) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\U0001D173two', null) $$, '22023', 'invalid_text', 'a musical format character (Cf, outside the BMP) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u2028Bold', null, null, null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2028ber', null, null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u2028two', null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u2029Bold', null, null, null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2029ber', null, null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u2029two', null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a bio is refused');
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', e'Jos\u00E9 \u00D1u\u00F1ez', e'Barbero \u2702\uFE0F', e'Desde 2019 \u2014 fades.\nCort\u00E9s.', null) $$, 'accents, a dash, an emoji and its variation selector are text');
+select is((select display_name from barbers where slug = 'marco-b'), e'Jos\u00E9 \u00D1u\u00F1ez', 'and saved as typed');
 select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', null) $$, 'a bio keeps its line breaks, & and dashes');
 select is((select bio from barbers where slug = 'marco-b'), e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', 'stored as typed');
 select is((select count(*)::int from barbers where slug = 'xss'), 0, 'nothing refused was saved');
@@ -958,6 +979,51 @@ select lives_ok($$ select app_remove_day_off(tap_barber('hassan'), tap_next_dow(
 select is((select count(*)::int from app_days_off(tap_barber('hassan'))), 1, 'one day off left');
 select is((select count(*)::int from app_days_off(tap_barber('larry'))), 0, 'hassan can read larry''s days off');
 select throws_ok($$ select app_add_day_off(tap_barber('hassan'), current_date - 1) $$, '22023', 'date_out_of_range', 'no days off in the past');
+reset role;
+
+-- A day off's reason is for its barber and the manager. A viewer sees the day, the
+-- site (anon) and any other login read only the dates.
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select lives_ok($$ select app_add_day_off(tap_barber('larry'), tap_next_dow(4) + 35, 'Custody hearing') $$, 'larry takes a Thursday off with a reason');
+select results_eq(
+  $$ select closure_date, reason from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, 'Custody hearing') $$,
+  'larry reads his own reason'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select results_eq(
+  $$ select closure_date, reason, bookings_that_day from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, null::text, 0) $$,
+  'hassan, who views larry''s chair, sees the day but not the reason'
+);
+select throws_ok($$ select reason from barber_closures $$, '42501', null, 'hassan cannot read reasons from the table');
+select is(
+  (select count(*)::int from barber_closures where barber_id = tap_barber('larry') and closure_date = tap_next_dow(4) + 35),
+  1, 'the dates stay readable to a login'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select results_eq(
+  $$ select closure_date, reason from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, 'Custody hearing') $$,
+  'the manager reads larry''s reason'
+);
+reset role;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+select throws_ok($$ select reason from barber_closures $$, '42501', null, 'anon cannot read reasons');
+select throws_ok($$ select * from barber_closures $$, '42501', null, 'nor every column');
+select throws_ok($$ select * from app_days_off(tap_barber('larry')) $$, '42501', null, 'nor app_days_off');
+-- What the site reads: barbers with their closure dates embedded (PostgREST joins on barber_id).
+select is(
+  (select array_agg(c.closure_date) from barbers b join barber_closures c on c.barber_id = b.id
+    where b.slug = 'larry' and c.closure_date >= current_date),
+  array[tap_next_dow(4) + 35], 'anon reads the dates, joined to the barber, as the site does'
+);
 reset role;
 
 -- ======================= Activity =======================

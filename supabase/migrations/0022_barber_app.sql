@@ -327,6 +327,13 @@ create policy "staff delete own links" on booking_links
 revoke execute on function confirm_booking(uuid) from public, anon, authenticated;
 grant  execute on function confirm_booking(uuid) to service_role;
 
+-- A day off's reason is for its barber and the manager (app_days_off). 0011 granted
+-- all of barber_closures to anon and authenticated, so the site's anon key, and any
+-- login, read every reason. The site reads only the dates, embedded in its barbers
+-- read (PostgREST joins on barber_id): those two columns stay readable.
+revoke select on barber_closures from anon, authenticated;
+grant  select (barber_id, closure_date) on barber_closures to anon, authenticated;
+
 -- =============================================================================
 -- 5. book_slot_at — 0020's book_slot body, by barber id, with the phone limit
 --    switchable. book_slot keeps its signature and behavior and calls it.
@@ -1251,8 +1258,9 @@ begin
     raise exception 'forbidden' using errcode = '42501';
   end if;
 
+  -- A viewer sees the day, not why: the reason is for the barber and the manager.
   return query
-  select c.closure_date, c.reason,
+  select c.closure_date, case when app_can_manage(p_barber_id) then c.reason end,
          (select count(*)::int from bookings bk
            where bk.barber_id = c.barber_id and bk.booking_date = c.closure_date
              and bk.linked_to is null and bk.status in ('pending', 'confirmed'))
@@ -1439,6 +1447,9 @@ $$;
 -- Name, title and bio reach the site's HTML. The site renders them as text, but a
 -- barber name once got through to it as markup, so the database refuses < and >
 -- and control characters in all three (a bio keeps its line breaks): invalid_text.
+-- Also refused: Unicode format characters and line/paragraph separators (general
+-- categories Cf, Zl, Zp, as of Unicode 16): a U+202E in a name shows the rest of it
+-- reversed on the site, in pushes and in texts.
 --
 -- A photo is the public URL of an object in the barber-photos bucket, which is
 -- what the app's upload returns. The database cannot know its own API host (the
@@ -1469,6 +1480,11 @@ declare
   v_title text := nullif(trim(coalesce(p_title, '')), '');
   v_bio   text := nullif(trim(coalesce(p_bio, '')), '');
   v_photo text := nullif(trim(coalesce(p_photo_url, '')), '');
+  -- Cf, Zl (U+2028) and Zp (U+2029), for the bracket expressions below.
+  v_format constant text :=
+    '\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u180e\u200b-\u200f'
+    '\u2028-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\U000110bd\U000110cd'
+    '\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f';
   v_old   barbers%rowtype;
   v_id    uuid;
 begin
@@ -1485,9 +1501,9 @@ begin
   if length(v_name) not between 1 and 40 then
     raise exception 'invalid_name' using errcode = '22023';
   end if;
-  if v_name ~ '[<>\x01-\x1f\x7f-\x9f]'
-     or v_title ~ '[<>\x01-\x1f\x7f-\x9f]'
-     or v_bio ~ '[<>\x01-\x09\x0b\x0c\x0e-\x1f\x7f-\x9f]' then
+  if v_name ~ ('[<>\x01-\x1f\x7f-\x9f' || v_format || ']')
+     or v_title ~ ('[<>\x01-\x1f\x7f-\x9f' || v_format || ']')
+     or v_bio ~ ('[<>\x01-\x09\x0b\x0c\x0e-\x1f\x7f-\x9f' || v_format || ']') then
     raise exception 'invalid_text' using errcode = '22023';
   end if;
 
