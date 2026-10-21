@@ -285,6 +285,8 @@ tools/deploy-barber-app.sh --dry-run
 SUPABASE_SERVICE_ROLE_KEY=eyJ... MANAGER_EMAIL=you@example.com \
 APNS_KEY_ID=... APNS_TEAM_ID=9X79V37Q89 APNS_KEY_FILE=~/AuthKey_XXXXXXXXXX.p8 \
 CONFIRM_PROD=1 tools/deploy-barber-app.sh   # db push, two functions, APNs secrets, Vault, manager login
+SUPABASE_SERVICE_ROLE_KEY=<local service role key> MANAGER_EMAIL=you@example.com \
+tools/deploy-barber-app.sh --local          # the manager login step only, against the local stack
 ```
 
 Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. Then, in the dashboard, turn off **Allow new users to sign up**: the app has no sign-up. The APNs variables can come later; until then pushes run dry.
