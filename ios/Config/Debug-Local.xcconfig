@@ -1,0 +1,7 @@
+// Local Supabase stack (docs/barber-app/CONTRACT.md, "Local stack"): API on 55321.
+// "//" starts an xcconfig comment, so URLs are written as http:/$()/host.
+SUPABASE_URL = http:/$()/127.0.0.1:55321
+// Filled in by the integration step with the local stack's anon key
+// (`supabase status` in the fadeempire Colima profile). Never a production key.
+SUPABASE_PUBLISHABLE_KEY = LOCAL_STACK_ANON_KEY_FILL_IN
+PUSH_ENVIRONMENT = sandbox

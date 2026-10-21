@@ -1,0 +1,121 @@
+name: FadeEmpire
+options:
+  bundleIdPrefix: com.chicopeefadeempire
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+  defaultConfig: Debug
+
+configs:
+  Debug-Local: debug
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug-Local: Config/Debug-Local.xcconfig
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 9X79V37Q89
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    exactVersion: 2.55.4
+
+targets:
+  FadeEmpire:
+    type: application
+    platform: iOS
+    sources:
+      - path: FadeEmpire
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chicopeefadeempire.barbers
+        PRODUCT_NAME: FadeEmpire
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_ENTITLEMENTS: FadeEmpire/FadeEmpire.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: FadeEmpire/Info.plist
+      properties:
+        CFBundleDisplayName: Fade Empire
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - remote-notification
+        UIAppFonts:
+          - Fraunces72pt-SemiBold.ttf
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        FESupabaseURL: $(SUPABASE_URL)
+        FESupabaseKey: $(SUPABASE_PUBLISHABLE_KEY)
+        FEPushEnvironment: $(PUSH_ENVIRONMENT)
+
+  FadeEmpireTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FadeEmpireTests
+    dependencies:
+      - target: FadeEmpire
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chicopeefadeempire.barbers.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire
+        BUNDLE_LOADER: $(TEST_HOST)
+
+  FadeEmpireUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: FadeEmpireUITests
+    dependencies:
+      - target: FadeEmpire
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chicopeefadeempire.barbers.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: FadeEmpire
+
+schemes:
+  FadeEmpire:
+    build:
+      targets:
+        FadeEmpire: all
+        FadeEmpireTests: [test]
+        FadeEmpireUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - FadeEmpireTests
+        - FadeEmpireUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

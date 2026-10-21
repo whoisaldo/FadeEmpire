@@ -14,3 +14,9 @@ node_modules/
 
 # Supabase CLI local-stack artifacts
 supabase/.branches/
+
+# iOS app: DerivedData, SPM checkouts, screenshots
+ios/.build/
+ios/build/
+ios/screenshots/
+xcuserdata/

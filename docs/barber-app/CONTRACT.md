@@ -69,12 +69,12 @@ Times are shop-local (`America/New_York`). Dates are `YYYY-MM-DD`; times are `HH
 | `app_bookings(p_barber_id uuid, p_from date, p_to date)` | rows: `id, barber_id, barber_slug, booking_date, booking_time, end_time, service_slug, service_name, duration_minutes, addons text[] (display names), custom_request, customer_notes, customer_name, customer_phone, total_price_cents, status, source, is_guest, party_id, party_size, created_at, cancelled_at, cancelled_by, can_manage` | Primary rows only. Includes cancelled and no-show rows so the day shows what happened. Raises `forbidden` unless `app_can_view`. |
 | `app_free_slots(p_barber_id uuid, p_date date)` | rows: `slot_time time` | The same rule the site uses: store hours ∩ barber schedule, minus closures, minus taken slots, 45-minute grid from open, no past slots today. |
 | `app_book(p_barber_id uuid, p_service_slug text, p_date date, p_time time, p_customer_name text, p_customer_phone text, p_addon_slugs text[] default '{}', p_notes text default null)` | `booking_id uuid` | Requires `app_can_manage`. Goes through `book_slot` logic with `source = 'app'`. Raises the same error codes as `book_slot` (`slot_taken`, etc.). |
-| `app_cancel_booking(p_booking_id uuid)` | one row: `booking_id, customer_name, customer_phone, booking_date, booking_time` | Requires `app_can_manage`. Sets `cancelled`, `cancelled_by = 'barber' \| 'manager'`, and frees linked continuation slots. Returns the data the app needs to prefill a text to the customer. |
-| `app_set_status(p_booking_id uuid, p_status text)` | void | `p_status` in `no_show`, `confirmed` (undo a no-show). Requires `app_can_manage`. |
+| `app_cancel_booking(p_booking_id uuid)` | one row: `booking_id, customer_name, customer_phone, booking_date, booking_time` | Requires `app_can_manage`. Sets `cancelled`, `cancelled_by = 'barber' \| 'manager'`, and frees linked continuation slots. Returns the data the app needs to prefill a text to the customer. Raises `booking_not_active` when it is already cancelled, a no-show, or expired. |
+| `app_set_status(p_booking_id uuid, p_status text)` | void | `p_status` in `no_show`, `confirmed` (undo a no-show). Requires `app_can_manage`. `confirmed` only from `no_show`; `no_show` only from an active booking; otherwise raises `booking_not_active`. |
 | `app_activity(p_before bigint default null, p_limit int default 50)` | rows: `event_id, kind, actor, occurred_at, booking_id, barber_id, barber_slug, barber_name, customer_name, booking_date, booking_time, service_name, is_unread` | Chairs the caller can view, newest first. `is_unread` = after `activity_seen_at` and not caused by the caller. |
 | `app_mark_activity_seen()` | void | |
 | `app_days_off(p_barber_id uuid)` | rows: `closure_date, reason, bookings_that_day int` | Today onward. |
-| `app_add_day_off(p_barber_id uuid, p_date date, p_reason text default null)` | `bookings_that_day int` | Requires `app_can_manage`. Does not cancel bookings; the app warns when the count is above 0. |
+| `app_add_day_off(p_barber_id uuid, p_date date, p_reason text default null)` | `bookings_that_day int` | Requires `app_can_manage`. Does not cancel bookings; the app warns when the count is above 0. Raises `day_off_exists` if that day is already one. |
 | `app_remove_day_off(p_barber_id uuid, p_date date)` | void | |
 | `app_set_notify_prefs(p_bookings bool, p_cancellations bool, p_viewed_chairs bool)` | void | |
 | `app_register_device(p_token text, p_environment text)` / `app_unregister_device(p_token text)` | void | |
@@ -85,11 +85,26 @@ Times are shop-local (`America/New_York`). Dates are `YYYY-MM-DD`; times are `HH
 | RPC | Returns | Notes |
 | --- | --- | --- |
 | `manager_staff()` | rows: `user_id, email, role, display_name, barber_id, last_sign_in_at, is_disabled` | Reads `auth.users`. |
-| `manager_save_barber(p_id uuid, p_slug text, p_display_name text, p_title text, p_bio text, p_photo_url text)` | `barber_id uuid` | `p_id` null creates the barber. The slug is lowercase `[a-z0-9-]`, 2-30 characters, unique, and immutable once bookings exist. A new barber gets `sort_order` after the last one. |
+| `manager_save_barber(p_id uuid, p_slug text, p_display_name text, p_title text, p_bio text, p_photo_url text)` | `barber_id uuid` | `p_id` null creates the barber. The slug is lowercase `[a-z0-9-]`, 2-30 characters, unique, and immutable once bookings exist; these raise `invalid_slug`, `slug_taken` and `slug_locked`. Empty `p_title` / `p_bio` are stored as null. A new barber gets `sort_order` after the last one. |
 | `manager_set_schedule(p_barber_id uuid, p_days jsonb)` | void | `[{weekday 0-6, open "HH:MM", close "HH:MM"}]` replaces the week. Each day must sit inside `store_hours` for that weekday; otherwise it raises `outside_store_hours`. |
 | `manager_set_active(p_barber_id uuid, p_active boolean)` | `upcoming_bookings int` | Deactivating hides the barber from the site and the booking RPCs at once. |
 | `manager_set_view_grant(p_viewer_barber_id uuid, p_barber_id uuid, p_granted boolean)` | void | |
 | `manager_barber_schedule(p_barber_id uuid)` | rows: `weekday, open_time, close_time` | Includes inactive barbers. |
+| `manager_view_grants()` | rows: `viewer_barber_id, barber_id` | Every grant, for the Barbers screen's "Can also view" toggles. |
+
+### Error codes
+
+The app shows a specific message for each code raised as the exception text (`raise exception '<code>'`):
+`forbidden`, `slot_taken`, `outside_store_hours`, `outside_working_hours`, `store_closed`, `barber_closed`,
+`date_out_of_range`, `invalid_slot_alignment`, `invalid_phone`, `invalid_name`, `service_not_found`,
+`barber_not_found`, `too_many_active_bookings`, `booking_not_active`, `day_off_exists`, `invalid_slug`,
+`slug_taken`, `slug_locked`. Any other text is shown as a generic failure with the code.
+
+### Tables the app reads directly
+
+`barbers` (`id, slug, display_name, title, bio, photo_url, is_active, sort_order`; managers see inactive rows),
+`barber_schedules` (`weekday, open_time, close_time` by `barber_id`, for closed days on the Schedule), and
+`booking_links`. Barber photos upload to `barber-photos/<slug>/<uuid>.jpg` and are saved as the public URL.
 
 ### Edge Function `staff-admin` (POST, caller's JWT, caller must be a manager)
 
@@ -97,6 +112,8 @@ Times are shop-local (`America/New_York`). Dates are `YYYY-MM-DD`; times are `HH
 `{action: "reset_password", user_id}` returns `{temporary_password}`.
 `{action: "disable_login", user_id}` and `{action: "enable_login", user_id}` return `{ok: true}`. Disabling bans the
 auth user and deletes their device tokens.
+Failures answer a non-2xx status with `{error: "<code>"}`: `forbidden`, `invalid_email`, `email_taken`,
+`login_exists` (that barber already has a login), `user_not_found`.
 Users are created with `email_confirm: true`, so no email goes out. A temporary password is 4 short words plus 2 digits.
 
 ### Edge Function `notify-booking-event`
@@ -116,6 +133,7 @@ the `APNS_*` secrets it logs and returns 200. Push copy: title `New booking` / `
 - The site preselects the barber and service from those parameters and lands on the booking form. An unknown or
   inactive barber falls back to the normal picker.
 - Custom links are rows in `booking_links` (label + optional service). The app shows each one with Copy, Share, and QR.
+  A custom link with a service uses the link-with-options form; one without a service is the plain barber link.
 
 ## Website changes
 
