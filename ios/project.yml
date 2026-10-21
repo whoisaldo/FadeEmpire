@@ -98,6 +98,21 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: FadeEmpire
 
+  # Runs against the local Supabase stack, only with FE_INTEGRATION=1 (README).
+  FadeEmpireIntegrationTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FadeEmpireIntegrationTests
+    dependencies:
+      - target: FadeEmpire
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chicopeefadeempire.barbers.integrationtests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire
+        BUNDLE_LOADER: $(TEST_HOST)
+
 schemes:
   FadeEmpire:
     build:
@@ -119,3 +134,15 @@ schemes:
       config: Debug
     archive:
       config: Release
+  FadeEmpireIntegration:
+    build:
+      targets:
+        FadeEmpire: all
+        FadeEmpireIntegrationTests: [test]
+    run:
+      config: Debug-Local
+    test:
+      config: Debug-Local
+      gatherCoverageData: false
+      targets:
+        - FadeEmpireIntegrationTests

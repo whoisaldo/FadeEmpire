@@ -29,3 +29,21 @@ xcodebuild test -project ios/FadeEmpire.xcodeproj -scheme FadeEmpire \
 ```
 
 `ios/scripts/screenshots.sh [dir]` captures every main screen at 6.1" and 6.9" into `ios/screenshots/<date>/`.
+
+## Against the local stack
+
+With the stack running (`tools/local-stack.sh start` in the backend branch), the `FadeEmpireIntegration` scheme
+runs `FadeEmpireIntegrationTests` on the Debug-Local build. It calls every `Backend` method through
+`SupabaseBackend` as the three seeded logins, plus a throwaway barber and login it creates, and removes what it
+creates (bookings cancelled, links, tokens and days off deleted, the test barber deactivated and its login turned
+off). Without `FE_INTEGRATION=1` every test skips, so the normal run never touches a server.
+
+```sh
+TEST_RUNNER_FE_INTEGRATION=1 xcodebuild test -project ios/FadeEmpire.xcodeproj -scheme FadeEmpireIntegration \
+  -destination 'platform=iOS Simulator,name=FE Builder iPhone 16' \
+  -derivedDataPath ios/.build/dd-local -clonedSourcePackagesDirPath ios/.build/spm CODE_SIGNING_ALLOWED=NO
+```
+
+`ios/scripts/local-stack-screenshots.sh [dir]` captures the main screens with the stack's data, signed in as
+Hassan and as Ali.
+`ios/scripts/make-icon.swift` rebuilds the app icon from `assets/brand/logo-mark.png`.

@@ -16,10 +16,12 @@
 		23BF903E3C2AA2122A9A9F50 /* FlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83446ECD0885BB3C017A33F /* FlowTests.swift */; };
 		28110D01E5FA7ED692FC9D63 /* SupabaseBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139E4366A18FB33B2F1FA079 /* SupabaseBackend.swift */; };
 		33CFC7C800FFF7AEFE9C7A5C /* NewAppointmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB55F29B4FFA58ACE9311DEA /* NewAppointmentView.swift */; };
+		3BDE48BCE616BA71EFEE834F /* LocalStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */; };
 		45E294AF731E6BB89B04F1BE /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF5C9E16D2F86B40D8FDAF6 /* RootView.swift */; };
 		60A632426A438FE63FE5A26E /* MockSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DBED97EE05E036515181509 /* MockSeed.swift */; };
 		659520A1D238991D68A1029F /* ShopTimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3BB66A9231FD46074A75FDA /* ShopTimeTests.swift */; };
 		6D9599AE8687195833F369B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3C7635B57C6C9F5CEEED3235 /* Assets.xcassets */; };
+		6FD0752111F0AD9D190C175F /* LocalStackScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */; };
 		7269097B91379E8E640A6D59 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A30B68192C352F6445FDCE /* ScheduleView.swift */; };
 		778473F8088DD5F17E15F1F6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4398B5482ABB0FCE70E8497 /* SettingsView.swift */; };
 		78E18D47D5FA6281C01426C9 /* LinksAndErrorsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D89417A02B1F3411C7EBEC /* LinksAndErrorsTests.swift */; };
@@ -58,9 +60,17 @@
 			remoteGlobalIDString = EBBA71BBF1C0D4BDC7C396A0;
 			remoteInfo = FadeEmpire;
 		};
+		7B8D38844247F8D1D9C54857 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F4151D36D640582B2D02C2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBBA71BBF1C0D4BDC7C396A0;
+			remoteInfo = FadeEmpire;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStackScreenshotTests.swift; sourceTree = "<group>"; };
 		075CCF3A1285A29FE6868A62 /* MockBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBackend.swift; sourceTree = "<group>"; };
 		139E4366A18FB33B2F1FA079 /* SupabaseBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseBackend.swift; sourceTree = "<group>"; };
 		1949FE81A5AC0CCA4066E7E8 /* LinksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksView.swift; sourceTree = "<group>"; };
@@ -79,6 +89,7 @@
 		641D17901CC619F01391B6C5 /* MockUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockUITestCase.swift; sourceTree = "<group>"; };
 		6D3FCAB54369F2485D386BF1 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		763EF296323DCB99CAE0B3C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FadeEmpireIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BF854695B0C84FBC056173F /* Fraunces72pt-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces72pt-SemiBold.ttf"; sourceTree = "<group>"; };
 		7CAB7034E841B243A2CE255C /* FadeEmpire.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FadeEmpire.entitlements; sourceTree = "<group>"; };
 		83AA80FF92E0F8FE04245948 /* Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Links.swift; sourceTree = "<group>"; };
@@ -88,6 +99,7 @@
 		A45E93D5F2C071B4E9ACCB90 /* ScheduleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleModel.swift; sourceTree = "<group>"; };
 		AA2CCC78988F765A9B2E4FEE /* FadeEmpire.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FadeEmpire.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B320A750C51389B0A1541D54 /* FadeEmpireUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FadeEmpireUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStackTests.swift; sourceTree = "<group>"; };
 		BCD4B179C9A509177BC66FA1 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		C0A30B68192C352F6445FDCE /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
 		C2F0A0119D8C9683D8F7AAD4 /* BarbersModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbersModel.swift; sourceTree = "<group>"; };
@@ -127,6 +139,14 @@
 			path = FadeEmpireTests;
 			sourceTree = "<group>";
 		};
+		20BE8A8CA6D023AFEF559928 /* FadeEmpireIntegrationTests */ = {
+			isa = PBXGroup;
+			children = (
+				BBB51B5C51B18271CC11B591 /* LocalStackTests.swift */,
+			);
+			path = FadeEmpireIntegrationTests;
+			sourceTree = "<group>";
+		};
 		3A80BE9176D8D6BEF956A1FE /* Backend */ = {
 			isa = PBXGroup;
 			children = (
@@ -154,6 +174,7 @@
 			children = (
 				B450EFD9F5993430CB739373 /* Config */,
 				BC0F72087F00D41660E5DB89 /* FadeEmpire */,
+				20BE8A8CA6D023AFEF559928 /* FadeEmpireIntegrationTests */,
 				0C5756A94AC24FF52C57F236 /* FadeEmpireTests */,
 				C8F0F7B14C76D8F6EE8A4944 /* FadeEmpireUITests */,
 				9DC21C3B0812E8F24974E73A /* Products */,
@@ -200,6 +221,7 @@
 			isa = PBXGroup;
 			children = (
 				AA2CCC78988F765A9B2E4FEE /* FadeEmpire.app */,
+				7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */,
 				358C47923F3A60C918880F98 /* FadeEmpireTests.xctest */,
 				B320A750C51389B0A1541D54 /* FadeEmpireUITests.xctest */,
 			);
@@ -253,6 +275,7 @@
 			isa = PBXGroup;
 			children = (
 				D83446ECD0885BB3C017A33F /* FlowTests.swift */,
+				004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */,
 				641D17901CC619F01391B6C5 /* MockUITestCase.swift */,
 				ED37A4ECD92A4BD8B81CDB7C /* ScreenshotTests.swift */,
 			);
@@ -262,6 +285,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		826BDE1F7934A97FCC786B3D /* FadeEmpireIntegrationTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F9EB63991FFF1DD3DA41293B /* Build configuration list for PBXNativeTarget "FadeEmpireIntegrationTests" */;
+			buildPhases = (
+				27BF19C9B044530A03DAFB01 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				64F10A800816080218B0071D /* PBXTargetDependency */,
+			);
+			name = FadeEmpireIntegrationTests;
+			packageProductDependencies = (
+			);
+			productName = FadeEmpireIntegrationTests;
+			productReference = 7B14037EC4AD8E4ED18D1DC4 /* FadeEmpireIntegrationTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		8A1C6C5CDD4ACA50A72675DB /* FadeEmpireUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FB5A5DFFA837EC03FED0EF07 /* Build configuration list for PBXNativeTarget "FadeEmpireUITests" */;
@@ -327,6 +368,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					826BDE1F7934A97FCC786B3D = {
+						DevelopmentTeam = 9X79V37Q89;
+					};
 					8A1C6C5CDD4ACA50A72675DB = {
 						DevelopmentTeam = 9X79V37Q89;
 						TestTargetID = EBBA71BBF1C0D4BDC7C396A0;
@@ -359,6 +403,7 @@
 				EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */,
 				D539B4C3163052D7EF0BC6FF /* FadeEmpireTests */,
 				8A1C6C5CDD4ACA50A72675DB /* FadeEmpireUITests */,
+				826BDE1F7934A97FCC786B3D /* FadeEmpireIntegrationTests */,
 			);
 		};
 /* End PBXProject section */
@@ -382,8 +427,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				23BF903E3C2AA2122A9A9F50 /* FlowTests.swift in Sources */,
+				6FD0752111F0AD9D190C175F /* LocalStackScreenshotTests.swift in Sources */,
 				8FEBE4C2A0B3EF677B56750F /* MockUITestCase.swift in Sources */,
 				0B6428F316E2EF227A2DA7E7 /* ScreenshotTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		27BF19C9B044530A03DAFB01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3BDE48BCE616BA71EFEE834F /* LocalStackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -436,6 +490,11 @@
 			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
 			targetProxy = 0461332052294E93A9A66EA5 /* PBXContainerItemProxy */;
 		};
+		64F10A800816080218B0071D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
+			targetProxy = 7B8D38844247F8D1D9C54857 /* PBXContainerItemProxy */;
+		};
 		AF5CB642BBB05C041B9C22A4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EBBA71BBF1C0D4BDC7C396A0 /* FadeEmpire */;
@@ -444,6 +503,40 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		031C46E7BC97B2262BB4CC63 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Debug;
+		};
+		04199EDB6A817A3F6B9DAF4B /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = "Debug-Local";
+		};
 		1D454EDF013CB3012656873F /* Debug-Local */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -481,6 +574,23 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
 			};
 			name = Debug;
+		};
+		26968D88A4F81DD71FAB48DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chicopeefadeempire.barbers.integrationtests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FadeEmpire.app/FadeEmpire";
+			};
+			name = Release;
 		};
 		28D2527DBF927291CCF98002 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -832,6 +942,16 @@
 				28D2527DBF927291CCF98002 /* Debug */,
 				3687293FCBFBD2C959B118CB /* Debug-Local */,
 				404DFB831EC18709712324E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F9EB63991FFF1DD3DA41293B /* Build configuration list for PBXNativeTarget "FadeEmpireIntegrationTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				031C46E7BC97B2262BB4CC63 /* Debug */,
+				04199EDB6A817A3F6B9DAF4B /* Debug-Local */,
+				26968D88A4F81DD71FAB48DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

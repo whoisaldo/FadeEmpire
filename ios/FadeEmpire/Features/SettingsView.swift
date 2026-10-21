@@ -57,6 +57,7 @@ struct SettingsView: View {
             .sheet(isPresented: $changingPassword) { NewPasswordView(forced: false) }
             .confirmationDialog("Sign out?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { Task { await app.signOut() } }
+                    .accessibilityIdentifier("confirm-sign-out")
             } message: {
                 Text("This phone stops getting alerts until you sign in again.")
             }
