@@ -81,21 +81,21 @@
   }
   </script>
 
-  <link rel="stylesheet" href="./styles/tokens.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/type.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/layout.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/components.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/hero.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/shop.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/menu.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/gallery.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/barbers.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/visit.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/motion.css?v=20261020-2">
-  <link rel="stylesheet" href="./styles/responsive.css?v=20261020-2">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/type.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/layout.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/components.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/hero.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/shop.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/menu.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/gallery.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/barbers.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/visit.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/motion.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/responsive.css?v=20261021-1">
 
-  <script type="module" src="./scripts/main.js?v=20261020-2"></script>
+  <script type="module" src="./scripts/main.js?v=20261021-1"></script>
 </head>
 <body>
 
@@ -170,7 +170,7 @@
         <span class="hero__title-line hero__title-line--accent">Empire<span class="hero__title-rule" aria-hidden="true"></span></span>
       </h1>
 
-      <p class="hero__dek t-italic">
+      <p class="hero__dek t-italic" data-hero-dek>
         Two chairs on Memorial Drive. Fades, beards, and line-ups by Hassan and Larry, 10 to 6, six days a week.
       </p>
 
@@ -678,13 +678,13 @@
   <div class="container">
     <header class="section__head">
       <p class="t-eyebrow">The barbers</p>
-      <h2 class="t-display reveal">Hassan and Larry.</h2>
-      <p class="section__dek t-italic reveal" data-reveal-delay="100">
+      <h2 class="t-display reveal" data-barbers-head>Hassan and Larry.</h2>
+      <p class="section__dek t-italic reveal" data-reveal-delay="100" data-barbers-dek>
         Book whichever chair is open. Prices are the same with either barber.
       </p>
     </header>
 
-    <div class="feature" id="hassan">
+    <div class="feature" id="hassan" data-barber-spread="hassan">
       <figure class="feature__portrait reveal">
         <picture>
           <source media="(max-width: 430px)" type="image/webp"
@@ -715,7 +715,7 @@
       </div>
     </div>
 
-    <div class="feature feature--flip" id="larry">
+    <div class="feature feature--flip" id="larry" data-barber-spread="larry">
       <figure class="feature__portrait reveal">
         <picture>
           <source media="(max-width: 430px)" type="image/webp"
@@ -737,7 +737,7 @@
         <p class="reveal" data-reveal-delay="160">
           Larry has the chair by the window: fades, beard work, line-ups, and walk-ins.
         </p>
-        <p class="reveal" data-reveal-delay="240">
+        <p class="reveal" data-reveal-delay="240" data-needs-barber="hassan">
           If Hassan's book is full, book Larry.
         </p>
 
@@ -1108,7 +1108,12 @@
     <strong data-mobile-cta-label>Book a chair</strong>
     <span class="mobile-cta__next" data-mobile-cta-next hidden>· <span data-mobile-cta-next-slot>—</span></span>
   </a>
-  <a href="tel:+14138854440" class="mobile-cta__call" aria-label="Call Fade Empire">
+  <!-- No barber takes online bookings (booking-grid.js): this replaces the two. -->
+  <a href="tel:+14138854440" class="mobile-cta__book" data-mobile-cta-offline hidden>
+    <strong>Call to book</strong>
+    <span class="mobile-cta__next">· 413·885·4440</span>
+  </a>
+  <a href="tel:+14138854440" class="mobile-cta__call" data-mobile-cta-call aria-label="Call Fade Empire">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.13 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>

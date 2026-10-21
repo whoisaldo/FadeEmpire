@@ -17,8 +17,23 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,700;1,9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap">
 
-  <link rel="stylesheet" href="/styles/tokens.css?v=20261020-2">
-  <link rel="stylesheet" href="/styles/type.css?v=20261020-2">
+  <!-- A barber's link (/larry): the copy stays hidden while it is checked,
+       then the page moves on to the booking form or shows itself. The
+       animation shows it anyway if the check never runs. -->
+  <script>if (/^\/([a-z0-9-]{2,30})\/?$/i.test(location.pathname)) document.documentElement.classList.add('nf-checking');</script>
+  <script type="module">
+    import { resolvePrettyLink } from '/scripts/pretty-link.js?v=20261021-1';
+    const root = document.documentElement;
+    if (root.classList.contains('nf-checking')) {
+      resolvePrettyLink(location).then(
+        (url) => { if (url) location.replace(url); else root.classList.remove('nf-checking'); },
+        () => root.classList.remove('nf-checking'),
+      );
+    }
+  </script>
+
+  <link rel="stylesheet" href="/styles/tokens.css?v=20261021-1">
+  <link rel="stylesheet" href="/styles/type.css?v=20261021-1">
 
   <style>
     /* 404-specific layout — kept self-contained so the page works even if
@@ -129,6 +144,9 @@
     @media (max-width: 600px) {
       .nf__actions .nf__btn { flex: 1 1 auto; }
     }
+
+    .nf-checking .nf { visibility: hidden; animation: nf-show 0s 3.5s forwards; }
+    @keyframes nf-show { to { visibility: visible; } }
   </style>
 </head>
 <body>

@@ -386,7 +386,7 @@ describe('booking submit — success', () => {
     await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
     expect(document.activeElement).toBe($('[data-form-success]'));
     expect($('[data-form-success]').getAttribute('tabindex')).toBe('-1');
-    await vi.waitFor(() => expect(live.textContent).toBe("Your chair is reserved. Send the message so Hassan has your details; he'll reply to confirm."));
+    await vi.waitFor(() => expect(live.textContent).toBe("Your chair is reserved. Send the message so Hassan has your details and can reply to confirm."));
   });
 
   it('an error is announced through the alert region and takes focus (D8)', async () => {
@@ -556,7 +556,7 @@ describe('booking submit — success', () => {
     expect(rpc.bookSlot).toHaveBeenCalledTimes(1);           // booked before any channel is chosen
     const card = $('[data-form-success]');
     expect(card.querySelector('[data-success-next]').textContent)
-      .toBe("Your chair is reserved. Send the message so Hassan has your details; he'll reply to confirm.");
+      .toBe("Your chair is reserved. Send the message so Hassan has your details and can reply to confirm.");
     expect(card.querySelector('[data-send-head]').textContent).toBe('Send your details to Hassan:');
     const wa = card.querySelector('[data-send-whatsapp]');
     expect(wa.textContent).toBe('WhatsApp');
@@ -602,7 +602,7 @@ describe('booking submit — success', () => {
     const card = $('[data-form-fallback]');
     expect(card.textContent).toContain('Not reserved yet');
     expect(card.querySelector('[data-fallback-text]').textContent)
-      .toBe("Couldn't reach the booking system, so this time isn't reserved yet. Hassan will reply to confirm once he has your details.");
+      .toBe("Couldn't reach the booking system, so this time isn't reserved yet. Hassan will reply to confirm once your details arrive.");
     expect(card.querySelector('[data-send-head]').textContent).toBe('Send your details to Hassan:');
     expect(card.querySelector('[data-send-whatsapp]').target).toBe('_blank');
     expect(window.open).not.toHaveBeenCalled();

@@ -1,10 +1,11 @@
 // booking-rpc.js — Supabase RPC wrappers.
 
 import { sb } from './supabase.js';
-import { BARBERS, DEFAULT_BARBER_SLUG } from './config.js';
+import { DEFAULT_BARBER_SLUG } from './config.js';
+import { ROSTER_SELECT, rosterFromRows, barberList } from './roster.js';
 import {
-  mapBookingErrorCode, isoDate, slotsForWeekday, minutesToHms, minutesToLabel,
-  nowMinutesInShopTz, addDaysIso, weekdayFromIso, dateLabelFromIso,
+  mapBookingErrorCode, isoDate, slotsForDate, minutesToHms, minutesToLabel,
+  nowMinutesInShopTz, addDaysIso, dateLabelFromIso, takenSlots,
 } from './booking-helpers.js';
 
 export class BookingError extends Error {
@@ -151,6 +152,27 @@ export async function logBookingError(payload) {
 }
 
 /**
+ * The active barbers with their weeks and days off from today on, in the
+ * shop's order, as roster entries (roster.js). anon reads only active rows
+ * (RLS). Throws BookingError when the read fails, so the caller keeps
+ * config.js's barbers.
+ */
+export async function fetchBarbers() {
+  const { data, error, status } = await sb
+    .from('barbers')
+    .select(ROSTER_SELECT)
+    .eq('is_active', true)
+    .gte('barber_closures.closure_date', isoDate(new Date()))
+    .order('sort_order')
+    .order('slug');
+  if (error) {
+    console.warn('[booking] fetchBarbers failed', error);
+    throw new BookingError(mapBookingErrorCode(error, status), error);
+  }
+  return rosterFromRows(data || []);
+}
+
+/**
  * Fetch all active (pending/confirmed) bookings between [fromDate, toDate].
  * Pass `barberSlug` to scope to one barber, or null for every barber.
  * Returns array of { barber_slug, booking_date, booking_time, status }.
@@ -184,24 +206,21 @@ export async function fetchNextAvailable() {
   const toDate   = addDaysIso(fromDate, 14);
   const taken    = await fetchAvailability({ fromDate, toDate, barberSlug: null });
 
-  const takenSet = new Set(
-    taken.map(r => `${r.barber_slug}|${r.booking_date}|${r.booking_time.slice(0, 5)}`)
-  );
+  const isTaken  = takenSlots(taken);
 
   const todayIso = fromDate;
   const nowMin   = nowMinutesInShopTz();
-  const barbers  = Object.values(BARBERS);
+  const barbers  = barberList();
 
   for (let i = 0; i <= 14; i++) {
     const iso = addDaysIso(fromDate, i);
-    const wk  = weekdayFromIso(iso);
 
     // Earliest free slot this day, comparing across barbers.
     let best = null;
     for (const barber of barbers) {
-      for (const m of slotsForWeekday(wk, barber.slug)) {
+      for (const m of slotsForDate(iso, barber.slug)) {
         if (iso === todayIso && m <= nowMin) continue;               // past slot today
-        if (takenSet.has(`${barber.slug}|${iso}|${minutesToHms(m).slice(0, 5)}`)) continue;
+        if (isTaken(barber.slug, iso, m)) continue;
         if (!best || m < best.minutes) best = { minutes: m, barber };
         break;                                                       // first free = earliest for this barber
       }

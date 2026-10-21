@@ -196,6 +196,18 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
   deploy, and a deactivated one disappears.
 - The barbers section keeps its two hand-built spreads for Hassan and Larry. It hides a spread whose barber is
   inactive and appends a simple spread (photo from `photo_url`, name, title, bio) for any other active barber.
+- An active barber with no weekly hours yet (a new barber before `manager_set_schedule`) is not offered in the
+  picker or the barbers section; their `/<slug>` link forwards and the form falls back to the normal picker.
+- Days off (`barber_closures`, from `app_add_day_off`) close that day for that barber in the picker ("Off").
+- A read that succeeds with no bookable barber is not a failure: nobody is offered online, the booking section shows
+  the shop's phone and walk-ins instead, and the barbers section is hidden. Barbers that arrive late (or while a
+  booking confirmation shows, applied on "Book another") re-check the barber, day, and time already picked; anything
+  no longer bookable is cleared, with a line saying so. The hero line names the barbers and counts their chairs.
+- Everything read from `barbers` reaches the page as text. `photo_url` is shown only when it is an `https` URL under
+  the project's own `/storage/v1/object/public/barber-photos/`; a slug outside `[a-z0-9-]{2,30}` is not offered.
+- A slot is taken when any active booking on that chair overlaps it (a booking holds `[start, start + 45 min)`), so
+  a booking left off a barber's new grid still blocks the slots it covers, as `book_slot` does.
+- `/<slug>?service=<service-slug>` carries the service through the redirect.
 
 ## iOS app
 

@@ -2,10 +2,9 @@
 // booking form. No DOM access: booking-submit.js feeds it plain data, and the
 // unit tests exercise it directly.
 
-import {
-  slotsForWeekday, weekdayFromIso, serviceSlotCount, cleanPhone,
-} from './booking-helpers.js';
-import { BARBERS, SLOT_MINUTES } from './config.js';
+import { slotsForDate, serviceSlotCount, cleanPhone } from './booking-helpers.js';
+import { SLOT_MINUTES } from './config.js';
+import { getBarber } from './roster.js';
 
 /**
  * Lay out a party (primary + guests) starting at `startMin`, duration-aware:
@@ -27,18 +26,21 @@ export function planParty(startMin, services) {
 
 /**
  * Check every occupied sub-slot of a planned party against the barber's
- * bookable slots for that date. Returns { ok, offenders } where `offenders`
- * is the set of person indexes whose chair time runs past closing (or lands
- * on a closed day).
+ * bookable slots for that date, and against the bookings already on the
+ * chair: `isTaken(barberSlug, date, minutes)` is the grid's overlap rule
+ * (takenSlots). Returns { ok, offenders, taken } where `offenders` is the set
+ * of person indexes whose chair time runs past closing (or lands on a closed
+ * day) and `taken` those whose time overlaps a booking.
  */
-export function partyFits({ date, barberSlug, startMin, services }) {
-  const weekday    = weekdayFromIso(date);
-  const validSlots = new Set(slotsForWeekday(weekday, barberSlug));
+export function partyFits({ date, barberSlug, startMin, services, isTaken = () => false }) {
+  const validSlots = new Set(slotsForDate(date, barberSlug));
   const offenders  = [];
+  const taken      = [];
   planParty(startMin, services).forEach((person, idx) => {
     if (!person.slotMins.every(m => validSlots.has(m))) offenders.push(idx);
+    else if (person.slotMins.some(m => isTaken(barberSlug, date, m))) taken.push(idx);
   });
-  return { ok: offenders.length === 0, offenders };
+  return { ok: offenders.length === 0 && taken.length === 0, offenders, taken };
 }
 
 /**
@@ -52,7 +54,7 @@ export function validateBookingInput({
   if (!date || !time) {
     return { ok: false, code: 'no_slot', message: 'Pick a day and a time slot above first.' };
   }
-  if (!barberSlug || !BARBERS[barberSlug]) {
+  if (!barberSlug || !getBarber(barberSlug)) {
     return { ok: false, code: 'no_barber', message: 'Pick a barber above first.' };
   }
   if (!name || name.trim().length < 2) {

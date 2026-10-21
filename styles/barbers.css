@@ -1,4 +1,5 @@
-/* barbers.css — the two chair spreads */
+/* barbers.css — the chair spreads: two built by hand, any other active
+   barber's built by scripts/barbers-section.js */
 
 .feature {
   display: grid;
@@ -76,7 +77,8 @@
   max-width: 52ch;
 }
 
-.feature + .feature {
+/* Between visible spreads only: a deactivated barber's spread is hidden. */
+.feature:not([hidden]) ~ .feature:not([hidden]) {
   margin-top: clamp(3.5rem, 8vw, 6rem);
   padding-top: clamp(3rem, 6vw, 5rem);
   border-top: 1px solid var(--rule);
@@ -99,3 +101,11 @@
 }
 
 .feature__hours { color: var(--bone-mute); }
+
+/* A barber added in the app: the title under the name, and without a photo
+   the text takes the whole width. */
+.feature__body .feature__title { color: var(--gold); font-size: 0.75rem; line-height: 1; margin-top: -0.25rem; }
+
+@media (min-width: 900px) {
+  .feature.feature--text { grid-template-columns: minmax(0, 1fr); }
+}

@@ -7,7 +7,7 @@
 // disk, which the asset pipeline (tools/build-assets.py) can otherwise break.
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -15,7 +15,8 @@ import {
   ADDON_PRICES_CENTS, SLOT_MINUTES,
 } from '../scripts/config.js';
 import { SERVICE_LABELS } from '../scripts/booking-messages.js';
-import { minutesToShortLabel, formatPrice } from '../scripts/booking-helpers.js';
+import { minutesToShortLabel, formatPrice, barberHoursLabel } from '../scripts/booking-helpers.js';
+import { SLUG_PATH } from '../scripts/pretty-link.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
@@ -172,13 +173,46 @@ describe('hours in the markup match STORE_HOURS', () => {
   });
 });
 
-describe('barbers in the markup match config.js', () => {
-  it('the picker offers exactly the active barbers, and the spreads match', () => {
+// The live barbers come from the database (scripts/roster.js) and may differ
+// from these at any time; what the page ships is config.js's fallback, so the
+// guards hold the shipped markup to config.js, and live-health holds config.js
+// to the database.
+describe('barbers in the markup match config.js (the fallback the page ships)', () => {
+  it('the shipped picker offers exactly config.js\'s barbers, and each built spread is one of them', () => {
     const picker = [...html.matchAll(/data-barber-option="([^"]+)"/g)].map((m) => m[1]);
-    const spreads = [...html.matchAll(/data-book-barber="([^"]+)"/g)].map((m) => m[1]);
     expect(picker.sort()).toEqual(Object.keys(BARBERS).sort());
-    expect(spreads.sort()).toEqual(Object.keys(BARBERS).sort());
+    const spreads = [...html.matchAll(/<div class="feature[^"]*" id="([^"]+)" data-barber-spread="([^"]+)">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/g)];
+    expect(spreads.length).toBeGreaterThan(0);
+    for (const [, id, slug, body] of spreads) {
+      expect(BARBERS[slug], `spread ${slug} is a config.js barber`).toBeTruthy();
+      expect(id).toBe(slug);
+      expect([...body.matchAll(/data-book-barber="([^"]+)"/g)].map((m) => m[1])).toEqual([slug]);
+    }
     expect(html).not.toContain('javier');
+  });
+
+  it('the shipped hours lines are the ones the page computes from each barber\'s week', () => {
+    for (const slug of Object.keys(BARBERS)) {
+      const button = html.match(new RegExp(`data-barber-option="${slug}">[\\s\\S]*?booking__barber-hours t-meta">([^<]+)<`));
+      expect(button?.[1], `picker hours for ${slug}`).toBe(barberHoursLabel(slug));
+      const spread = html.match(new RegExp(`data-barber-spread="${slug}">[\\s\\S]*?feature__hours">([^<]+)<`));
+      if (spread) expect(spread[1], `spread hours for ${slug}`).toBe(barberHoursLabel(slug, { long: true }));
+    }
+  });
+
+  it('the section heading and dek are the hooks scripts/barbers-section.js rewrites', () => {
+    expect(html).toContain(`<h2 class="t-display reveal" data-barbers-head>${Object.values(BARBERS).map((b) => b.name).join(' and ')}.</h2>`);
+    expect(html).toMatch(/data-barbers-dek>\s*Book whichever chair is open\. Prices are the same with either barber\./);
+  });
+
+  it('no barber slug the app accepts can shadow a directory the site serves', () => {
+    // manager_save_barber's slug_reserved list; /<slug> would otherwise be a folder, never 404.html.
+    const sql = readFileSync(join(ROOT, 'supabase', 'migrations', '0022_barber_app.sql'), 'utf8');
+    const reserved = sql.match(/v_slug = any\(array\[([^\]]+)\]\)/)[1].match(/'([^']+)'/g).map((q) => q.slice(1, -1));
+    const dirs = readdirSync(ROOT, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules').map((d) => d.name);
+    expect(dirs.length).toBeGreaterThan(5);
+    for (const dir of dirs) expect(reserved, `"${dir}" reserved`).toContain(dir);
   });
 
   it('the structured data names each active barber', () => {
@@ -329,6 +363,24 @@ describe('the gallery, focus and 404 styles', () => {
     const frame = css.find(([sel]) => sel.join() === '.plate::after');
     expect(frame[1]).toMatch(/position:\s*absolute/);
     expect(frame[1]).toMatch(/z-index:\s*2/);
+  });
+
+  it('the 404 page\'s inline barber-link check uses the same pattern as scripts/pretty-link.js', () => {
+    const page = readFileSync(join(ROOT, '404.html'), 'utf8');
+    const inline = page.match(/<script>if \(\/(.+?)\/i\.test\(location\.pathname\)\)/);
+    expect(inline, 'the inline check').toBeTruthy();
+    expect(inline[1]).toBe(SLUG_PATH.source);
+    expect(SLUG_PATH.flags).toBe('i');
+    // The copy is hidden only while checking, and shows anyway if the check never runs.
+    expect(page).toMatch(/\.nf-checking \.nf \{ visibility: hidden; animation: nf-show 0s 3\.5s forwards; \}/);
+    expect(page).toContain("import { resolvePrettyLink } from '/scripts/pretty-link.js?v=");
+    expect(page).toContain('location.replace(url)');
+  });
+
+  it('every ?v= on index.html and 404.html is the same release', () => {
+    const page = readFileSync(join(ROOT, '404.html'), 'utf8');
+    const versions = new Set([...(html + page).matchAll(/\?v=([\w-]+)/g)].map((m) => m[1]));
+    expect(versions.size).toBe(1);
   });
 
   it('the 404 page loads its styles and icons from the site root, so nested missing URLs keep them', () => {

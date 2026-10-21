@@ -12,7 +12,7 @@
 // claims open tabs; scripts/main.js reloads a tab that was already controlled
 // by an older worker. Caches from any other version are deleted on activate.
 
-const VERSION = 'fe-14';
+const VERSION = 'fe-17';
 const STATIC_CACHE = `fe-static-${VERSION}`;
 const HTML_CACHE   = `fe-html-${VERSION}`;
 

@@ -11,12 +11,17 @@
 // Within one visit the card shows only until a booking is made: "Book
 // another" gives a fresh form, as it always has. The next visit shows the
 // new booking's choices.
+//
+// Barbers read late (booking-grid.js) can drop the saved barber after the
+// form started on him: the picker moves to another, so the card and the
+// sticky bar stop naming him for the rest of the visit. The saved record
+// keeps him for a visit when he is back.
 
 import { chooseBarber } from './booking-grid.js';
 import { resetForm } from './booking-submit.js';
 import { formatPhoneDisplay } from './booking-helpers.js';
 import { SERVICE_LABELS, ADDON_LABELS } from './booking-messages.js';
-import { BARBERS } from './config.js';
+import { getBarber } from './roster.js';
 
 const KEY = 'fe.lastBooking';
 
@@ -31,7 +36,7 @@ export function loadLastBooking() {
   }
   if (!saved || typeof saved.name !== 'string' || !saved.name.trim()
     || !/^\d{10}$/.test(saved.phone || '')
-    || !BARBERS[saved.barberSlug] || !SERVICE_LABELS[saved.serviceSlug]) return null;
+    || !getBarber(saved.barberSlug) || !SERVICE_LABELS[saved.serviceSlug]) return null;
   return { ...saved, addons: (saved.addons || []).filter(a => ADDON_LABELS[a]) };
 }
 
@@ -53,10 +58,12 @@ export function clearLastBooking() {
   try { localStorage.removeItem(KEY); } catch (_) { /* nothing was kept */ }
 }
 
-/** "Same as last time: Hassan, Hair Cut + Beard, Wax." */
+/** "Same as last time: Hassan, Hair Cut + Beard, Wax." (no barber when his
+ *  isn't on offer). */
 export function sameAsLastTime(saved) {
+  const barber = getBarber(saved.barberSlug);
   const addons = saved.addons.length ? ` + ${saved.addons.map(a => ADDON_LABELS[a]).join(', ')}` : '';
-  return `Same as last time: ${BARBERS[saved.barberSlug].name}, ${SERVICE_LABELS[saved.serviceSlug]}${addons}.`;
+  return `Same as last time: ${barber ? `${barber.name}, ` : ''}${SERVICE_LABELS[saved.serviceSlug]}${addons}.`;
 }
 
 /* ---------- The page ---------- */
@@ -74,7 +81,8 @@ function setStickyLabel(saved) {
   const label = document.querySelector('[data-mobile-cta-label]');
   if (!label) return;
   label.dataset.label ??= label.textContent;
-  label.textContent = saved ? `Rebook · ${BARBERS[saved.barberSlug].name}` : label.dataset.label;
+  const barber = saved && getBarber(saved.barberSlug);
+  label.textContent = barber ? `Rebook · ${barber.name}` : label.dataset.label;
 }
 
 /** The form as last time: barber, service, add-ons, name, phone, text boxes.
@@ -109,6 +117,15 @@ export function initBookingReturn() {
     prefill(form, saved);
     if (cancelPhone && !cancelPhone.value) cancelPhone.value = formatPhoneDisplay(saved.phone);
   }
+
+  // The barbers landed late without the saved barber: the form is on
+  // another now, so nothing names him as the one being rebooked.
+  document.addEventListener('booking:barbers', () => {
+    if (!saved?.barberSlug || getBarber(saved.barberSlug)) return;
+    saved = { ...saved, barberSlug: null };
+    if (!card.hidden) renderCard(card, saved);
+    setStickyLabel(saved);
+  });
 
   document.addEventListener('booking:booked', (e) => {
     card.hidden = true;                // the confirmation is showing
