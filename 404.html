@@ -22,7 +22,7 @@
        animation shows it anyway if the check never runs. -->
   <script>if (/^\/([a-z0-9-]{2,30})\/?$/i.test(location.pathname)) document.documentElement.classList.add('nf-checking');</script>
   <script type="module">
-    import { resolvePrettyLink } from '/scripts/pretty-link.js?v=20261021-2';
+    import { resolvePrettyLink } from '/scripts/pretty-link.js?v=20261021-3';
     const root = document.documentElement;
     if (root.classList.contains('nf-checking')) {
       resolvePrettyLink(location).then(
@@ -32,8 +32,8 @@
     }
   </script>
 
-  <link rel="stylesheet" href="/styles/tokens.css?v=20261021-2">
-  <link rel="stylesheet" href="/styles/type.css?v=20261021-2">
+  <link rel="stylesheet" href="/styles/tokens.css?v=20261021-3">
+  <link rel="stylesheet" href="/styles/type.css?v=20261021-3">
 
   <style>
     /* 404-specific layout — kept self-contained so the page works even if

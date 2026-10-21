@@ -243,10 +243,18 @@ function rosterChanged(before) {
  *  follows: [data-book-online] ones (the hero's and the sticky bar's book
  *  and call buttons, Book the VIP, the footer link) go, and their
  *  [data-book-offline] stand-ins (one gold call button, "Call to book" over
- *  the section) show. Barbers coming back turn it all around. */
+ *  the section) show. The price list's service rows keep their names and
+ *  prices but say they call (booking-submit.js makes the call). Barbers
+ *  coming back turn it all around. */
 function showNoBarbers(on) {
   document.querySelectorAll('[data-book-online]').forEach(el => { el.hidden = on; });
   document.querySelectorAll('[data-book-offline]').forEach(el => { el.hidden = !on; });
+  document.querySelectorAll('.menu__book[data-book-service]').forEach(row => {
+    row.dataset.bookLabel ??= row.getAttribute('aria-label');
+    const call = `Call to book ${row.querySelector('.menu__name').textContent.trim()} · 413·885·4440`;
+    row.setAttribute('aria-label', on ? call : row.dataset.bookLabel);
+    if (on) row.title = call; else row.removeAttribute('title');
+  });
   const book = document.getElementById('book');
   if (!book) return;
   book.toggleAttribute('data-no-barbers', on);
@@ -256,7 +264,7 @@ function showNoBarbers(on) {
     note.className = 'booking-offline';
     note.dataset.noBarbersNote = '';
     note.setAttribute('role', 'status');
-    note.tabIndex = -1;              // the price list's Book buttons lead here
+    note.tabIndex = -1;              // the price list's add-on rows lead here
     const call = document.createElement('a');
     call.href = `tel:+${SHOP_PHONE}`;
     call.textContent = '413·885·4440';

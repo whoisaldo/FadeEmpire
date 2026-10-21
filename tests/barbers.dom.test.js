@@ -889,17 +889,52 @@ describe('every booking call to action follows the sticky bar', () => {
   const eyebrow = () => [...$('#book .section__head .t-eyebrow').children].filter(visible).map(squish).join('');
   const toBook = () => $$('a[href="#book"]').filter(visible).map(squish);
 
-  it('nobody online: the hero, the Book section, Book the VIP and the footer offer a call, and the price list leads to the phone line', async () => {
+  it('nobody online: the hero, the Book section, Book the VIP and the footer offer a call', async () => {
     database([]);
     await boot({ more: section('menu') + footer() });
     expect(heroCtas()).toEqual([['Call to book 413·885·4440', 'tel:+14138854440']]);
     expect(eyebrow()).toBe('Call to book');
     expect(toBook()).toEqual([]);                    // no Book a chair, Book the VIP or footer link
     expect(visible($('[data-book-service="vip-haircut"]'))).toBe(false);
+  });
+
+  it('nobody online: the price list\'s service rows call the shop, and book again when barbers come back', async () => {
+    const rows = () => $$('.menu__book[data-book-service]');
+    const labels = () => rows().map(r => r.getAttribute('aria-label'));
+    const shipped = [
+      'Book Hair Cut, $30', 'Book Line Up, $10', 'Book Beard Trim, $15',
+      'Book Kids Cut, $25', 'Book Military Cut, $25', 'Book Senior Cut, $25',
+    ];
+    // What a tap opens: the click the tel: link gets (jsdom doesn't dial).
+    const dialled = [];
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest?.('a[href^="tel:"]');
+      if (a) { dialled.push(a.getAttribute('href')); e.preventDefault(); }
+    });
+
+    database([]);
+    await boot({ more: section('menu') + footer() });
+    expect(labels()).toEqual([
+      'Call to book Hair Cut · 413·885·4440', 'Call to book Line Up · 413·885·4440',
+      'Call to book Beard Trim · 413·885·4440', 'Call to book Kids Cut · 413·885·4440',
+      'Call to book Military Cut · 413·885·4440', 'Call to book Senior Cut · 413·885·4440',
+    ]);
+    expect(rows().map(r => r.title)).toEqual(labels());
+    expect(squish($('[data-book-service="hair-cut"]'))).toBe('Hair Cut $30 Scissor or clipper, edges included');
 
     $('[data-book-service="hair-cut"]').click();
-    expect(document.activeElement).toBe($('[data-no-barbers-note]'));
-    expect($('[data-no-barbers-note]').scrollIntoView).toHaveBeenCalled();
+    expect(dialled).toEqual(['tel:+14138854440']);
+    expect(document.activeElement).not.toBe($('[data-no-barbers-note]'));
+    expect($('[data-service-select]').value).not.toBe('hair-cut');
+
+    database([HASSAN]);
+    await grid.loadBarbers({ waitMs: 1000 });
+    expect(labels()).toEqual(shipped);
+    expect(rows().some(r => r.hasAttribute('title'))).toBe(false);
+
+    $('[data-book-service="beard-trim"]').click();
+    expect(dialled).toEqual(['tel:+14138854440']);   // no second call
+    expect($('[data-service-select]').value).toBe('beard-trim');
   });
 
   it('barbers coming back turn every one of them back to booking', async () => {

@@ -930,11 +930,14 @@ export function initBookingSubmit() {
 
   // "Book the VIP" and the service rows of the price list: the service is
   // chosen (and totalled), then the page moves to the next step still to do
-  // instead of the bare #book.
+  // instead of the bare #book. Nobody books online: the rows call the shop,
+  // through the phone line's own tel: link.
   document.addEventListener('click', (e) => {
     const link = e.target.closest?.('[data-book-service]');
     if (!link) return;
     e.preventDefault();
+    const call = document.querySelector('#book[data-no-barbers] [data-no-barbers-note] a');
+    if (call) { call.click(); return; }
     if (form.dataset.booked === 'true') { focusNextStep(form); return; }
     const select = form.querySelector('[data-service-select]');
     select.value = link.dataset.bookService;
