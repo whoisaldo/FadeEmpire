@@ -11,14 +11,18 @@
 //     (or vice versa) — the #1 hazard of the mirror-constants architecture
 //   * the barbers read the site makes failing, or returning data the booking
 //     form cannot use (bad slugs, hours outside the store's)
-//   * config.js's fallback barbers disagreeing with the database on hours
 //   * missing RPCs after a botched migration (booking + cancellation break)
 //   * security regressions: bookings PII readable by anon, owner RPCs exposed
 //
 // Barbers are managed in the app: the site reads them from the database, so
 // a barber added or deactivated there is not drift. config.js's BARBERS is only
 // the fallback for a failed read; a fallback barber who is no longer active,
-// or renamed, is printed as a note, not a failure.
+// renamed, or whose hours the app changed, is printed as a note, not a failure.
+//
+// Before migration 0022 is applied, the site's barbers read fails on a column
+// 0022 adds (barbers.title) and the site uses config.js's barbers. That is
+// printed as a note and the checks on the read are skipped; any other failure
+// of the read fails them.
 //
 // Usage:  node tests/ci/live-health.mjs
 //   LIVE_BASE_URL   override the site origin (default https://chicopeefadeempire.com)
@@ -30,6 +34,7 @@ import {
   SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS,
 } from '../../scripts/config.js';
 import { ROSTER_SELECT } from '../../scripts/roster.js';
+import { missing0022Column, compareFallback } from './live-health-rules.mjs';
 
 const SITE = process.env.LIVE_BASE_URL || 'https://chicopeefadeempire.com';
 const SITE_RETRIES = Math.max(1, parseInt(process.env.SITE_RETRIES || '1', 10));
@@ -50,6 +55,21 @@ let rosterRead;
 const readRoster = () => (rosterRead ||= rest(
   `barbers?select=${ROSTER_SELECT}&is_active=eq.true&barber_closures.closure_date=gte.${shopToday()}&order=sort_order,slug`));
 const notes = [];
+const note = (text) => { if (!notes.includes(text)) notes.push(text); };
+
+// A check that cannot run yet: printed, not counted as a failure.
+class Skip extends Error {}
+
+// The barbers read, for the checks on it; they are skipped while production has no 0022.
+async function roster() {
+  const read = await readRoster();
+  const column = missing0022Column(read);
+  if (column) {
+    note(`migration 0022 not applied yet: the site is using config.js's barbers (its barbers read needs barbers.${column})`);
+    throw new Skip('migration 0022 not applied yet');
+  }
+  return read;
+}
 
 async function rest(path) {
   const res = await fetch(`${REST}/${path}`, { headers: HEADERS });
@@ -90,7 +110,7 @@ check('site is up and serving the current client', async () => {
 });
 
 check('the barbers read the site makes works, and every barber in it can be booked', async () => {
-  const { status, body } = await readRoster();
+  const { status, body } = await roster();
   if (status !== 200) throw new Error(`HTTP ${status}: ${JSON.stringify(body)}`);
   if (!Array.isArray(body)) throw new Error('response is not an array');
   const store = await rest('store_hours?select=weekday,open_time,close_time');
@@ -119,31 +139,17 @@ check('the barbers read the site makes works, and every barber in it can be book
   return `barbers: ${bookable.map(b => b.slug).join(', ')}${waiting.length ? ` (no hours yet, not offered: ${waiting})` : ''}`;
 });
 
-check('config.js fallback barbers agree with the database', async () => {
-  const { status, body } = await readRoster();
+check('config.js fallback barbers compared with the database', async () => {
+  const { status, body } = await roster();
   if (status !== 200) throw new Error(`HTTP ${status}`);
-  const db = Object.fromEntries(body.map(b => [b.slug, b]));
-  const drift = [];
-  const agreed = [];
-  for (const [slug, cfg] of Object.entries(BARBERS)) {
-    const row = db[slug];
-    if (!row) { notes.push(`config.js fallback barber ${slug} is not active in the database`); continue; }
-    if (row.display_name !== cfg.name) notes.push(`config.js names ${slug} "${cfg.name}", the database "${row.display_name}"`);
-    const week = Object.fromEntries(row.barber_schedules.map(r => [r.weekday, { open: hmsToMin(r.open_time), close: hmsToMin(r.close_time) }]));
-    for (const wk of [0, 1, 2, 3, 4, 5, 6]) {
-      const a = cfg.schedule[wk], b = week[wk];
-      if (JSON.stringify(a) !== JSON.stringify(b)) {
-        drift.push(`${slug} weekday ${wk}: DB ${JSON.stringify(b)} vs config ${JSON.stringify(a)}`);
-      }
-    }
-    agreed.push(slug);
-  }
-  if (drift.length) throw new Error(drift.join(' | '));
-  return agreed.length ? `${agreed.join(' + ')} hours aligned` : 'no fallback barber is active (see notes)';
+  const { notes: found, agreed } = compareFallback(BARBERS, body);
+  found.forEach(note);
+  return agreed.length === Object.keys(BARBERS).length ? `${agreed.join(' + ')} match the database`
+    : 'differences printed as notes (the site uses the database\'s)';
 });
 
 check('the 404 page forwards a barber link (/<slug>)', async () => {
-  const { status, body } = await readRoster();
+  const { status, body } = await roster();
   if (status !== 200 || !body.length) throw new Error('no active barber to try');
   const slug = body[0].slug;
   const res = await fetch(`${SITE}/${slug}`, { headers: { 'cache-control': 'no-cache' } });
@@ -272,16 +278,22 @@ check('anon cannot execute confirm_booking (owner-only RPC)', async () => {
 /* ---------------- runner ---------------- */
 
 let failed = 0;
+let skipped = 0;
 console.log(`Live health — site: ${SITE}\n            — db:   ${SUPABASE_URL}\n`);
 for (const { name, fn } of checks) {
   try {
     const detail = await fn();
     console.log(`  ✓ ${name}${detail ? `  —  ${detail}` : ''}`);
   } catch (err) {
+    if (err instanceof Skip) {
+      skipped++;
+      console.log(`  - ${name}  —  skipped: ${err.message}`);
+      continue;
+    }
     failed++;
     console.error(`  ✗ ${name}\n      ${err.message}`);
   }
 }
-for (const note of notes) console.log(`  · note: ${note}`);
-console.log(`\n${checks.length - failed}/${checks.length} checks passed`);
+for (const text of notes) console.log(`  · note: ${text}`);
+console.log(`\n${checks.length - failed - skipped}/${checks.length} checks passed${skipped ? `, ${skipped} skipped` : ''}`);
 if (failed) process.exit(1);
