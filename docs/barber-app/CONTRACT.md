@@ -215,6 +215,11 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
   the shop's phone and walk-ins instead, and the barbers section is hidden. Barbers that arrive late (or while a
   booking confirmation shows, applied on "Book another") re-check the barber, day, and time already picked; anything
   no longer bookable is cleared, with a line saying so. The hero line names the barbers and counts their chairs.
+  Every booking call to action follows the same state: with nobody online the hero's and the sticky bar's book
+  buttons become one "Call to book · 413·885·4440", the Book section's label reads "Call to book", Book the VIP and
+  the footer's Book a chair go, and the price list's rows lead to the phone line. Barbers coming back restore them.
+- The sticky bar's "Rebook · <Barber>" shows that barber's next open slot (the hero and the booking callout show the
+  shop's). With no open slot for that barber in the next 14 days it shows the name without a time.
 - Everything read from `barbers` reaches the page as text. `photo_url` is shown only when it is an `https` URL under
   the project's own `/storage/v1/object/public/barber-photos/`; a slug outside `[a-z0-9-]{2,30}` is not offered.
 - A slot is taken when any active booking on that chair overlaps it (a booking holds `[start, start + 45 min)`), so

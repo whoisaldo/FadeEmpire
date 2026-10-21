@@ -197,20 +197,22 @@ export async function fetchAvailability({ fromDate, toDate, barberSlug = DEFAULT
 }
 
 /**
- * Find the next available 45-minute slot across ALL barbers, looking up to
- * 14 days ahead. Returns { date, time, label, barberSlug, barberName } or null.
+ * Find the next available 45-minute slot across ALL barbers, or only
+ * `barberSlug`'s, looking up to 14 days ahead. Returns { date, time, label,
+ * barberSlug, barberName } or null (also for a barber not on offer).
  * Throws when availability can't be read.
  */
-export async function fetchNextAvailable() {
+export async function fetchNextAvailable({ barberSlug = null } = {}) {
   const fromDate = isoDate(new Date());
   const toDate   = addDaysIso(fromDate, 14);
-  const taken    = await fetchAvailability({ fromDate, toDate, barberSlug: null });
+  const barbers  = barberList().filter(b => !barberSlug || b.slug === barberSlug);
+  if (!barbers.length) return null;
+  const taken    = await fetchAvailability({ fromDate, toDate, barberSlug });
 
   const isTaken  = takenSlots(taken);
 
   const todayIso = fromDate;
   const nowMin   = nowMinutesInShopTz();
-  const barbers  = barberList();
 
   for (let i = 0; i <= 14; i++) {
     const iso = addDaysIso(fromDate, i);

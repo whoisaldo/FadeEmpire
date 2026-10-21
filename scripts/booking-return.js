@@ -5,8 +5,8 @@
 // add-ons and the two text boxes. Guests are not kept, nor a replacement
 // booked for someone else after a Move. On the next visit the
 // form starts filled in with them, the card at the top of #book says so, the
-// cancel panel has the phone, and the sticky bar reads "Rebook · <Barber>":
-// a day, a time and Reserve rebook. "Not you? Clear" forgets it all.
+// cancel panel has the phone, and the sticky bar reads "Rebook · <Barber>"
+// with that barber's next open slot (cover.js). "Not you? Clear" forgets it all.
 //
 // Within one visit the card shows only until a booking is made: "Book
 // another" gives a fresh form, as it always has. The next visit shows the
@@ -77,12 +77,20 @@ function renderCard(card, saved) {
   text.replaceChildren(welcome, ` ${sameAsLastTime(saved)} Pick a day.`);
 }
 
+/** "Rebook · <Barber>", or the shipped label. The barber it names goes in
+ *  data-rebook-barber, and booking:rebook-barber tells cover.js, so the time
+ *  after it is that barber's next open slot, never another's. */
 function setStickyLabel(saved) {
   const label = document.querySelector('[data-mobile-cta-label]');
   if (!label) return;
   label.dataset.label ??= label.textContent;
   const barber = saved && getBarber(saved.barberSlug);
   label.textContent = barber ? `Rebook · ${barber.name}` : label.dataset.label;
+  const slug = barber ? barber.slug : '';
+  if (slug === (label.dataset.rebookBarber || '')) return;
+  if (slug) label.dataset.rebookBarber = slug;
+  else delete label.dataset.rebookBarber;
+  document.dispatchEvent(new CustomEvent('booking:rebook-barber'));
 }
 
 /** The form as last time: barber, service, add-ons, name, phone, text boxes.

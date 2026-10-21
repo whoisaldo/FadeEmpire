@@ -239,12 +239,14 @@ function rosterChanged(before) {
 
 /** No barber takes online bookings: the booking steps give way to a line
  *  with the shop's phone (index.html's CSS hides them on [data-no-barbers]).
- *  "Cancel a booking" stays. The sticky bar's gold button calls the shop
- *  instead, and its call icon, which would repeat it, goes. */
+ *  "Cancel a booking" stays. Every booking call to action on the page
+ *  follows: [data-book-online] ones (the hero's and the sticky bar's book
+ *  and call buttons, Book the VIP, the footer link) go, and their
+ *  [data-book-offline] stand-ins (one gold call button, "Call to book" over
+ *  the section) show. Barbers coming back turn it all around. */
 function showNoBarbers(on) {
-  document.querySelector('[data-mobile-cta-book]')?.toggleAttribute('hidden', on);
-  document.querySelector('[data-mobile-cta-call]')?.toggleAttribute('hidden', on);
-  document.querySelector('[data-mobile-cta-offline]')?.toggleAttribute('hidden', !on);
+  document.querySelectorAll('[data-book-online]').forEach(el => { el.hidden = on; });
+  document.querySelectorAll('[data-book-offline]').forEach(el => { el.hidden = !on; });
   const book = document.getElementById('book');
   if (!book) return;
   book.toggleAttribute('data-no-barbers', on);
@@ -254,6 +256,7 @@ function showNoBarbers(on) {
     note.className = 'booking-offline';
     note.dataset.noBarbersNote = '';
     note.setAttribute('role', 'status');
+    note.tabIndex = -1;              // the price list's Book buttons lead here
     const call = document.createElement('a');
     call.href = `tel:+${SHOP_PHONE}`;
     call.textContent = '413·885·4440';

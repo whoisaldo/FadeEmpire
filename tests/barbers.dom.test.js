@@ -17,7 +17,9 @@
 //     whose later guest lands on one
 //   * barbers read while Reserve is in flight wait for its answer
 //   * a late roster without a returning customer's barber stops naming him
-//   * nobody online: the sticky bar calls the shop
+//   * nobody online: the sticky bar calls the shop, and so does every other
+//     booking call to action on the page
+//   * the sticky bar's "Rebook · <Barber>" time is that barber's next slot
 //   * the hero line names the barbers and counts the chairs
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -60,6 +62,10 @@ function section(id) {
 const mobileCta = () => {
   const start = indexHtml.indexOf('<div class="mobile-cta"');
   return indexHtml.slice(start, indexHtml.indexOf('</div>', start) + '</div>'.length);
+};
+const footer = () => {
+  const start = indexHtml.indexOf('<footer class="footer"');
+  return indexHtml.slice(start, indexHtml.indexOf('</footer>', start) + '</footer>'.length);
 };
 
 // Monday 2026-07-06, 10:00 AM in Chicopee.
@@ -106,8 +112,8 @@ function heldAvailability() {
 }
 
 /** main.js's order, with the barbers' wait shortened for the slow-read tests. */
-async function boot({ search = '', waitMs = 200 } = {}) {
-  document.body.innerHTML = section('hero') + section('barbers') + section('book') + mobileCta();
+async function boot({ search = '', waitMs = 200, more = '' } = {}) {
+  document.body.innerHTML = section('hero') + section('barbers') + section('book') + mobileCta() + more;
   const spreads = await import('../scripts/barbers-section.js');
   grid = await import('../scripts/booking-grid.js');
   const submit = await import('../scripts/booking-submit.js');
@@ -851,6 +857,90 @@ describe('the sticky bar with nobody online', () => {
     await boot({ waitMs: 20 });
     expect(shown()).toEqual(['[data-mobile-cta-book]', '[data-mobile-cta-call]']);
     await vi.waitFor(() => expect(shown()).toEqual(['[data-mobile-cta-offline]']));
+  });
+});
+
+describe('every booking call to action follows the sticky bar', () => {
+  const visible = (el) => !el.closest('[hidden]');
+  const shown = (node) => [...node.childNodes]
+    .map(n => (n.nodeType === Node.TEXT_NODE ? n.textContent : n.hidden ? '' : shown(n))).join('');
+  const squish = (el) => shown(el).replace(/\s+/g, ' ').trim();
+  const heroCtas = () => $$('.hero__ctas a').filter(visible).map(a => [squish(a), a.getAttribute('href')]);
+  const eyebrow = () => [...$('#book .section__head .t-eyebrow').children].filter(visible).map(squish).join('');
+  const toBook = () => $$('a[href="#book"]').filter(visible).map(squish);
+
+  it('nobody online: the hero, the Book section, Book the VIP and the footer offer a call, and the price list leads to the phone line', async () => {
+    database([]);
+    await boot({ more: section('menu') + footer() });
+    expect(heroCtas()).toEqual([['Call to book 413·885·4440', 'tel:+14138854440']]);
+    expect(eyebrow()).toBe('Call to book');
+    expect(toBook()).toEqual([]);                    // no Book a chair, Book the VIP or footer link
+    expect(visible($('[data-book-service="vip-haircut"]'))).toBe(false);
+
+    $('[data-book-service="hair-cut"]').click();
+    expect(document.activeElement).toBe($('[data-no-barbers-note]'));
+    expect($('[data-no-barbers-note]').scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('barbers coming back turn every one of them back to booking', async () => {
+    database([]);
+    await boot({ more: section('menu') + footer() });
+    database([HASSAN]);
+    await grid.loadBarbers({ waitMs: 1000 });
+    expect(heroCtas()).toEqual([['Book a chair', '#book'], ['Call 413·885·4440', 'tel:+14138854440']]);
+    expect(eyebrow()).toBe('Book a chair');
+    expect(toBook()).toEqual(['Book a chair', 'Book a chair', 'Book the VIP', 'Book a chair']);   // hero, sticky bar, menu, footer
+  });
+
+  it('while barbers book online, the page ships as it is', async () => {
+    database([HASSAN, LARRY]);
+    await boot({ more: section('menu') + footer() });
+    expect(heroCtas()).toEqual([['Book a chair', '#book'], ['Call 413·885·4440', 'tel:+14138854440']]);
+    expect(eyebrow()).toBe('Book a chair');
+    expect(toBook()).toEqual(['Book a chair', 'Book a chair', 'Book the VIP', 'Book a chair']);   // hero, sticky bar, menu, footer
+  });
+});
+
+describe('the sticky bar\'s rebook time', () => {
+  const DANA = {
+    name: 'Dana Reyes', phone: '4135550123', barberSlug: 'hassan', serviceSlug: 'hair-cut',
+    addons: [], remindSms: true, rebookSms: false, savedAt: '2026-06-20T15:00:00.000Z',
+  };
+  // The shop's next slot is Larry's at 10:45; Hassan's own is 11:30.
+  const LARRYS = { date: '2026-07-06', time: '10:45:00', barberSlug: 'larry', barberName: 'Larry',
+    label: 'MON, JUL 6 · 10:45 AM · LARRY', shortLabel: 'Mon 10:45 AM' };
+  const HASSANS = { date: '2026-07-06', time: '11:30:00', barberSlug: 'hassan', barberName: 'Hassan',
+    label: 'MON, JUL 6 · 11:30 AM · HASSAN', shortLabel: 'Mon 11:30 AM' };
+  const sticky = () => ($('[data-mobile-cta-next]').hidden ? null : $('[data-mobile-cta-next-slot]').textContent);
+
+  async function bootWithCover(hassans) {
+    rpc.fetchNextAvailable.mockImplementation(async ({ barberSlug } = {}) => (
+      barberSlug === 'hassan' ? hassans : barberSlug ? null : LARRYS));
+    localStorage.setItem('fe.lastBooking', JSON.stringify(DANA));
+    database([HASSAN, LARRY]);
+    await boot();
+    (await import('../scripts/cover.js')).initCover();
+    await vi.waitFor(() => expect($('[data-next-available]').hidden).toBe(false));
+  }
+
+  it('"Rebook · Hassan" carries Hassan\'s next open slot, not the shop\'s earlier one at Larry\'s chair', async () => {
+    await bootWithCover(HASSANS);
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
+    expect(sticky()).toBe('Mon 11:30 AM');
+    expect($('[data-next-available-slot]').textContent).toBe('MON, JUL 6 · 10:45 AM · LARRY');   // the hero: the shop's
+  });
+
+  it('with no open slot for Hassan in range, the bar names him without a time', async () => {
+    await bootWithCover(null);
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
+    expect(sticky()).toBeNull();
+  });
+
+  it('"Not you? Clear" goes back to the shop\'s next slot', async () => {
+    await bootWithCover(HASSANS);
+    $('[data-rebook-clear]').click();
+    expect($('[data-mobile-cta-label]').textContent).toBe('Book a chair');
+    await vi.waitFor(() => expect(sticky()).toBe('Mon 10:45 AM'));
   });
 });
 

@@ -744,6 +744,13 @@ async function focusNextStep(form) {
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  // Nobody books online: the next step is the line with the shop's phone.
+  const offline = document.querySelector('#book[data-no-barbers] [data-no-barbers-note]');
+  if (offline) {
+    offline.focus({ preventScroll: true });
+    offline.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const tapped = document.activeElement;
   await whenAvailable();
   if (![tapped, document.body].includes(document.activeElement)) return;   // the customer moved on

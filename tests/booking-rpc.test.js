@@ -222,6 +222,24 @@ describe('fetchNextAvailable follows the roster', () => {
     expect(await fetchNextAvailable()).toMatchObject({ date: '2026-07-06', time: '11:45:00' });
   });
 
+  it('one barber\'s next slot: only that barber\'s bookings are read, and another barber\'s earlier slot is not it', async () => {
+    setRoster([barber('hassan', 'Hassan', daily(600, 1080)), barber('larry', 'Larry', daily(600, 1080))]);
+    // Hassan is booked 10:45 to 1:00 today; Larry is free at 10:45.
+    result = { data: [645, 690, 735].map(m => ({ barber_slug: 'hassan', booking_date: '2026-07-06',
+      booking_time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00` })), error: null };
+    expect(await fetchNextAvailable({ barberSlug: 'hassan' }))
+      .toMatchObject({ date: '2026-07-06', time: '13:00:00', barberSlug: 'hassan', shortLabel: 'Mon 1:00 PM' });
+    expect(calls).toContainEqual(['eq', 'barber_slug', 'hassan']);
+    expect(await fetchNextAvailable()).toMatchObject({ time: '10:45:00', barberSlug: 'larry' });
+  });
+
+  it('a barber not on offer has no next slot, without a read', async () => {
+    setRoster([barber('larry', 'Larry', daily(600, 1080))]);
+    calls = [];
+    expect(await fetchNextAvailable({ barberSlug: 'hassan' })).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
   it('a day off and a deactivated barber are never offered', async () => {
     // Only Larry is active, and he is off today (Monday): the next slot is Wednesday at 10.
     setRoster([barber('larry', 'Larry', daily(600, 1080), ['2026-07-06'])]);

@@ -81,21 +81,21 @@
   }
   </script>
 
-  <link rel="stylesheet" href="./styles/tokens.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/type.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/layout.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/components.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/hero.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/shop.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/menu.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/gallery.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/barbers.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/visit.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/motion.css?v=20261021-1">
-  <link rel="stylesheet" href="./styles/responsive.css?v=20261021-1">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/type.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/layout.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/components.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/hero.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/shop.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/menu.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/gallery.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/barbers.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/booking-grid.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/visit.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/motion.css?v=20261021-2">
+  <link rel="stylesheet" href="./styles/responsive.css?v=20261021-2">
 
-  <script type="module" src="./scripts/main.js?v=20261021-1"></script>
+  <script type="module" src="./scripts/main.js?v=20261021-2"></script>
 </head>
 <body>
 
@@ -175,9 +175,14 @@
       </p>
 
       <div class="hero__ctas">
-        <a href="#book" class="btn btn--gold btn--lg">Book a chair</a>
-        <a href="tel:+14138854440" class="btn btn--ghost btn--lg">
+        <a href="#book" class="btn btn--gold btn--lg" data-book-online>Book a chair</a>
+        <a href="tel:+14138854440" class="btn btn--ghost btn--lg" data-book-online>
           <span>Call</span>
+          <span class="t-mono">413·885·4440</span>
+        </a>
+        <!-- No barber takes online bookings (booking-grid.js): this replaces the two. -->
+        <a href="tel:+14138854440" class="btn btn--gold btn--lg" data-book-offline hidden>
+          <span>Call to book</span>
           <span class="t-mono">413·885·4440</span>
         </a>
       </div>
@@ -342,7 +347,7 @@
             <span class="t-meta">All in</span>
             <span class="t-price--lg">$60</span>
           </div>
-          <a href="#book" class="btn btn--ghost btn--block menu__feature-cta" data-book-service="vip-haircut">Book the VIP</a>
+          <a href="#book" class="btn btn--ghost btn--block menu__feature-cta" data-book-service="vip-haircut" data-book-online>Book the VIP</a>
         </aside>
 
         <figure class="menu__photo">
@@ -756,7 +761,7 @@
 <section class="section" id="book">
   <div class="container">
     <header class="section__head">
-      <p class="t-eyebrow">Book a chair</p>
+      <p class="t-eyebrow"><span data-book-online>Book a chair</span><span data-book-offline hidden>Call to book</span></p>
       <h2 class="t-display">Pick a barber, a day, a time.</h2>
       <p class="section__dek t-italic">
         The slot is yours the moment you reserve. We confirm the details by WhatsApp or text.
@@ -1104,16 +1109,16 @@
      STICKY MOBILE CTA
 ============================================================ -->
 <div class="mobile-cta" data-mobile-cta aria-hidden="true">
-  <a href="#book" class="mobile-cta__book" data-mobile-cta-book>
+  <a href="#book" class="mobile-cta__book" data-mobile-cta-book data-book-online>
     <strong data-mobile-cta-label>Book a chair</strong>
     <span class="mobile-cta__next" data-mobile-cta-next hidden>· <span data-mobile-cta-next-slot>—</span></span>
   </a>
   <!-- No barber takes online bookings (booking-grid.js): this replaces the two. -->
-  <a href="tel:+14138854440" class="mobile-cta__book" data-mobile-cta-offline hidden>
+  <a href="tel:+14138854440" class="mobile-cta__book" data-mobile-cta-offline data-book-offline hidden>
     <strong>Call to book</strong>
     <span class="mobile-cta__next">· 413·885·4440</span>
   </a>
-  <a href="tel:+14138854440" class="mobile-cta__call" data-mobile-cta-call aria-label="Call Fade Empire">
+  <a href="tel:+14138854440" class="mobile-cta__call" data-mobile-cta-call data-book-online aria-label="Call Fade Empire">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.13 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
@@ -1138,7 +1143,7 @@
       <div class="footer__col">
         <p class="t-eyebrow">Hours</p>
         <p class="t-mono">10 AM – 6 PM<br>Closed Tuesdays</p>
-        <p class="t-mono"><a href="#book" class="link-underline">Book a chair</a></p>
+        <p class="t-mono" data-book-online><a href="#book" class="link-underline">Book a chair</a></p>
       </div>
       <div class="footer__col">
         <p class="t-eyebrow">Follow</p>

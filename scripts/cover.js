@@ -1,7 +1,10 @@
 // cover.js — the parts of the page outside #book that lead into booking:
 //   * the "next open slot" lines (hero, booking callout, sticky bar), which
 //     read the database and show only once the booking modules have started
-//     (booking:ready / data-booking-ready), with Reserve it and Take it
+//     (booking:ready / data-booking-ready), with Reserve it and Take it. The
+//     sticky bar's time is the shop's next slot, or, when the bar reads
+//     "Rebook · <Barber>" (booking-return.js), that barber's; none if that
+//     barber has no open slot in the next two weeks
 //   * the sticky CTA bar, kept away while the booking section shows
 // Everything else on the page that needs no database lives in page.js and
 // nav.js, so it keeps working when the database client fails to load.
@@ -20,9 +23,11 @@ async function updateNextAvailable() {
     document.addEventListener('booking:ready', updateNextAvailable, { once: true });
     return;
   }
-  let next;
+  const rebook = document.querySelector('[data-mobile-cta-label]')?.dataset.rebookBarber || null;
+  let next, sticky;
   try {
     next = await fetchNextAvailable();
+    sticky = !rebook || next?.barberSlug === rebook ? next : await fetchNextAvailable({ barberSlug: rebook });
   } catch (err) {
     console.warn('[cover] next available lookup failed', err);
   }
@@ -40,7 +45,8 @@ async function updateNextAvailable() {
   };
   fill('[data-next-available-slot]',          '[data-next-available]',         next.label);
   fill('[data-next-available-slot-callout]',  '[data-next-available-callout]', next.label);
-  fill('[data-mobile-cta-next-slot]',         '[data-mobile-cta-next]',        next.shortLabel || next.label);
+  if (sticky) fill('[data-mobile-cta-next-slot]', '[data-mobile-cta-next]', sticky.shortLabel || sticky.label);
+  else document.querySelector('[data-mobile-cta-next]')?.toggleAttribute('hidden', true);
 
   // "Reserve it" in the hero and "Take it" in the booking section both hand
   // the advertised barber, day and time to the grid, which then moves focus
@@ -101,8 +107,11 @@ export function initCover() {
   updateNextAvailable();
   setInterval(updateNextAvailable, 5 * 60_000);
   // The barbers arrived after the lines were filled (a slow read): the next
-  // slot may belong to a barber who is new, or gone.
-  document.addEventListener('booking:barbers', () => {
+  // slot may belong to a barber who is new, or gone. Or the sticky bar now
+  // names another barber, or none.
+  const refresh = () => {
     if (document.documentElement.hasAttribute('data-booking-ready')) updateNextAvailable();
-  });
+  };
+  document.addEventListener('booking:barbers', refresh);
+  document.addEventListener('booking:rebook-barber', refresh);
 }
