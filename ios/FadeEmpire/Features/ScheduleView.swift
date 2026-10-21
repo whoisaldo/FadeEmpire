@@ -219,9 +219,16 @@ private struct DayHeader: View {
 
 struct AppointmentRow: View {
     let booking: Booking
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// At the accessibility text sizes the time goes above the name, so the name keeps the row's width.
+    private var layout: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                                     : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 14))
+    }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
+        layout {
             Text(ShopFormat.time(booking.time))
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()

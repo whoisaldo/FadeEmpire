@@ -20,8 +20,6 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>FEPushEnvironment</key>
-	<string>$(PUSH_ENVIRONMENT)</string>
 	<key>FESupabaseKey</key>
 	<string>$(SUPABASE_PUBLISHABLE_KEY)</string>
 	<key>FESupabaseURL</key>

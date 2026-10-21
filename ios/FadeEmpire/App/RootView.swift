@@ -9,6 +9,8 @@ struct RootView: View {
             switch app.phase {
             case .starting:
                 ProgressView().accessibilityLabel("Loading")
+            case .offline:
+                OfflineView()
             case .signedOut:
                 SignInView()
             case .changePassword:
@@ -17,6 +19,44 @@ struct RootView: View {
                 MainTabs()
             }
         }
+    }
+}
+
+/// Launch could not reach the server. The session stays; the app tries again on its own.
+private struct OfflineView: View {
+    @Environment(AppModel.self) private var app
+
+    private var detail: String {
+        if case .server(let code)? = app.launchError {
+            return "The shop's system answered with an error (\(code)). You're still signed in. Try again in a minute."
+        }
+        return "Check the phone's internet connection. You're still signed in; the app tries again when the connection is back."
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(Color.goldPale)
+                .accessibilityHidden(true)
+            Text("Can't reach the shop's system")
+                .font(.display(26, relativeTo: .title))
+                .foregroundStyle(Color.bone)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("offline-title")
+            Text(detail)
+                .font(.callout)
+                .foregroundStyle(Color.boneSoft)
+                .multilineTextAlignment(.center)
+            Button { Task { await app.retryLaunch() } } label: {
+                if app.retrying { ProgressView().tint(Color.ink) } else { Text("Try again") }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(app.retrying)
+            .accessibilityIdentifier("offline-retry")
+        }
+        .padding(24)
     }
 }
 
@@ -53,8 +93,8 @@ struct MainTabs: View {
 }
 
 extension View {
-    /// The refresh rule for every list: on appear, pull-to-refresh, foregrounding,
-    /// and every 60 seconds while the list is on screen.
+    /// The refresh rule for every list: on appear, pull-to-refresh, foregrounding, a push
+    /// arriving while the app is open, and every 60 seconds while the list is on screen.
     func autoRefresh(_ load: @escaping @MainActor () async -> Void) -> some View {
         modifier(AutoRefresh(load: load))
     }
@@ -62,6 +102,7 @@ extension View {
 
 private struct AutoRefresh: ViewModifier {
     let load: @MainActor () async -> Void
+    @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
@@ -78,5 +119,6 @@ private struct AutoRefresh: ViewModifier {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await load() } }
             }
+            .onChange(of: app.pushCount) { _, _ in Task { await load() } }
     }
 }

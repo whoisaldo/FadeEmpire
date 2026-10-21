@@ -9,7 +9,11 @@ edit `project.yml`, then run `xcodegen generate` and commit both.
 | --- | --- | --- |
 | `Debug-Local` | local stack, `http://127.0.0.1:56321` | `Config/Debug-Local.xcconfig`, with the local stack's demo anon key (local only) |
 | `Debug` | production | `Config/Debug.xcconfig` (from `scripts/config.js`) |
-| `Release` | production | `Config/Release.xcconfig`; push tokens register as `production` |
+| `Release` | production | `Config/Release.xcconfig` |
+
+Push tokens register with the APNs environment the build is signed for, read from the provisioning profile at
+launch: `sandbox` for a development-signed build run from Xcode (Debug or Release), `production` for TestFlight and
+the App Store (no `embedded.mobileprovision`) and for ad hoc builds. The simulator registers `sandbox`.
 
 ## Mock backend
 
@@ -17,7 +21,18 @@ Launch arguments: `-mock-backend` (in-memory data, same permission rules), `-moc
 (pins the clock, shop time), `-mock-session hassan@local.test` (starts signed in), `-mock-must-change
 hassan@local.test` (that login must pick a new password, as after a reset). Logins: `ali@local.test`
 (manager), `hassan@local.test`, `larry@local.test`; password `fade-local-1`. As on the local stack, none of
-them is forced to change it.
+them is forced to change it. `-mock-fault me:network:1,barberSchedule:network:*` makes those calls fail with no
+network (or `server_code` in place of `network`), for that many calls or `*` for every call; the call names are
+`MockBackend.Call`. Unit tests can also delay calls with `MockBackend.inject`.
+
+A push tap without SpringBoard, through the same `AppDelegate.handleTap` a real notification response uses:
+`-mock-open-push '{"barber_id":"…","booking_date":"2026-10-26","kind":"booked","booking_id":"…","event_id":1}'` is
+tapped at cold launch, and `-mock-warm-push '<same shape>'` is tapped the next time the app returns from the
+background (press Home, then reopen it). Both work only with `-mock-backend`.
+
+`DynamicTypeTests` runs at the largest accessibility text size (`-UIPreferredContentSizeCategoryName
+UICTContentSizeCategoryAccessibilityXXXL`). With `TEST_RUNNER_DYNAMIC_TYPE_SHOTS_DIR=<dir>` it also writes its
+screenshots there.
 
 ## Build and test
 

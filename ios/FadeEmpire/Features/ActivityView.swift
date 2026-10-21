@@ -5,6 +5,8 @@ struct ActivityView: View {
     @State private var events: [ActivityEvent] = []
     @State private var canLoadOlder = false
     @State private var error: String?
+    @State private var loads = LoadGeneration()
+    @Environment(\.scenePhase) private var scenePhase
     static let pageSize = 50
 
     var body: some View {
@@ -34,24 +36,31 @@ struct ActivityView: View {
         }
     }
 
-    /// Loading the list counts as viewing it: the badge clears, and the rows keep their
-    /// unread shading until the next load.
+    /// Loading the list while it is on screen counts as viewing it: the badge clears, and the
+    /// rows keep their unread shading until the next load.
     private func load() async {
+        let generation = loads.next()
         do {
             let page = try await app.backend.activity(before: nil, limit: Self.pageSize)
+            guard loads.isCurrent(generation) else { return }
             events = page
             canLoadOlder = page.count == Self.pageSize
             error = nil
-            if page.contains(where: \.isUnread) || app.unreadCount > 0 { await app.markActivitySeen() }
+            if AppModel.marksActivitySeen(tab: app.tab, isActive: scenePhase == .active, page: page, unreadCount: app.unreadCount) {
+                await app.markActivitySeen()
+            }
         } catch {
+            guard loads.isCurrent(generation) else { return }
             self.error = app.handle(error)
         }
     }
 
     private func loadOlder() async {
         guard let last = events.last else { return }
+        let generation = loads.current
         do {
             let page = try await app.backend.activity(before: last.eventId, limit: Self.pageSize)
+            guard loads.isCurrent(generation) else { return }   // a reload replaced the list meanwhile
             events += page
             canLoadOlder = page.count == Self.pageSize
         } catch {
@@ -63,6 +72,13 @@ struct ActivityView: View {
 private struct ActivityRow: View {
     let event: ActivityEvent
     let ownChair: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// At the accessibility text sizes the icon goes above the text instead of over it.
+    private var layout: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                                     : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+    }
 
     private var title: String {
         switch event.kind {
@@ -83,10 +99,10 @@ private struct ActivityRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        layout {
             Image(systemName: icon.0)
                 .foregroundStyle(icon.1)
-                .frame(width: 28)
+                .frame(minWidth: 28, alignment: .leading)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {

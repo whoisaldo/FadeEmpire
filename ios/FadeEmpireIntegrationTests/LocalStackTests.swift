@@ -123,10 +123,10 @@ final class LocalStackTests: XCTestCase {
         let l = try await larry.me()
         XCTAssertEqual(l.chairs.map(\.slug), ["larry"])
 
-        let restored = await larry.restoreSession()
+        let restored = try await larry.restoreSession()
         XCTAssertTrue(restored)
         try await larry.signOut()
-        let afterSignOut = await larry.restoreSession()
+        let afterSignOut = try await larry.restoreSession()
         XCTAssertFalse(afterSignOut)
         await assertThrows(.invalidCredentials) { try await larry.signIn(email: "larry@local.test", password: "wrong-password") }
     }

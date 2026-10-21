@@ -33,6 +33,7 @@ final class ScheduleModel {
     private(set) var daysOff: [ShopDay: DayOff] = [:]
     private(set) var hours: [Int: ScheduleDay] = [:]
     var error: String?
+    @ObservationIgnored private var loads = LoadGeneration()
 
     init(app: AppModel) {
         self.app = app
@@ -61,9 +62,15 @@ final class ScheduleModel {
     func status(of day: ShopDay) -> DayStatus {
         if chair?.isActive == false { return .chairInactive }
         guard let store = Catalog.storeHours[day.weekday] else { return .shopClosed }
-        if let off = daysOff[day] { return .dayOff(reason: off.reason) }
+        if let off = daysOff[day] { return .dayOff(reason: Self.visibleReason(off, canManage: chair?.canManage ?? false)) }
         guard let mine = hours[day.weekday] else { return .notWorking }
         return .open(OpenHours(open: max(store.open, mine.open), close: min(store.close, mine.close)))
+    }
+
+    /// A day off's reason is for the chair's barber and the manager: a chair the user only views
+    /// shows "Day off", whether or not the server sent the reason.
+    nonisolated static func visibleReason(_ off: DayOff, canManage: Bool) -> String? {
+        canManage ? off.reason : nil
     }
 
     /// What the appointment screen may offer. View-only chairs get nothing.
@@ -109,18 +116,20 @@ final class ScheduleModel {
     func load() async {
         guard let chair else { return }
         if !days.contains(selectedDay) { selectedDay = today }
+        let generation = loads.next()
         do {
             async let b = app.backend.bookings(barberId: chair.id, from: today, to: today.adding(days: Self.windowDays))
             async let off = app.backend.daysOff(barberId: chair.id)
             async let h = app.backend.weeklyHours(barberId: chair.id)
             let (rows, closures, week) = try await (b, off, h)
-            guard chair.id == app.selectedChair?.id else { return }
+            guard loads.isCurrent(generation), chair.id == app.selectedChair?.id else { return }
             bookings = rows
             daysOff = Dictionary(closures.map { ($0.date, $0) }, uniquingKeysWith: { a, _ in a })
             hours = Dictionary(week.map { ($0.weekday, $0) }, uniquingKeysWith: { a, _ in a })
             error = nil
             await app.refreshUnread()
         } catch {
+            guard loads.isCurrent(generation) else { return }
             self.error = app.handle(error)
         }
     }

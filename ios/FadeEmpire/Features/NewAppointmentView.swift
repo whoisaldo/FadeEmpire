@@ -10,6 +10,9 @@ struct NewAppointmentView: View {
     @State private var day: ShopDay
     @State private var slots: [ShopTime] = []
     @State private var slotsLoaded = false
+    @State private var slotLoads = LoadGeneration()
+    /// A time chip grows with the text size, so "10:45 AM" stays on one line.
+    @ScaledMetric(relativeTo: .subheadline) private var slotWidth: CGFloat = 96
     @State private var time: ShopTime?
     @State private var name = ""
     @State private var phone = ""
@@ -133,7 +136,7 @@ struct NewAppointmentView: View {
             Text(Catalog.storeHours[day.weekday] == nil ? "Shop closed." : "No free times. Try another day.")
                 .foregroundStyle(Color.boneSoft)
         } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: slotWidth), spacing: 8)], spacing: 8) {
                 ForEach(slots, id: \.self) { t in
                     let picked = t == time
                     Button { time = t } label: {
@@ -153,12 +156,18 @@ struct NewAppointmentView: View {
         }
     }
 
+    /// A quick change of day can leave an older day's answer landing last; only the newest applies.
     private func loadSlots() async {
+        let generation = slotLoads.next()
+        let requested = day
         slotsLoaded = false
         time = nil
         do {
-            slots = try await app.backend.freeSlots(barberId: chair.id, date: day)
+            let free = try await app.backend.freeSlots(barberId: chair.id, date: requested)
+            guard slotLoads.isCurrent(generation), requested == day else { return }
+            slots = free
         } catch {
+            guard slotLoads.isCurrent(generation), requested == day else { return }
             slots = []
             self.error = app.handle(error)
         }

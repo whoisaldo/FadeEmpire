@@ -12,6 +12,14 @@ struct DaysOffView: View {
     @State private var warning: (day: ShopDay, count: Int)?
 
     private var days: [ShopDay] { (0...60).map { app.clock.today.adding(days: $0) } }
+    @State private var loads = LoadGeneration()
+
+    /// Barbers who only view this chair see "Day off" without it.
+    private var reasonHint: String {
+        app.isManager && chair.id != app.me?.barberId
+            ? "Reason (optional, only \(chair.displayName) and you see it)"
+            : "Reason (optional, only you and Ali see it)"
+    }
     private var taken: Set<ShopDay> { Set(daysOff.map(\.date)) }
 
     var body: some View {
@@ -25,7 +33,9 @@ struct DaysOffView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(ShopFormat.longDay(off.date)).font(.headline).foregroundStyle(Color.bone)
-                                if let r = off.reason { Text(r).font(.subheadline).foregroundStyle(Color.boneSoft) }
+                                if let r = ScheduleModel.visibleReason(off, canManage: chair.canManage) {
+                                    Text(r).font(.subheadline).foregroundStyle(Color.boneSoft)
+                                }
                                 if off.bookingsThatDay > 0 {
                                     Label("\(off.bookingsThatDay) still booked that day", systemImage: "exclamationmark.triangle")
                                         .font(.subheadline)
@@ -61,7 +71,7 @@ struct DaysOffView: View {
                         }
                         .pickerStyle(.navigationLink)
                         .accessibilityIdentifier("dayoff-picker")
-                        TextField("Reason (optional, only you and Ali see it)", text: $reason)
+                        TextField(reasonHint, text: $reason)
                             .frame(minHeight: 44)
                             .accessibilityIdentifier("dayoff-reason")
                         ErrorText(message: error)
@@ -94,7 +104,15 @@ struct DaysOffView: View {
     }
 
     private func load() async {
-        do { daysOff = try await app.backend.daysOff(barberId: chair.id) } catch { self.error = app.handle(error) }
+        let generation = loads.next()
+        do {
+            let rows = try await app.backend.daysOff(barberId: chair.id)
+            guard loads.isCurrent(generation) else { return }
+            daysOff = rows
+        } catch {
+            guard loads.isCurrent(generation) else { return }
+            self.error = app.handle(error)
+        }
     }
 
     private func add() {

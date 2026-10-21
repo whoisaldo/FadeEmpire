@@ -217,6 +217,47 @@ struct BarberDraft: Hashable, Sendable {
     /// The website's own top-level paths; a barber's link can't take one (`slug_reserved`).
     static let reservedSlugs: Set<String> = ["assets", "docs", "ios", "scripts", "styles", "supabase", "tests", "tools",
                                              "index", "robots", "sitemap", "manifest", "sw"]
+
+    /// Name, title and bio reach the website, so `manager_save_barber` refuses `<`, `>` and control
+    /// characters (U+0000–001F, U+007F–009F) in them; a bio keeps its line breaks (`invalid_text`).
+    static func hasRefusedCharacters(_ s: String, allowsLineBreaks: Bool = false) -> Bool {
+        s.unicodeScalars.contains { c in
+            if c == "<" || c == ">" { return true }
+            if allowsLineBreaks && (c == "\n" || c == "\r") { return false }
+            return c.value <= 0x1F || (0x7F...0x9F).contains(c.value)
+        }
+    }
+
+    /// A public `barber-photos` URL as the upload returns it (`invalid_photo_url` otherwise).
+    static func isValidPhotoUrl(_ s: String) -> Bool {
+        s.range(of: #"^(https://[A-Za-z0-9.-]+|http://(127\.0\.0\.1|localhost))(:[0-9]{1,5})?/storage/v1/object/public/barber-photos/[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$"#,
+                options: .regularExpression) != nil
+    }
+
+    /// What `manager_save_barber` would refuse, checked before anything is uploaded or saved.
+    /// `others` are the barbers already saved, for a link name another one uses.
+    struct Problems: Equatable {
+        var name: BackendError?
+        var slug: BackendError?
+        var title: BackendError?
+        var bio: BackendError?
+
+        var first: BackendError? { name ?? slug ?? title ?? bio }
+    }
+
+    func problems(others: [Barber]) -> Problems {
+        var p = Problems()
+        let name = displayName.trimmingCharacters(in: .whitespaces)
+        if !(1...40).contains(name.count) { p.name = .invalidBarberName }
+        else if Self.hasRefusedCharacters(name) { p.name = .invalidText }
+        let slug = slug.trimmingCharacters(in: .whitespaces).lowercased()
+        if !Self.isValidSlug(slug) { p.slug = .invalidSlug }
+        else if Self.reservedSlugs.contains(slug) { p.slug = .slugReserved }
+        else if others.contains(where: { $0.slug == slug && $0.id != id }) { p.slug = .slugTaken }
+        if Self.hasRefusedCharacters(title) { p.title = .invalidText }
+        if Self.hasRefusedCharacters(bio, allowsLineBreaks: true) { p.bio = .invalidText }
+        return p
+    }
 }
 
 /// One weekday of a barber's hours. 0 = Sunday.

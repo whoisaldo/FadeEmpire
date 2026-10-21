@@ -5,7 +5,9 @@ import Foundation
 /// tests and screenshots (launch argument `-mock-backend`).
 protocol Backend: AnyObject, Sendable {
     // Auth
-    func restoreSession() async -> Bool
+    /// False when no session is stored. Throws `notSignedIn` when the stored one is no longer
+    /// valid, and `network` or `server` when it could not be checked (the session is kept).
+    func restoreSession() async throws -> Bool
     func signIn(email: String, password: String) async throws
     /// `auth.updateUser(password:)`, then `app_password_changed()`.
     func changePassword(_ newPassword: String) async throws
@@ -77,6 +79,9 @@ enum BackendError: Error, Equatable, LocalizedError {
     case invalidPhone
     case invalidName
     case invalidBarberName
+    /// A barber's name, title or bio with `<`, `>` or a control character.
+    case invalidText
+    case invalidPhotoUrl
     case serviceNotFound
     case barberNotFound
     case bookingNotFound
@@ -116,6 +121,8 @@ enum BackendError: Error, Equatable, LocalizedError {
         case "invalid_slot_alignment": return .invalidSlot
         case "invalid_phone": return .invalidPhone
         case "invalid_name": return .invalidName
+        case "invalid_text": return .invalidText
+        case "invalid_photo_url": return .invalidPhotoUrl
         case "service_not_found": return .serviceNotFound
         case "barber_not_found": return .barberNotFound
         case "booking_not_found": return .bookingNotFound
@@ -159,6 +166,8 @@ enum BackendError: Error, Equatable, LocalizedError {
         case .invalidPhone: return "Enter a 10-digit phone number."
         case .invalidName: return "Enter the customer's name (at least 2 characters)."
         case .invalidBarberName: return "Enter the barber's name (1–40 characters)."
+        case .invalidText: return "Name, title and bio can't contain < or > or control characters."
+        case .invalidPhotoUrl: return "The photo must be a picture picked and uploaded in this app. Pick it again."
         case .serviceNotFound: return "That service isn't offered any more. Pick another."
         case .barberNotFound: return "This barber isn't taking bookings (inactive)."
         case .bookingNotFound: return "That appointment no longer exists. Pull to refresh."

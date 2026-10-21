@@ -72,11 +72,71 @@ struct OutlineButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 48)
             .foregroundStyle(tint)
             .background(configuration.isPressed ? Color.ink3 : Color.ink2, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rule))
             .contentShape(Rectangle())
+    }
+}
+
+/// Buttons side by side in equal columns while each label fits its column on one line, stacked
+/// full width when one doesn't (the accessibility text sizes), so a label never breaks inside a word.
+struct ActionRow<Content: View>: View {
+    var spacing: CGFloat = 10
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ActionRowLayout(spacing: spacing) { content }.labelStyle(ActionLabelStyle())
+    }
+}
+
+/// Icon and title on one line that never wraps, so the width the row measures is the width it
+/// draws (the default style measured narrower and then broke "Call" into "C / all").
+struct ActionLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 8) {
+            configuration.icon
+            configuration.title.fixedSize(horizontal: true, vertical: false)
+        }
+    }
+}
+
+struct ActionRowLayout: Layout {
+    var spacing: CGFloat
+
+    /// The column width when the row fits side by side, nil when it stacks.
+    private func columnWidth(_ width: CGFloat, _ subviews: Subviews) -> CGFloat? {
+        let count = CGFloat(max(subviews.count, 1))
+        let column = (width - spacing * (count - 1)) / count
+        let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+        return widest <= column ? column : nil
+    }
+
+    private func frames(_ width: CGFloat, _ subviews: Subviews) -> [CGRect] {
+        if let column = columnWidth(width, subviews) {
+            let height = subviews.map { $0.sizeThatFits(ProposedViewSize(width: column, height: nil)).height }.max() ?? 0
+            return subviews.indices.map { CGRect(x: CGFloat($0) * (column + spacing), y: 0, width: column, height: height) }
+        }
+        var y: CGFloat = 0
+        return subviews.map { view in
+            let height = view.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            defer { y += height + spacing }
+            return CGRect(x: 0, y: y, width: width, height: height)
+        }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? subviews.map { $0.sizeThatFits(.unspecified).width + spacing }.reduce(-spacing, +)
+        return CGSize(width: width, height: frames(width, subviews).map(\.maxY).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (view, frame) in zip(subviews, frames(bounds.width, subviews)) {
+            view.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                       proposal: ProposedViewSize(width: frame.width, height: frame.height))
+        }
     }
 }
 

@@ -9,6 +9,9 @@ struct LinksView: View {
     @State private var adding = false
     @State private var qr: QRItem?
     @State private var copied: String?
+    /// The chair `links` belong to; until its links load, another chair's are never shown under it.
+    @State private var linksChairId: UUID?
+    @State private var loads = LoadGeneration()
 
     private var chairs: [Chair] { app.manageableChairs }
     private var chair: Chair? { chairs.first { $0.id == chairId } ?? chairs.first { $0.id == app.selectedChairId } ?? chairs.first }
@@ -34,10 +37,15 @@ struct LinksView: View {
                     .listRowBackground(Color.ink2)
 
                     Section {
-                        if links.isEmpty {
+                        let shown = linksChairId == chair.id ? links : []
+                        if linksChairId != chair.id {
+                            if error == nil {
+                                ProgressView().frame(maxWidth: .infinity, minHeight: 44).accessibilityLabel("Loading links")
+                            }
+                        } else if shown.isEmpty {
                             Text("None yet. A custom link can open on one service.").foregroundStyle(Color.boneSoft)
                         }
-                        ForEach(links) { link in
+                        ForEach(shown) { link in
                             LinkCard(label: link.label, detail: Catalog.serviceName(link.serviceSlug),
                                      url: BookingLinks.url(for: link, slug: chair.slug), copied: $copied, qr: $qr,
                                      onDelete: { delete(link) })
@@ -59,9 +67,14 @@ struct LinksView: View {
             .navigationTitle("Links")
             .navigationBarTitleDisplayMode(.inline)
             .autoRefresh { await load() }
-            .onChange(of: chairId) { _, _ in Task { await load() } }
+            .onChange(of: chair?.id) { _, _ in Task { await load() } }
             .sheet(isPresented: $adding) {
-                if let chair { AddLinkView(chair: chair) { links.append($0) } }
+                if let chair {
+                    AddLinkView(chair: chair) { link in
+                        if link.barberId == linksChairId { links.append(link) }
+                        Task { await load() }
+                    }
+                }
             }
             .sheet(item: $qr) { QRSheet(item: $0) }
             .overlay(alignment: .bottom) {
@@ -86,7 +99,18 @@ struct LinksView: View {
 
     private func load() async {
         guard let chair else { return }
-        do { links = try await app.backend.links(barberId: chair.id); error = nil } catch { self.error = app.handle(error) }
+        let generation = loads.next()
+        do {
+            let rows = try await app.backend.links(barberId: chair.id)
+            // A newer load, or a switch to another chair, answers instead.
+            guard loads.isCurrent(generation), chair.id == self.chair?.id else { return }
+            links = rows
+            linksChairId = chair.id
+            error = nil
+        } catch {
+            guard loads.isCurrent(generation) else { return }
+            self.error = app.handle(error)
+        }
     }
 
     private func delete(_ link: BookingLink) {
@@ -94,6 +118,7 @@ struct LinksView: View {
             do {
                 try await app.backend.deleteLink(id: link.id)
                 links.removeAll { $0.id == link.id }
+                await load()
             } catch {
                 self.error = app.handle(error)
             }
@@ -137,7 +162,7 @@ private struct LinkCard: View {
                 .foregroundStyle(Color.goldPale)
                 .textSelection(.enabled)
                 .accessibilityIdentifier("link-url-\(label)")
-            HStack(spacing: 8) {
+            ActionRow(spacing: 8) {
                 Button {
                     UIPasteboard.general.string = url.absoluteString
                     copied = "Copied \(label)"
