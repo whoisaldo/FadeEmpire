@@ -215,6 +215,13 @@ env_value() {
 
 db_container() { printf 'supabase_db_%s' "$PROJECT_ID"; }
 
+# db reset recreates the auth and storage containers on new addresses, but Kong keeps
+# the old ones and answers 502 until it restarts.
+reset_db() {
+  sb db reset --local
+  docker restart "supabase_kong_$PROJECT_ID" >/dev/null
+}
+
 psql_stack() {
   docker exec -i "$(db_container)" psql -v ON_ERROR_STOP=1 -q -U postgres -d postgres "$@"
 }
@@ -226,6 +233,14 @@ seed() {
   api="http://127.0.0.1:$PORT_API"
   service="$(env_value SERVICE_ROLE_KEY)"
   [[ -n "$service" ]] || die "could not read the local service role key from supabase status"
+
+  # Auth answers 502 until its container and Kong are back up after a reset.
+  local tries=0
+  until [[ "$(curl -s -o /dev/null -w '%{http_code}' "$api/auth/v1/health" -H "apikey: $service")" == "200" ]]; do
+    tries=$((tries + 1))
+    (( tries <= 90 )) || die "Auth is not answering at $api/auth/v1/health"
+    sleep 2
+  done
 
   for entry in "${LOGINS[@]}"; do
     email="${entry%%:*}"
@@ -284,7 +299,7 @@ reset() {
   sync
   stack_running || die "stack is not running: tools/local-stack.sh start"
   refresh_functions
-  sb db reset --local
+  reset_db
   seed
 }
 
@@ -293,7 +308,7 @@ run_tests() {
   sync
   stack_running || die "stack is not running: tools/local-stack.sh start"
   refresh_functions
-  sb db reset --local
+  reset_db
   sb db lint --local --fail-on error
   local rc=0
   sb test db --local || rc=$?
