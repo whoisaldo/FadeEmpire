@@ -47,6 +47,26 @@ exception when insufficient_privilege then
 end;
 $$;
 
+-- The view-only attack: read a chair's bookings through app_bookings, then cancel
+-- each one as "the customer" through the site's cancel_booking(id, phone).
+-- Returns how many were cancelled.
+create function tap_viewer_cancels_all(p_slug text, p_date date) returns int language plpgsql as $$
+declare
+  v_row record;
+  v_done int := 0;
+begin
+  for v_row in select id, customer_phone from app_bookings(tap_barber(p_slug), p_date, p_date) loop
+    begin
+      perform cancel_booking(v_row.id, v_row.customer_phone);
+      v_done := v_done + 1;
+    exception when others then
+      null;
+    end;
+  end loop;
+  return v_done;
+end;
+$$;
+
 -- Transaction-local two-slot service, to check continuation rows write no events.
 insert into services (slug, display_name, base_price_cents, duration_minutes, sort_order)
 values ('tap-long', 'pgTAP Two-Slot Service', 9000, 90, 999);
@@ -129,6 +149,16 @@ select results_eq(
             ('notify_drop_device_tokens'), ('notify_event_payload'),
             ('tg_booking_events'), ('tg_notify_booking_event') $$,
   'the internal functions are closed to authenticated too'
+);
+select results_eq(
+  $$ select distinct f.proname
+       from tap_new_functions f
+       join pg_proc p on p.oid = f.oid,
+            unnest(p.proargnames, p.proargmodes) as a(arg_name, arg_mode)
+      where a.arg_mode in ('o', 't', 'b') and a.arg_name like '%phone%'
+      order by 1 $$,
+  $$ values ('app_bookings'), ('app_cancel_booking') $$,
+  'only app_bookings (null on view-only chairs) and app_cancel_booking (manage only) return a phone'
 );
 select is(
   has_function_privilege('service_role', 'notify_event_payload(bigint)', 'execute'),
@@ -213,16 +243,33 @@ select is(
   'a chair has exactly barber_id, slug, display_name, title, is_active, can_manage'
 );
 select is(
-  (select count(*)::int from bookings where linked_to is null),
-  3, 'hassan reads his and larry''s bookings through RLS'
+  (select count(*)::int from bookings where linked_to is null and barber_id = tap_barber('hassan')),
+  1, 'hassan reads his own bookings through RLS'
+);
+select is(
+  (select count(*)::int from bookings where barber_id = tap_barber('larry')),
+  0, 'hassan reads none of larry''s bookings directly: the table has their phones'
 );
 select results_eq(
-  $$ select customer_name, can_manage, service_name, status, source, party_size, end_time::text
+  $$ select customer_name, customer_phone, can_manage, service_name, status, source, party_size, end_time::text
        from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) order by booking_time $$,
-  $$ values ('Larry Client', false, 'Hair Cut', 'confirmed', 'web', 1, '10:45:00'),
-            ('Larry Second', false, 'Hair Cut', 'confirmed', 'web', 1, '11:30:00') $$,
-  'hassan lists larry''s day, can_manage false, end_time at the end of the 45-minute slot'
+  $$ values ('Larry Client', null::text, false, 'Hair Cut', 'confirmed', 'web', 1, '10:45:00'),
+            ('Larry Second', null::text, false, 'Hair Cut', 'confirmed', 'web', 1, '11:30:00') $$,
+  'hassan lists larry''s day: can_manage false, no phones, end_time at the end of the 45-minute slot'
 );
+select is(
+  (select customer_phone from app_bookings(tap_barber('hassan'), tap_next_dow(3), tap_next_dow(3))),
+  '5557770001', 'hassan gets the phones on his own chair'
+);
+select is(tap_viewer_cancels_all('larry', tap_next_dow(3)), 0, 'hassan cannot cancel larry''s bookings through cancel_booking');
+reset role;
+select is(
+  (select count(*)::int from bookings
+    where barber_id = tap_barber('larry') and booking_date = tap_next_dow(3) and status = 'confirmed'),
+  2, 'larry''s two bookings are still confirmed'
+);
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
 select throws_ok($$ select * from app_cancel_booking(tap_booking('5557770002')) $$, '42501', 'forbidden', 'hassan cannot cancel on larry''s chair');
 select throws_ok($$ select app_set_status(tap_booking('5557770002'), 'no_show') $$, '42501', 'forbidden', 'hassan cannot mark a no-show on larry''s chair');
 select throws_ok($$ select app_book(tap_barber('larry'), 'hair-cut', tap_next_dow(3), '11:30', 'Hassan Books Larry', '5557770004') $$, '42501', 'forbidden', 'hassan cannot book on larry''s chair');
@@ -276,6 +323,11 @@ select is((select count(*)::int from bookings where linked_to is null), 3, 'the 
 select is(
   (select count(*)::int from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) where can_manage),
   2, 'the manager manages larry''s chair'
+);
+select results_eq(
+  $$ select customer_phone from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) order by booking_time $$,
+  $$ values ('5557770002'), ('5557770003') $$,
+  'the manager gets the phones on every chair'
 );
 select results_eq(
   $$ select email, role, is_disabled from manager_staff() order by email $$,
@@ -687,6 +739,13 @@ select results_eq(
                (select max(id) from booking_events where booking_id = tap_booking('5557770060'))) -> 'event' as e) x $$,
   $$ values ('booked', 'Marcus', 'Hair Cut', 'Larry', 1, '10:00:00') $$,
   'the payload carries what the push says, first name only'
+);
+select is(
+  (select count(*)::int
+     from jsonb_object_keys(notify_event_payload(
+            (select max(id) from booking_events where booking_id = tap_booking('5557770060'))) -> 'event') k
+    where k like '%phone%' or k = 'customer_name'),
+  0, 'the payload has no phone or full name: viewers of the chair get it too'
 );
 select lives_ok($$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(0), '10:45', 'Other Guy', '5557770061') $$, 'a booking on hassan''s chair');
 select results_eq(

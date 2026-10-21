@@ -50,7 +50,8 @@
 -- anon explicitly (and from authenticated where the app must not call it); every
 -- new table revokes everything from anon and authenticated, then grants exactly
 -- what the app needs. bookings gains a select grant for authenticated, limited by
--- the RLS policy to the chairs the caller can view.
+-- the RLS policy to the chairs the caller can manage. A view-only chair is read
+-- through app_bookings, without customer phones.
 --
 -- Errors are raised as messages the app matches on, with the same SQLSTATEs as the
 -- booking RPCs: forbidden (42501), barber_not_found / booking_not_found (P0002),
@@ -284,11 +285,15 @@ revoke execute on function app_clear_actor()   from public, anon, authenticated;
 -- 4. RLS for the app
 -- =============================================================================
 
+-- Direct reads are for chairs the caller can manage. A view-only chair is read
+-- through app_bookings, which leaves out the customer's phone: a booking id plus
+-- its phone is all cancel_booking (the site's customer path) asks for.
 grant select on bookings to authenticated;
 
 drop policy if exists "staff read viewable bookings" on bookings;
-create policy "staff read viewable bookings" on bookings
-  for select to authenticated using (app_can_view(barber_id));
+drop policy if exists "staff read managed bookings" on bookings;
+create policy "staff read managed bookings" on bookings
+  for select to authenticated using (app_can_manage(barber_id));
 
 drop policy if exists "managers read all barbers" on barbers;
 create policy "managers read all barbers" on barbers
@@ -848,7 +853,9 @@ begin
   v_manage := app_can_manage(p_barber_id);
 
   -- end_time is the end of the chair time on the grid: a 30-minute cut in a
-  -- 45-minute slot ends 45 minutes after it starts.
+  -- 45-minute slot ends 45 minutes after it starts. customer_phone is null on a
+  -- chair the caller only views: with it, the booking id would cancel through
+  -- cancel_booking as the customer.
   return query
   select bk.id, bk.barber_id, b.slug, bk.booking_date, bk.booking_time,
          (bk.booking_time + make_interval(mins =>
@@ -858,7 +865,8 @@ begin
          coalesce((select array_agg(a.display_name order by x.ord)
                      from unnest(bk.selected_addons) with ordinality as x(addon_slug, ord)
                      join addons a on a.slug = x.addon_slug), '{}'::text[]),
-         bk.custom_request, bk.customer_notes, bk.customer_name, bk.customer_phone,
+         bk.custom_request, bk.customer_notes, bk.customer_name,
+         case when v_manage then bk.customer_phone end,
          bk.total_price_cents, bk.status::text, bk.source, bk.is_guest, bk.party_id,
          (select count(*)::int from bookings p
            where p.party_id = bk.party_id and p.linked_to is null and p.status <> 'expired'),

@@ -58,8 +58,9 @@ followed by an ordinary `book_slot` / `book_slot_group`, so the database cannot 
 records `moved` instead of `booked` when its booker (not a guest) cancelled one of their own bookings within the last
 30 minutes, matched on the phone with or without the leading 1. The cancellation stays a `cancelled` event.
 
-RLS: `bookings` gets a select policy for `authenticated` using `app_can_view(barber_id)`. All writes go through the
-RPCs below. `booking_links` allows select/insert/delete where `app_can_manage(barber_id)`. `barbers` gains a select
+RLS: `bookings` gets a select policy for `authenticated` using `app_can_manage(barber_id)`: a view-only chair is read
+through `app_bookings`, which leaves out customer phones (a booking id plus its phone is all the site's
+`cancel_booking` asks for). All writes go through the RPCs below. `booking_links` allows select/insert/delete where `app_can_manage(barber_id)`. `barbers` gains a select
 policy for managers that includes inactive rows. Storage bucket `barber-photos` is public-read, and only managers
 can write to it.
 
@@ -86,7 +87,7 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 | RPC | Returns | Notes |
 | --- | --- | --- |
 | `app_me()` | one row: `user_id, role, display_name, barber_id, barber_slug, must_change_password, notify_bookings, notify_cancellations, notify_viewed_chairs, chairs jsonb` | `chairs` = `[{barber_id, slug, display_name, title, is_active, can_manage}]` the caller may see, own chair first, then `sort_order`. The manager gets every barber. **No row** when the caller has no access: no staff row, a disabled login, or a barber whose chair is inactive. The manager's `barber_id` / `barber_slug` are null. |
-| `app_bookings(p_barber_id uuid, p_from date, p_to date)` | rows: `id, barber_id, barber_slug, booking_date, booking_time, end_time, service_slug, service_name, duration_minutes, addons text[] (display names), custom_request, customer_notes, customer_name, customer_phone, total_price_cents, status, source, is_guest, party_id, party_size, created_at, cancelled_at, cancelled_by, can_manage` | Primary rows only. Includes cancelled and no-show rows so the day shows what happened (expired holds are left out). Raises `forbidden` unless `app_can_view`; `invalid_range` when `p_to < p_from` or the range is over 62 days. `end_time` is the end of the chair time on the grid (a 30-minute cut in a 45-minute slot ends 45 minutes after it starts). `addons` keeps the booked order. `party_size` counts the party's primaries. Ordered by date, time. |
+| `app_bookings(p_barber_id uuid, p_from date, p_to date)` | rows: `id, barber_id, barber_slug, booking_date, booking_time, end_time, service_slug, service_name, duration_minutes, addons text[] (display names), custom_request, customer_notes, customer_name, customer_phone, total_price_cents, status, source, is_guest, party_id, party_size, created_at, cancelled_at, cancelled_by, can_manage` | Primary rows only. Includes cancelled and no-show rows so the day shows what happened (expired holds are left out). `customer_phone` is null when `can_manage` is false (a chair the caller only views). Raises `forbidden` unless `app_can_view`; `invalid_range` when `p_to < p_from` or the range is over 62 days. `end_time` is the end of the chair time on the grid (a 30-minute cut in a 45-minute slot ends 45 minutes after it starts). `addons` keeps the booked order. `party_size` counts the party's primaries. Ordered by date, time. |
 | `app_free_slots(p_barber_id uuid, p_date date)` | rows: `slot_time time` | The same rule the site uses: store hours ∩ barber schedule, minus closures, minus taken slots, 45-minute grid from open, no past slots today. Empty outside `book_slot`'s window (today to +60 days) and for an inactive barber, so every slot listed books. One-slot starts (every current service is one slot). Raises `forbidden` unless `app_can_view`. |
 | `app_book(p_barber_id uuid, p_service_slug text, p_date date, p_time time, p_customer_name text, p_customer_phone text, p_addon_slugs text[] default '{}', p_notes text default null)` | `booking_id uuid` | Requires `app_can_manage`. Goes through `book_slot` logic with `source = 'app'`: `book_slot` and `app_book` both call `book_slot_at`, one copy of the rules. Raises the same error codes as `book_slot` (`slot_taken`, etc.). Two differences, on purpose: the anon per-phone limit (6 active future bookings) does not apply to staff, and app bookings store `remind_sms = false` (the customer never ticked the site's SMS consent box). `p_notes` is stored as `customer_notes`. |
 | `app_cancel_booking(p_booking_id uuid)` | one row: `booking_id, customer_name, customer_phone, booking_date, booking_time` | Requires `app_can_manage`. Sets `cancelled`, `cancelled_by = 'barber' \| 'manager'` (`manager` when a manager cancels on a chair that is not their own), and frees linked continuation slots. Returns the data the app needs to prefill a text to the customer. `cannot_cancel` unless pending or confirmed; `not_primary` for a continuation row. |
@@ -187,9 +188,9 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
   - Sign in, then a forced new password when required.
   - **Schedule**: a chair switcher when the user can see more than one chair, with "View only" on granted chairs.
     It has a day strip (today plus 4 weeks) and the day's appointments. Closed days and days off show as such.
-  - **Appointment** detail: Call, Text, service, add-ons, request, notes, price, party, and when and how it was
-    booked. Actions when `can_manage`: Cancel (confirm, then offer a prefilled text to the customer), Mark no-show
-    or Undo.
+  - **Appointment** detail: service, add-ons, request, notes, price, party, and when and how it was booked. Call and
+    Text only when `can_manage` (a view-only chair has no phone). Actions when `can_manage`: Cancel (confirm, then
+    offer a prefilled text to the customer), Mark no-show or Undo.
   - **New appointment**: service, date, free slot, name, phone, add-ons, notes.
   - **Days off**: list, add, and remove, with a warning when bookings exist that day.
   - **Activity**: booked, cancelled, no-show, and moved events, with an unread badge on the tab.
