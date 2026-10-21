@@ -15,6 +15,10 @@
 #   1. supabase link        only if this checkout is not linked to PROJECT_REF
 #   2. supabase migration list --linked, then supabase db push without --yes, so the CLI
 #      lists the pending migrations (0022_barber_app.sql) and asks before applying them.
+#      Then tools/service-role-check.sql: every table and RPC privilege the functions use
+#      with the service role key. It only reads, and stops the deploy, before the functions
+#      go out, if one is missing (the hosted project's grants partly come from Supabase's
+#      old default privileges, so they are checked, not assumed).
 #   3. supabase functions deploy staff-admin and notify-booking-event
 #   4. supabase secrets set --env-file <mode-600 temp file> with APNS_KEY_ID, APNS_TEAM_ID,
 #      APNS_PRIVATE_KEY (read from APNS_KEY_FILE, the .p8 from Apple) and APNS_TOPIC when
@@ -371,6 +375,17 @@ else
   echo "# not linked yet: the list is shown in the real run, after linking"
 fi
 step supabase db push --linked
+
+echo "+ supabase db query --linked -f tools/service-role-check.sql"
+if [[ $DRY_RUN -eq 0 || $LINKED -eq 1 ]]; then
+  if ! supabase db query --linked -f tools/service-role-check.sql; then
+    echo "ERROR: service_role lacks a privilege the Edge Functions use (above). Grant it in a migration." >&2
+    exit 1
+  fi
+  echo "# service_role has every privilege the functions use"
+else
+  echo "# not linked yet: the real run checks service_role's privileges after the push"
+fi
 
 # 3. Functions. JWT verification stays on: staff-admin gets the manager's JWT, the push
 #    function gets the service role key (and checks for exactly that key itself).

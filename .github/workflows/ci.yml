@@ -10,7 +10,9 @@
 #                   (hours/races/pricing), group + cancellation flow, the anon
 #                   security model, people tracking (0019), the SMS
 #                   reminder queries (0020), and the barber app's access
-#                   rules, RPCs and booking events (0022).
+#                   rules, RPCs and booking events (0022). Then
+#                   tools/service-role-check.sql: the privileges the Edge
+#                   Functions use with the service role key.
 #   function-tests  deno test for the send-reminders, staff-admin and
 #                   notify-booking-event Edge Functions (fetch stubbed).
 #
@@ -71,6 +73,9 @@ jobs:
 
       - name: Run pgTAP suites (schema, booking, cancellation, security, people, reminders, barber app)
         run: supabase test db
+
+      - name: service_role has every privilege the Edge Functions use
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -q -v ON_ERROR_STOP=1 -f tools/service-role-check.sql
 
   function-tests:
     name: Edge Function tests (Deno)

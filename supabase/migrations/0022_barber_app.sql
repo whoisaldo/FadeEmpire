@@ -157,6 +157,13 @@ grant all on staff, barber_view_grants, booking_events, booking_links, device_to
 revoke all on sequence booking_events_id_seq from public, anon, authenticated;
 grant usage, select on sequence booking_events_id_seq to service_role;
 
+-- staff-admin (service role key) checks that a new login's barber exists. The hosted
+-- project's service_role got table grants from Supabase's old default privileges; a
+-- fresh database (the local stack, CI) gives it none, as 0011 found for anon, so
+-- create_login failed there with permission denied. Grant what the function reads.
+-- tools/service-role-check.sql lists every privilege the functions need.
+grant select on barbers to service_role;
+
 grant select, insert, delete on booking_links to authenticated;
 
 -- =============================================================================

@@ -141,6 +141,11 @@ for `manager`. Errors are `{error: code}`:
 If the staff row cannot be written, the new auth user is deleted again, so a failed `create_login` can be retried
 with the same email.
 
+The function uses the platform's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, for the Auth admin API and for
+PostgREST (`staff`, `barbers`, `device_tokens`). Every privilege it and the other functions need as `service_role`
+is listed in `tools/service-role-check.sql`, which CI, `tools/local-stack.sh check` and the deploy script run. A
+`500 internal` means the function's own call failed; the reason is in the function's log, never in the response.
+
 ### Edge Function `notify-booking-event`
 
 A trigger on `booking_events` posts to it through `pg_net`, using a Vault-held URL and key, following 0020's
@@ -210,7 +215,8 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
 A dedicated Colima profile `fadeempire` with its own Docker socket (`DOCKER_HOST=unix:///Users/aldo/.colima/fadeempire/docker.sock`).
 It runs a Supabase stack with project id `fadeempire-app`, API on **56321** and DB on **56322** (shadow 56320).
 Ports 54321-54325 and 55321-55327 are already published on this machine by other projects' stacks, so they are never
-used. `tools/local-stack.sh start | reset | test | functions | env | stop` runs it; `env` prints the URL and the anon key. Seeded logins (local only, password `fade-local-1`):
+used. `tools/local-stack.sh start | reset | test | check | functions | env | stop` runs it (`check`, which `reset` and
+`test` end with, checks `service_role`'s privileges and runs staff-admin's whole login flow against the stack); `env` prints the URL and the anon key. Seeded logins (local only, password `fade-local-1`):
 `ali@local.test` (manager), `hassan@local.test`, `larry@local.test`. `tools/booking-lock-check.sh` runs two database
 sessions at once against it: two multi-chair batches in opposite order both finish, and two overlapping inserts at once
 give exactly one `slot_taken`.

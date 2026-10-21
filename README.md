@@ -99,6 +99,8 @@ FadeEmpire/
 │   ├── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
 │   ├── deploy-barber-app.sh      Deploys the barber app backend (see Barber app backend below)
 │   ├── local-stack.sh            Local Supabase stack for the barber app (own Colima VM)
+│   ├── local-stack-check.py      Its staff-admin login flow check (local-stack.sh check)
+│   ├── service-role-check.sql    The privileges the Edge Functions need as service_role (CI, check, deploy)
 │   ├── booking-lock-check.sh     Two-session check of the booking overlap lock on the local stack
 │   └── local-stack-seed.sql      Its sample logins and week of bookings
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
@@ -272,7 +274,8 @@ The database API, access rules and Edge Functions behind the iOS barber app (`do
 
 ```bash
 tools/local-stack.sh start   # Colima profile fadeempire, project fadeempire-app, API http://127.0.0.1:56321, seeded
-tools/local-stack.sh test    # fresh database, db lint, every pgTAP suite, then seeds again
+tools/local-stack.sh test    # fresh database, db lint, every pgTAP suite, then seeds again and checks
+tools/local-stack.sh check   # service_role's privileges, then staff-admin's login flow end to end (reset and test end with it)
 tools/local-stack.sh env     # URL + anon key for the app's Debug-Local config
 tools/local-stack.sh reset | functions | stop
 tools/booking-lock-check.sh  # two sessions at once: no deadlock across chairs, one slot_taken per overlap

@@ -6,9 +6,13 @@
 # Usage:
 #   tools/local-stack.sh start       boot the VM and the stack, apply every migration on a
 #                                    new database, seed it (logins + a week of bookings)
-#   tools/local-stack.sh reset       re-apply every migration from scratch, then seed
+#   tools/local-stack.sh reset       re-apply every migration from scratch, then seed and check
 #   tools/local-stack.sh test        reset, lint, run every pgTAP suite, then seed again
-#                                    (so the stack is left seeded)
+#                                    (so the stack is left seeded), then check
+#   tools/local-stack.sh check       service_role's privileges (tools/service-role-check.sql)
+#                                    and staff-admin's login flow end to end, through Kong
+#                                    and the edge runtime (tools/local-stack-check.py);
+#                                    reset and test end with it
 #   tools/local-stack.sh functions   serve the Edge Functions in the foreground with logs
 #                                    (start already serves them; this is for watching them.
 #                                    It replaces the stack's edge runtime: run start after it)
@@ -301,6 +305,33 @@ reset() {
   refresh_functions
   reset_db
   seed
+  check
+}
+
+# service_role's privileges (tools/service-role-check.sql), then staff-admin's whole
+# login flow (tools/local-stack-check.py) with a throwaway barber and login, which
+# are removed again whatever happened. reset and test end with it.
+check() {
+  local api anon slug email barber rc=0
+  api="http://127.0.0.1:$PORT_API"
+  anon="$(env_value ANON_KEY)"
+  [[ -n "$anon" ]] || die "could not read the local anon key from supabase status"
+
+  psql_stack < "$SCRIPT_DIR/service-role-check.sql" || die "service_role privileges: see the error above"
+  say "service_role has every privilege the functions use"
+
+  slug="login-check-$(date +%s)"
+  email="$slug@local.test"
+  barber="$(psql_stack -tA -v slug="$slug" \
+    <<<"insert into barbers (slug, display_name, sort_order) values (:'slug', 'Login Check', 9999) returning id")"
+  API="$api" ANON="$anon" BARBER="$barber" EMAIL="$email" \
+    python3 "$SCRIPT_DIR/local-stack-check.py" || rc=$?
+  psql_stack -v email="$email" -v barber="$barber" <<'SQL'
+delete from auth.users where email = :'email';
+delete from barbers where id = :'barber'::uuid;
+SQL
+  [[ $rc -eq 0 ]] || die "staff-admin login flow failed (docker logs supabase_edge_runtime_$PROJECT_ID)"
+  say "staff-admin login flow works: create, temporary password, change, reset, disable, enable"
 }
 
 run_tests() {
@@ -313,6 +344,7 @@ run_tests() {
   local rc=0
   sb test db --local || rc=$?
   seed
+  check
   return $rc
 }
 
@@ -349,8 +381,9 @@ case "${1:-}" in
   start) start ;;
   reset) reset ;;
   test) run_tests ;;
+  check) ensure_vm; check ;;
   functions) serve_functions ;;
   env) ensure_vm; print_env ;;
   stop) stop ;;
-  *) echo "usage: $0 start|reset|test|functions|env|stop" >&2; exit 2 ;;
+  *) echo "usage: $0 start|reset|test|check|functions|env|stop" >&2; exit 2 ;;
 esac
