@@ -8,6 +8,8 @@ import UserNotifications
 /// (shop time), `-mock-session hassan@local.test` starts signed in, and
 /// `-mock-must-change hassan@local.test` makes that login pick a new password (as after a reset), and
 /// `-mock-fault me:network:1,barberSchedule:network:*` makes those calls fail (count, or `*` for every call).
+/// A push tap without SpringBoard: `-mock-open-push '<payload JSON>'` is tapped at cold launch, and
+/// `-mock-warm-push '<payload JSON>'` is tapped the next time the app comes back from the background.
 enum LaunchOptions {
     static let arguments = ProcessInfo.processInfo.arguments
 
@@ -23,6 +25,16 @@ enum LaunchOptions {
         let parts = raw.split(separator: "T")
         guard parts.count == 2, let day = ShopDay(iso: String(parts[0])), let time = ShopTime(hms: String(parts[1])) else { return nil }
         return day.at(time)
+    }
+
+    /// A notification's custom keys as JSON, read the way APNs hands them to the delegate.
+    static func pushPayload(_ flag: String) -> [AnyHashable: Any]? {
+        guard useMock, let raw = value(flag) else { return nil }
+        return payload(json: raw)
+    }
+
+    static func payload(json: String) -> [AnyHashable: Any]? {
+        (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [AnyHashable: Any]
     }
 
     /// `call:network|server[:count|*]`, comma-separated; a count of 1 when left out.
@@ -104,9 +116,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         if let onOpen { onOpen(route) } else { waitingRoute = route }
     }
 
+    /// Every tapped notification comes through here: the real delegate below, and the mock's
+    /// launch arguments for tests.
+    func handleTap(userInfo: [AnyHashable: Any]) {
+        guard let route = PushRoute(userInfo: userInfo) else { return }
+        open(route)
+    }
+
+    /// The mock's warm tap, waiting for the app to come back from the background.
+    private var warmTap = LaunchOptions.pushPayload("-mock-warm-push")
+
+    func returnedFromBackground() {
+        guard let payload = warmTap else { return }
+        warmTap = nil
+        handleTap(userInfo: payload)
+    }
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // The mock's cold-launch tap, arriving before the root view is up, as a real one does.
+        if let payload = LaunchOptions.pushPayload("-mock-open-push") { handleTap(userInfo: payload) }
         return true
     }
 
@@ -125,8 +155,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     /// Tapping a push opens that booking's day on that chair.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let route = PushRoute(userInfo: response.notification.request.content.userInfo) else { return }
-        await MainActor.run { open(route) }
+        let userInfo = response.notification.request.content.userInfo
+        await MainActor.run { handleTap(userInfo: userInfo) }
     }
 
     static func registerForPush() {
@@ -142,6 +172,7 @@ struct FadeEmpireApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = LaunchOptions.makeModel()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var wasInBackground = false
 
     init() { Theme.applyAppearance() }
 
@@ -162,7 +193,12 @@ struct FadeEmpireApp: App {
                     if phase == .ready, model.usesPush { AppDelegate.registerForPush() }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { Task { await model.refresh() } }
+                    if phase == .background { wasInBackground = true }
+                    if phase == .active {
+                        if wasInBackground { delegate.returnedFromBackground() }
+                        wasInBackground = false
+                        Task { await model.refresh() }
+                    }
                 }
         }
     }

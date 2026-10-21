@@ -72,6 +72,13 @@ struct ActivityView: View {
 private struct ActivityRow: View {
     let event: ActivityEvent
     let ownChair: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// At the accessibility text sizes the icon goes above the text instead of over it.
+    private var layout: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                                     : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+    }
 
     private var title: String {
         switch event.kind {
@@ -92,10 +99,10 @@ private struct ActivityRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        layout {
             Image(systemName: icon.0)
                 .foregroundStyle(icon.1)
-                .frame(width: 28)
+                .frame(minWidth: 28, alignment: .leading)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {

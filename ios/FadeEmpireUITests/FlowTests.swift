@@ -254,6 +254,41 @@ final class FlowTests: MockUITestCase {
         XCTAssertFalse(el("signin-email").exists)
     }
 
+    private func pushPayload(barber: String, date: String) -> String {
+        #"{"barber_id":"\#(barber)","booking_date":"\#(date)","kind":"booked","#
+            + #""booking_id":"6b1f8a2e-1111-4000-8000-000000000001","event_id":1}"#
+    }
+
+    private let larryId = "00000000-0000-4000-8000-0000000000a2"
+
+    /// A push tapped at cold launch, before the root view is up: Hassan lands on Larry's chair
+    /// (view only) on that booking's day.
+    func testColdLaunchPushTapOpensThatChairAndDay() {
+        launch(as: "hassan@local.test", extra: ["-mock-open-push", pushPayload(barber: larryId, date: "2026-10-26")])
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 10))
+        let chip = el("chair-larry")
+        XCTAssertTrue(chip.isSelected)
+        XCTAssertEqual(chip.label, "Larry's chair, view only")
+        XCTAssertFalse(el("new-appointment").exists, "view only")
+        XCTAssertTrue(el("day-header").label.contains("Monday, October 26"), el("day-header").label)
+        XCTAssertTrue(el("day-2026-10-26").isSelected)
+    }
+
+    /// A push tapped while the app is in the background: back on Schedule, Larry's chair, that day.
+    func testWarmPushTapOpensThatChairAndDay() {
+        launch(as: "hassan@local.test", extra: ["-mock-warm-push", pushPayload(barber: larryId, date: "2026-10-30")])
+        XCTAssertTrue(app.staticTexts["Hassan's chair"].waitForExistence(timeout: 10))
+        tab("Activity")
+        XCTAssertTrue(app.navigationBars["Activity"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 20))
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.tabBars.buttons["Schedule"].isSelected)
+        XCTAssertTrue(el("chair-larry").isSelected)
+        XCTAssertTrue(el("day-header").label.contains("Friday, October 30"), el("day-header").label)
+    }
+
     func testActivityBadgeClearsAfterViewing() {
         launch(as: "hassan@local.test")
         let activity = app.tabBars.buttons["Activity"].firstMatch

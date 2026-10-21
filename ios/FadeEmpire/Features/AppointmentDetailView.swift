@@ -41,17 +41,19 @@ struct AppointmentDetailView: View {
                 .padding(.vertical, 4)
                 // A view-only chair has no phone (app_bookings leaves it out), so no Call or Text.
                 if b.canManage, let phone = b.customerPhone {
-                    HStack(spacing: 10) {
+                    ActionRow {
                         Button { if let url = Phone.call(phone) { openURL(url) } } label: {
                             Label("Call", systemImage: "phone")
                         }
                         .buttonStyle(OutlineButtonStyle())
                         .accessibilityLabel("Call \(b.customerName), \(Phone.display(phone))")
+                        .accessibilityIdentifier("detail-call")
                         Button { if let url = Phone.text(phone) { openURL(url) } } label: {
                             Label("Text", systemImage: "message")
                         }
                         .buttonStyle(OutlineButtonStyle())
                         .accessibilityLabel("Text \(b.customerName)")
+                        .accessibilityIdentifier("detail-text")
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }

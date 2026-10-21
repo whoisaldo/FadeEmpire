@@ -112,6 +112,27 @@ final class LaunchAndPushTests: XCTestCase {
         XCTAssertEqual(opened, [route, later])
     }
 
+    /// The mock's `-mock-open-push` / `-mock-warm-push` JSON goes through the same `handleTap` as a
+    /// real notification response.
+    func testMockPushPayloadTakesTheDelegatePath() {
+        let json = #"{"barber_id":"00000000-0000-4000-8000-0000000000a2","booking_date":"2026-10-26","kind":"booked","#
+            + #""booking_id":"6b1f8a2e-1111-4000-8000-000000000001","event_id":1}"#
+        let payload = LaunchOptions.payload(json: json)
+        XCTAssertNotNil(payload)
+        let route = PushRoute(barberId: MockSeed.larryId, date: ShopDay(iso: "2026-10-26")!)
+        XCTAssertEqual(payload.flatMap(PushRoute.init(userInfo:)), route)
+        XCTAssertNil(LaunchOptions.payload(json: "not json"))
+
+        let delegate = AppDelegate()
+        delegate.handleTap(userInfo: payload!)
+        delegate.handleTap(userInfo: ["kind": "booked"])   // no chair or day: nothing to open
+        var opened: [PushRoute] = []
+        delegate.onOpen = { opened.append($0) }
+        XCTAssertEqual(opened, [route])
+        delegate.returnedFromBackground()   // no warm tap given at launch
+        XCTAssertEqual(opened, [route])
+    }
+
     func testPushWhileOpenReloadsLists() async {
         let app = AppModel(backend: mock(as: "hassan@local.test"), clock: .fixed(pinnedNow))
         await app.start()

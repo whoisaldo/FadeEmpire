@@ -162,7 +162,7 @@ private struct LinkCard: View {
                 .foregroundStyle(Color.goldPale)
                 .textSelection(.enabled)
                 .accessibilityIdentifier("link-url-\(label)")
-            HStack(spacing: 8) {
+            ActionRow(spacing: 8) {
                 Button {
                     UIPasteboard.general.string = url.absoluteString
                     copied = "Copied \(label)"

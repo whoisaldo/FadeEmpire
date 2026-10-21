@@ -66,6 +66,7 @@ private struct BarbersList: View {
 struct BarberDetailView: View {
     let model: BarbersModel
     let barberId: UUID
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var editing = false
     @State private var creatingLogin = false
     @State private var tempPassword: TempPassword?
@@ -84,9 +85,12 @@ struct BarberDetailView: View {
 
     private func content(_ b: Barber) -> some View {
         let login = model.login(for: b.id)
+        // At the accessibility text sizes the photo goes above the name.
+        let header = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                                                  : AnyLayout(HStackLayout(spacing: 14))
         return List {
             Section {
-                HStack(spacing: 14) {
+                header {
                     AsyncImage(url: b.photoUrl.flatMap(URL.init(string:))) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
@@ -591,19 +595,25 @@ struct BarberEditorView: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("hours-\(wd)")
                 if let h = hours.edited?.days[wd] {
-                    HStack {
-                        Picker("\(name) start", selection: Binding(get: { h.open }, set: { hours.edited?.days[wd] = OpenHours(open: $0, close: max(h.close, $0.adding(minutes: 30))) })) {
-                            ForEach(choices.dropLast(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
-                        }
-                        Text("to").foregroundStyle(Color.boneSoft)
-                        Picker("\(name) end", selection: Binding(get: { h.close }, set: { hours.edited?.days[wd] = OpenHours(open: min(h.open, $0.adding(minutes: -30)), close: $0) })) {
-                            ForEach(choices.dropFirst(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
-                        }
+                    // Start and end side by side, or one above the other when the times don't fit.
+                    ViewThatFits(in: .horizontal) {
+                        HStack { hoursPickers(wd, name, h, choices) }
+                        VStack(alignment: .leading) { hoursPickers(wd, name, h, choices) }
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private func hoursPickers(_ wd: Int, _ name: String, _ h: OpenHours, _ choices: [ShopTime]) -> some View {
+        Picker("\(name) start", selection: Binding(get: { h.open }, set: { hours.edited?.days[wd] = OpenHours(open: $0, close: max(h.close, $0.adding(minutes: 30))) })) {
+            ForEach(choices.dropLast(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
+        }
+        Text("to").foregroundStyle(Color.boneSoft)
+        Picker("\(name) end", selection: Binding(get: { h.close }, set: { hours.edited?.days[wd] = OpenHours(open: min(h.open, $0.adding(minutes: -30)), close: $0) })) {
+            ForEach(choices.dropFirst(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
         }
     }
 

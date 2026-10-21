@@ -25,6 +25,15 @@ them is forced to change it. `-mock-fault me:network:1,barberSchedule:network:*`
 network (or `server_code` in place of `network`), for that many calls or `*` for every call; the call names are
 `MockBackend.Call`. Unit tests can also delay calls with `MockBackend.inject`.
 
+A push tap without SpringBoard, through the same `AppDelegate.handleTap` a real notification response uses:
+`-mock-open-push '{"barber_id":"…","booking_date":"2026-10-26","kind":"booked","booking_id":"…","event_id":1}'` is
+tapped at cold launch, and `-mock-warm-push '<same shape>'` is tapped the next time the app returns from the
+background (press Home, then reopen it). Both work only with `-mock-backend`.
+
+`DynamicTypeTests` runs at the largest accessibility text size (`-UIPreferredContentSizeCategoryName
+UICTContentSizeCategoryAccessibilityXXXL`). With `TEST_RUNNER_DYNAMIC_TYPE_SHOTS_DIR=<dir>` it also writes its
+screenshots there.
+
 ## Build and test
 
 ```sh

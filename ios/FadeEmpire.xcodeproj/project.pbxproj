@@ -40,6 +40,7 @@
 		B5C8CBCE9E529B1D5EABF447 /* ShopTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E48EBBCFF62B8E19B3067A1 /* ShopTime.swift */; };
 		B64C08A746F64000E63D6D00 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21316EA441D4B6D5C69E9585 /* Backend.swift */; };
 		CBE531ACFDA0EF2EB47D9856 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD4B179C9A509177BC66FA1 /* SignInView.swift */; };
+		D29FE42728EC3F698620A380 /* DynamicTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3A38DC465F7293B7CDD7D5 /* DynamicTypeTests.swift */; };
 		EAE6C5FE81104B7009D4E0B4 /* MockBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3A4B378D2193C8F3DBF121 /* MockBackendTests.swift */; };
 		EFD801DF69B7C89FFCFFD555 /* BarbersModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F0A0119D8C9683D8F7AAD4 /* BarbersModel.swift */; };
 		F2D5E0D60760D5BA9BCD5E5E /* Links.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AA80FF92E0F8FE04245948 /* Links.swift */; };
@@ -88,6 +89,7 @@
 		469FA99464FA102F0AEAAFB9 /* FadeEmpireApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FadeEmpireApp.swift; sourceTree = "<group>"; };
 		47D89417A02B1F3411C7EBEC /* LinksAndErrorsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksAndErrorsTests.swift; sourceTree = "<group>"; };
 		4C85AEC6752B7CBF739BDC5E /* LoadOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadOrderTests.swift; sourceTree = "<group>"; };
+		4D3A38DC465F7293B7CDD7D5 /* DynamicTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicTypeTests.swift; sourceTree = "<group>"; };
 		55770985DF4BE0562A16F92F /* DaysOffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaysOffView.swift; sourceTree = "<group>"; };
 		5CCE147517C7D7AB6A57A315 /* Fraunces-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Fraunces-OFL.txt"; sourceTree = "<group>"; };
 		60ED1FD19008871DA0F433E5 /* LaunchAndPushTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAndPushTests.swift; sourceTree = "<group>"; };
@@ -283,6 +285,7 @@
 		C8F0F7B14C76D8F6EE8A4944 /* FadeEmpireUITests */ = {
 			isa = PBXGroup;
 			children = (
+				4D3A38DC465F7293B7CDD7D5 /* DynamicTypeTests.swift */,
 				D83446ECD0885BB3C017A33F /* FlowTests.swift */,
 				004354DAFCB793EFAF278A13 /* LocalStackScreenshotTests.swift */,
 				641D17901CC619F01391B6C5 /* MockUITestCase.swift */,
@@ -435,6 +438,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D29FE42728EC3F698620A380 /* DynamicTypeTests.swift in Sources */,
 				23BF903E3C2AA2122A9A9F50 /* FlowTests.swift in Sources */,
 				6FD0752111F0AD9D190C175F /* LocalStackScreenshotTests.swift in Sources */,
 				8FEBE4C2A0B3EF677B56750F /* MockUITestCase.swift in Sources */,
