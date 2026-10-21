@@ -1655,6 +1655,27 @@ begin
 end;
 $$;
 
+-- Every view grant, for the manager's Barbers screen (which chair sees which).
+create or replace function manager_view_grants()
+returns table (viewer_barber_id uuid, barber_id uuid)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+begin
+  if not app_is_manager() then
+    raise exception 'forbidden' using errcode = '42501';
+  end if;
+
+  return query
+  select g.viewer_barber_id, g.barber_id
+    from barber_view_grants g
+   order by g.viewer_barber_id, g.barber_id;
+end;
+$$;
+
 create or replace function manager_barber_schedule(p_barber_id uuid)
 returns table (weekday int, open_time time, close_time time)
 language plpgsql
@@ -1681,6 +1702,7 @@ revoke execute on function manager_save_barber(uuid, text, text, text, text, tex
 revoke execute on function manager_set_schedule(uuid, jsonb)                      from public, anon;
 revoke execute on function manager_set_active(uuid, boolean)                      from public, anon;
 revoke execute on function manager_set_view_grant(uuid, uuid, boolean)            from public, anon;
+revoke execute on function manager_view_grants()                                  from public, anon;
 revoke execute on function manager_barber_schedule(uuid)                          from public, anon;
 
 grant execute on function manager_staff()                                        to authenticated;
@@ -1688,6 +1710,7 @@ grant execute on function manager_save_barber(uuid, text, text, text, text, text
 grant execute on function manager_set_schedule(uuid, jsonb)                      to authenticated;
 grant execute on function manager_set_active(uuid, boolean)                      to authenticated;
 grant execute on function manager_set_view_grant(uuid, uuid, boolean)            to authenticated;
+grant execute on function manager_view_grants()                                  to authenticated;
 grant execute on function manager_barber_schedule(uuid)                          to authenticated;
 
 -- =============================================================================

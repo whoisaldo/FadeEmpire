@@ -67,6 +67,16 @@ begin
 end;
 $$;
 
+-- How many booking_links rows a delete by id removes, as the caller (RLS applies).
+create function tap_delete_link(p_id uuid) returns int language plpgsql as $$
+declare v_count int;
+begin
+  delete from booking_links where id = p_id;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
 -- True when manager_save_barber refuses p_url as invalid_photo_url.
 create function tap_photo_refused(p_id uuid, p_url text) returns boolean language plpgsql as $$
 begin
@@ -136,7 +146,7 @@ select p.oid, (p.proname::text collate "default") as proname, p.oid::regprocedur
                          'tg_notify_booking_event'));
 grant select on tap_new_functions to anon, authenticated;
 
-select is((select count(*)::int from tap_new_functions), 35, 'the migration adds 35 functions');
+select is((select count(*)::int from tap_new_functions), 36, 'the migration adds 36 functions');
 select is(
   (select count(*)::int from tap_new_functions where has_function_privilege('anon', oid, 'execute')),
   0, 'anon can execute none of the new functions'
@@ -196,6 +206,7 @@ select is(tap_table_hidden('bookings'),           true, 'anon still cannot read 
 select throws_ok($$ select * from app_me() $$, '42501', null, 'anon cannot call app_me');
 select throws_ok($$ select * from app_bookings(tap_barber('larry'), current_date, current_date + 30) $$, '42501', null, 'anon cannot call app_bookings');
 select throws_ok($$ select manager_set_active(tap_barber('larry'), false) $$, '42501', null, 'anon cannot call manager_set_active');
+select throws_ok($$ select * from manager_view_grants() $$, '42501', null, 'anon cannot call manager_view_grants');
 select is((select count(*)::int from barbers where slug = 'javier'), 0, 'anon still cannot see the retired barber');
 reset role;
 
@@ -292,7 +303,21 @@ select lives_ok($$ insert into booking_links (barber_id, label, service_slug) va
 select is((select count(*)::int from booking_links), 1, 'hassan reads his own links');
 select throws_ok($$ select * from manager_staff() $$, '42501', 'forbidden', 'hassan is not a manager');
 select throws_ok($$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), true) $$, '42501', 'forbidden', 'hassan cannot grant himself views');
+select throws_ok($$ select * from manager_view_grants() $$, '42501', 'forbidden', 'hassan cannot list the view grants');
+
+-- booking_links answers with plain SQLSTATEs, and RLS hides another chair's links:
+-- they are not listed, and deleting one deletes nothing, without an error.
+select throws_ok($$ insert into booking_links (barber_id, label) values (tap_barber('hassan'), '   ') $$, '23514', null, 'an empty label is a check violation');
+select throws_ok($$ insert into booking_links (barber_id, label) values (tap_barber('hassan'), repeat('x', 61)) $$, '23514', null, 'so is a label over 60 characters');
+select throws_ok($$ insert into booking_links (barber_id, label, service_slug) values (tap_barber('hassan'), 'Nope', 'no-such-service') $$, '23503', null, 'an unknown service is a foreign key violation');
 reset role;
+insert into booking_links (id, barber_id, label) values ('00000000-0000-4000-d000-000000000001', tap_barber('larry'), 'Larry''s link');
+set local role authenticated;
+select is((select count(*)::int from booking_links where barber_id = tap_barber('larry')), 0, 'hassan does not see larry''s link (he only views that chair)');
+select is(tap_delete_link('00000000-0000-4000-d000-000000000001'), 0, 'deleting it deletes nothing, without an error');
+reset role;
+select is((select count(*)::int from booking_links where id = '00000000-0000-4000-d000-000000000001'), 1, 'it is still there');
+delete from booking_links where id = '00000000-0000-4000-d000-000000000001';
 
 -- ======================= Deactivated barber, disabled login =======================
 update barbers set is_active = false where slug = 'larry';
@@ -356,6 +381,12 @@ select lives_ok(
   $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), true) $$,
   'the manager grants larry a view of hassan''s chair'
 );
+select results_eq(
+  $$ select viewer_barber_id, barber_id from manager_view_grants() $$,
+  $$ select v, b from (values (tap_barber('hassan'), tap_barber('larry')), (tap_barber('larry'), tap_barber('hassan'))) x(v, b)
+      order by v, b $$,
+  'manager_view_grants lists both grants: viewer, chair'
+);
 select throws_ok(
   $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('larry'), true) $$,
   '22023', 'invalid_grant', 'a chair cannot be granted to itself'
@@ -370,6 +401,11 @@ set local role authenticated;
 select lives_ok(
   $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), false) $$,
   'the manager takes the grant back'
+);
+select results_eq(
+  $$ select viewer_barber_id, barber_id from manager_view_grants() $$,
+  $$ values (tap_barber('hassan'), tap_barber('larry')) $$,
+  'and manager_view_grants shows only hassan → larry again'
 );
 
 -- ---------- manager_save_barber ----------

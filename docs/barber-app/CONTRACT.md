@@ -62,9 +62,24 @@ records `moved` instead of `booked` when its booker (not a guest) cancelled one 
 
 RLS: `bookings` gets a select policy for `authenticated` using `app_can_manage(barber_id)`: a view-only chair is read
 through `app_bookings`, which leaves out customer phones (a booking id plus its phone is all the site's
-`cancel_booking` asks for). All writes go through the RPCs below. `booking_links` allows select/insert/delete where `app_can_manage(barber_id)`. `barbers` gains a select
+`cancel_booking` asks for). All writes go through the RPCs below. `barbers` gains a select
 policy for managers that includes inactive rows. Storage bucket `barber-photos` is public-read, and only managers
 can write to it.
+
+`booking_links` is read and written directly through PostgREST (no RPC): select, insert and delete where
+`app_can_manage(barber_id)`, so a barber has their own chair's links and the manager has every chair's. Its errors
+are plain PostgreSQL ones, not the RPCs' named codes; match on the SQLSTATE (`code`), not on `message`:
+
+| Case | Result |
+| --- | --- |
+| Label empty after trimming, or over 60 characters | `23514` (check_violation), HTTP 400 |
+| `service_slug` that is not a service | `23503` (foreign_key_violation), HTTP 409 |
+| Insert on a chair the caller cannot manage (including a chair they only view) | `42501` (RLS: new row violates the policy), HTTP 403 |
+| Select of another chair's links | no error: those rows are simply not returned |
+| Delete of another chair's link, or of an id that does not exist | no error and nothing deleted: HTTP 204 (or 200 with `[]` when asking for `return=representation`) |
+
+So the app cannot tell "deleted" from "not yours" by the status: ask for `return=representation` and treat an empty
+result as not deleted.
 
 ### Helpers (SECURITY DEFINER, stable, granted to authenticated)
 
@@ -112,6 +127,7 @@ Errors come back from PostgREST with the code as the message (`{"code": "42501",
 | `manager_set_schedule(p_barber_id uuid, p_days jsonb)` | `affected_bookings int` | `[{weekday 0-6, open "HH:MM", close "HH:MM"}]` replaces the week. It always saves. `affected_bookings` counts the chair's upcoming pending, confirmed or completed bookings that the new week strands: on a weekday it no longer works, starting before open or at or after close, or off the new 45-minute grid. They stay booked, and no new booking can overlap them; when the count is above 0 the app warns that those customers need a call. Each day must sit inside `store_hours` for that weekday; otherwise it raises `outside_store_hours` (a weekday the store is closed, e.g. Tuesday, always does). A malformed entry, a repeated weekday, or open not before close raises `invalid_schedule`. Slots are 45 minutes. |
 | `manager_set_active(p_barber_id uuid, p_active boolean)` | `upcoming_bookings int` | Deactivating hides the barber from the site and the booking RPCs at once. The count is the chair's upcoming pending or confirmed bookings, which stay booked. |
 | `manager_set_view_grant(p_viewer_barber_id uuid, p_barber_id uuid, p_granted boolean)` | void | `invalid_grant` when both are the same chair. |
+| `manager_view_grants()` | rows: `viewer_barber_id uuid, barber_id uuid` | Every view grant: `viewer_barber_id` may view `barber_id`'s chair read-only. Ordered by viewer, then chair. Raises `forbidden` unless the caller is a manager. |
 | `manager_barber_schedule(p_barber_id uuid)` | rows: `weekday, open_time, close_time` | Includes inactive barbers. |
 
 ### Edge Function `staff-admin` (POST, caller's JWT, caller must be a manager)
