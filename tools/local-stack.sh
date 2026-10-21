@@ -50,7 +50,7 @@ PORT_STUDIO=56323
 PORT_INBUCKET=56324
 PORT_ANALYTICS=56327
 PORT_POOLER=56329
-PORTS=($PORT_SHADOW $PORT_API $PORT_DB)
+PORTS=("$PORT_SHADOW" "$PORT_API" "$PORT_DB")
 
 PASSWORD="fade-local-1"
 LOGINS=("ali@local.test:Ali" "hassan@local.test:Hassan" "larry@local.test:Larry")
@@ -193,10 +193,11 @@ sync() {
 # function is missing from a running stack, recreate the containers (data stays).
 refresh_functions() {
   stack_running || return 0
-  local config name missing=0
+  local config entry name missing=0
   config="$(docker inspect "supabase_edge_runtime_$PROJECT_ID" --format '{{json .Config.Env}}' 2>/dev/null || true)"
-  for name in $(ls "$STACK_DIR/supabase/functions"); do
-    [[ -f "$STACK_DIR/supabase/functions/$name/index.ts" ]] || continue
+  for entry in "$STACK_DIR"/supabase/functions/*/index.ts; do
+    [[ -f "$entry" ]] || continue
+    name="$(basename "$(dirname "$entry")")"
     grep -q "functions/$name/index.ts" <<<"$config" || missing=1
   done
   if [[ $missing -eq 1 ]]; then
