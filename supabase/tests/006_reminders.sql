@@ -13,6 +13,10 @@ $$;
 -- Inserts a primary booking starting at p_at (shop-local date and time are
 -- derived from it, so slot_at = p_at). Bypasses book_slot's hour and date
 -- rules so the due windows can be tested to the minute, past and future.
+-- Those bookings sit minutes apart on one chair, so 0022's no-overlap trigger
+-- is off for this suite (rolled back with it); 007 tests that rule.
+alter table bookings disable trigger bookings_no_overlap;
+
 create function tap_book(
   p_phone  text,
   p_name   text,
