@@ -11,7 +11,8 @@ Live: <https://chicopeefadeempire.com>
 ## What it does
 
 - **Landing page** built around the shop's own photos and the professionally edited tour video: hero, "inside the shop" (video with a sound toggle, off by default), the price list and a "which one do I book?" comparison, a fifteen-plate gallery with a lightbox, the two barbers, booking, and the storefront with live hours.
-- **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
+- **Per-barber booking** — pick a barber; each has their own weekly hours, days off, and availability grid. The barbers come from the database (`barbers` + `barber_schedules` + upcoming `barber_closures`), so one the manager adds in the barber app shows up without a deploy and a deactivated one disappears; `config.js`'s Hassan and Larry are the fallback when the read fails or takes over 2.5 s (it is taken when it lands)
+- **Booking links** — barbers share `chicopeefadeempire.com/<slug>` and `/?barber=<slug>&service=<service-slug>#book` from the app. The query picks the barber and the service and lands on the form; `404.html` forwards `/<slug>` (and `/<slug>/`) to it when the slug is an active barber and shows the normal 404 otherwise. Unknown or inactive values change nothing
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
 - **The price list books itself** — each service row is a button ("Book Hair Cut, $30") that picks that service in the form and moves to the next step still to do; each add-on row ("Add Hot Towel, +$5") ticks or unticks its box the same way
 - **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
@@ -23,7 +24,7 @@ Live: <https://chicopeefadeempire.com>
 - **Add to calendar** — the confirmation offers `fade-empire-<date>.ics`: one event per booking (a group spans the first start to the last end), in UTC from the shop's clock, with the address, the shop phone and the cancel link
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
-- **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across both barbers) pulled from Supabase
+- **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across every barber) pulled from Supabase
 - **Mobile-first** — sticky bottom Book-a-Chair CTA, swipe filmstrip gallery, thumb-sized tap targets, safe-area insets, lazy video that only downloads once it scrolls into view
 - **Tests** — 140+ vitest cases: schedule math, validation, message building, the live status line across DST, the real booking form driven under jsdom with mocked RPCs, the video/lightbox/hours modules, and drift guards that read `index.html` and fail if a price, hour, or asset path disagrees with `config.js` or the disk
 
@@ -52,7 +53,7 @@ No build step at deploy time: `package.json` exists only for the test tooling, `
 ```
 FadeEmpire/
 ├── index.html                    The page (single-page layout)
-├── 404.html                      Custom 404
+├── 404.html                      Custom 404; forwards /<barber-slug> to the booking form
 ├── manifest.webmanifest          PWA manifest (icons in assets/brand/)
 ├── sw.js                         Service worker (network-first JS/CSS, cache-first images, video bypassed)
 ├── robots.txt · sitemap.xml      SEO
@@ -66,17 +67,19 @@ FadeEmpire/
 │   ├── shop.css                  "Inside the shop": tour video, room photo, LED-grid motif
 │   ├── menu.css                  Price list, VIP card, add-ons, comparison (cards on phone, table on desktop)
 │   ├── gallery.css               12-column editorial grid + lightbox
-│   ├── barbers.css               The two chair spreads
+│   ├── barbers.css               The chair spreads (two built by hand, plain ones for barbers added in the app)
 │   ├── booking-grid.css          Day chips, slot pills, form, success/error/fallback cards, cancel panel
 │   ├── visit.css                 Storefront, hours card, contact
 │   ├── motion.css                Scroll reveals + reduced-motion fallbacks
 │   └── responsive.css            The phone layer (≤600px), tablet tweaks, sticky CTA bar, print
 ├── scripts/
 │   ├── main.js                   Entry point: boots every module, registers the SW
-│   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS / prices
+│   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS (the fallback) / prices
+│   ├── roster.js                 The barbers on offer: config.js's until the database's are read
 │   ├── supabase.js               Singleton Supabase client (postgrest-js, vendored in scripts/vendor/)
-│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable
-│   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
+│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable, fetchBarbers
+│   ├── booking-grid.js           Reads the barbers; barber picker + day picker + slot pills + auto-refresh
+│   ├── booking-link.js           ?barber=&service= from a barber's link
 │   ├── booking-submit.js         Form submit, group flow, the result cards and their WhatsApp/text links, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
 │   ├── booking-return.js         The remembered customer: saved choices, the rebook card, Clear
@@ -84,6 +87,8 @@ FadeEmpire/
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
 │   ├── booking-calendar.js       The .ics for "Add to calendar"
 │   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map
+│   ├── barbers-section.js        The barbers section follows the database: hides, appends, renames the heading
+│   ├── pretty-link.js            404.html's /<slug> lookup (one anon REST read)
 │   ├── nav.js                    Mobile menu (loads without the database client)
 │   ├── page.js                   Nav stamp, hero status, sticky nav, compare collapse, footer year, #fragment landing (no database)
 │   ├── cover.js                  Next-open-slot lines, sticky CTA
@@ -95,6 +100,8 @@ FadeEmpire/
 │   ├── build-assets.py           Source photos → assets/img/*-{480..2000}.{jpg,webp} + assets/brand/ (icons, social card)
 │   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
 │   ├── screenshot.py             Playwright captures at phone/tablet/desktop sizes + overflow check
+│   ├── serve-pages.py            Local server that answers like GitHub Pages (404.html, status 404)
+│   ├── preview-local.sh          The site against the local stack, on :8021 over the tailnet
 │   ├── export-appointments.sh    Owner tooling (see tools/README.md)
 │   ├── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
 │   ├── deploy-barber-app.sh      Deploys the barber app backend (see Barber app backend below)
@@ -301,6 +308,15 @@ open http://localhost:8000
 
 That's it. Open the site, edit any file, refresh. Phone first: check the ≤600px layout before desktop.
 
+`http.server` answers a missing path with its own 404, so barber links (`/larry`) only work under `tools/serve-pages.py`, which answers like GitHub Pages: 404.html with status 404.
+
+```bash
+python3 tools/serve-pages.py . --port 8000   # like GitHub Pages, on 0.0.0.0
+tools/preview-local.sh                       # a copy wired to the local stack (tools/local-stack.sh), on :8021
+```
+
+`preview-local.sh` hard-links the site into `site-preview` next to the checkout (no extra disk), writes that copy's `config.js` with the local stack's URL (the Tailscale IP, so a phone can use it) and anon key, and serves it on port 8021; it stops if the port is taken. To try a barber added in the app, insert one into the local database (a `barbers` row and `barber_schedules` inside store hours) and reload.
+
 ```bash
 pip3 install playwright && python3 -m playwright install chromium   # once
 python3 tools/screenshot.py mobile /tmp/m.png            # full page at 390px, prints console errors + overflow
@@ -322,9 +338,11 @@ npm run test:watch # watch mode while developing
 | `booking-validate.test.js` | Duration-aware party planning and pure form validation |
 | `booking-messages.test.js` | The WhatsApp/SMS texts and deep links |
 | `booking-calendar.test.js` | The .ics read back by a small parser (`ics-parse.js`): required properties, UTC times in EDT and EST, groups, escaping, CRLF |
+| `barbers.dom.test.js` | The site following the database's barbers, booted as main.js boots: a third barber in the picker (hours, days, times, booking), a deactivated one gone, a day off, a failed or slow read falling back to `config.js`, the barbers section (hidden spreads, plain spreads, heading), and booking links (`?barber=&service=`, bad values, a link over the returning customer, a link to a barber that arrives late) |
+| `pretty-link.test.js` | `/<slug>` links: which paths are slugs, the redirect target, the anon lookup (found, not found, error, timeout) |
 | `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
 | `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse, landing on a #fragment), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return) |
-| `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the barbers match `BARBERS`, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
+| `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the shipped picker and spreads match `BARBERS` (the fallback) and its hours lines, 404.html's inline slug check matches `pretty-link.js`, one `?v=` release, no served folder a barber slug could shadow, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
 
 ### Database tests (pgTAP)
 
@@ -352,8 +370,14 @@ npm run test:db    # supabase db start && supabase test db
   and database using only the public anon key. Verifies the deploy is current,
   prices/hours/barbers in Supabase still match the `config.js` mirrors, the
   booking + cancellation RPCs are live and validating, and the security
-  posture holds (no PII readable by anon, owner RPCs not executable). Run it
-  locally anytime with `npm run health`.
+  posture holds (no PII readable by anon, owner and manager RPCs not
+  executable). Barbers are managed in the app, so it checks the barbers read
+  the site makes (it works, and every barber in it has a link-safe slug and
+  hours inside the store's), that `config.js`'s fallback barbers have the
+  database's hours, and that `/<slug>` reaches the forwarding 404 page; a
+  barber added or deactivated in the app is not a failure (a fallback barber
+  gone from the database is printed as a note). Run it locally anytime with
+  `npm run health`.
 
 The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears. Bump `VERSION` in `sw.js` and the `?v=` query on the stylesheet/script tags in `index.html` with every release so installed PWAs refresh.
 

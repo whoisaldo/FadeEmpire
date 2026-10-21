@@ -172,6 +172,10 @@ token is ES256 from `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the .p8 c
   deploy, and a deactivated one disappears.
 - The barbers section keeps its two hand-built spreads for Hassan and Larry. It hides a spread whose barber is
   inactive and appends a simple spread (photo from `photo_url`, name, title, bio) for any other active barber.
+- An active barber with no weekly hours yet (a new barber before `manager_set_schedule`) is not offered in the
+  picker or the barbers section; their `/<slug>` link forwards and the form falls back to the normal picker.
+- Days off (`barber_closures`, from `app_add_day_off`) close that day for that barber in the picker ("Off").
+- `/<slug>?service=<service-slug>` carries the service through the redirect.
 
 ## iOS app
 
