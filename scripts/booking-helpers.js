@@ -1,9 +1,10 @@
 // booking-helpers.js — pure helpers shared across booking modules.
 
 import {
-  STORE_HOURS, BARBERS, DEFAULT_BARBER_SLUG, SHOP_TZ, SLOT_MINUTES,
+  STORE_HOURS, DEFAULT_BARBER_SLUG, SHOP_TZ, SLOT_MINUTES,
   SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS, INCLUDED_ADDONS,
 } from './config.js';
+import { getBarber } from './roster.js';
 
 /** Strict ISO yyyy-mm-dd in local (shop) time for a given Date. */
 export function isoDate(d) {
@@ -126,7 +127,7 @@ export function shopStatus({ weekday = shopWeekday(), nowMin = nowMinutesInShopT
  */
 export function effectiveHours(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
   const store  = STORE_HOURS[weekday];
-  const barber = BARBERS[barberSlug]?.schedule?.[weekday];
+  const barber = getBarber(barberSlug)?.schedule?.[weekday];
   if (!store || !barber) return null;
   const open  = Math.max(store.open, barber.open);
   const close = Math.min(store.close, barber.close);
@@ -147,6 +148,57 @@ export function slotsForWeekday(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
     out.push(m);
   }
   return out;
+}
+
+/**
+ * Whether a slot is taken, from v_slot_availability rows: a booking holds its
+ * chair for [start, start + 45 min), so a slot is taken when any booking on
+ * that chair overlaps it, not only one that starts with it. (After a barber's
+ * hours change, an older booking can sit off the new grid; the database
+ * refuses a booking that overlaps it.) Returns (barberSlug, iso, minutes) => bool.
+ */
+export function takenSlots(rows) {
+  const starts = new Map();   // 'barber|YYYY-MM-DD' → booked start minutes
+  for (const r of rows) {
+    const key = `${r.barber_slug}|${r.booking_date}`;
+    if (!starts.has(key)) starts.set(key, []);
+    starts.get(key).push(hmsToMinutes(r.booking_time));
+  }
+  return (barberSlug, iso, m) => (starts.get(`${barberSlug}|${iso}`) || [])
+    .some(b => b < m + SLOT_MINUTES && m < b + SLOT_MINUTES);
+}
+
+/** A barber's slots on one calendar date: the weekly slots for that weekday,
+ *  none on a day off (`barber_closures`). */
+export function slotsForDate(iso, barberSlug = DEFAULT_BARBER_SLUG) {
+  if (getBarber(barberSlug)?.closures?.has(iso)) return [];
+  return slotsForWeekday(weekdayFromIso(iso), barberSlug);
+}
+
+const WEEKDAY_LONG = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+
+/**
+ * A barber's week in one line, from the bookable hours: "10 to 6 · Closed Tue"
+ * for the picker, "10 AM to 6 PM · Closed Tuesdays" with `long`. The times
+ * show when every working day has the same ones. The days not worked read
+ * "Closed" when they are the days the shop is closed, "Off" otherwise.
+ */
+export function barberHoursLabel(barberSlug, { long = false } = {}) {
+  const week = [0, 1, 2, 3, 4, 5, 6].map(wk => effectiveHours(wk, barberSlug));
+  const worked = week.filter(Boolean);
+  const off = [0, 1, 2, 3, 4, 5, 6].filter(wk => !week[wk]);
+  const parts = [];
+  if (worked.length && worked.every(h => h.open === worked[0].open && h.close === worked[0].close)) {
+    const time = (m) => long ? minutesToShortLabel(m) : minutesToShortLabel(m).replace(/ [AP]M$/, '');
+    parts.push(`${time(worked[0].open)} to ${time(worked[0].close)}`);
+  }
+  if (off.length) {
+    const storeClosed = [0, 1, 2, 3, 4, 5, 6].filter(wk => !STORE_HOURS[wk]);
+    const names = off.map(wk => (long ? WEEKDAY_LONG : WEEKDAY_SHORT)[wk]);
+    const list = long && names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join(', ');
+    parts.push(`${off.join() === storeClosed.join() ? 'Closed' : 'Off'} ${list}`);
+  }
+  return parts.join(' · ');
 }
 
 /** Chair time in minutes for a service slug (unknown slugs default to one slot). */

@@ -1,0 +1,311 @@
+import XCTest
+
+/// End-to-end flows on the MockBackend.
+final class FlowTests: MockUITestCase {
+    func testSignInWithForcedNewPassword() {
+        launch(extra: ["-mock-must-change", "hassan@local.test"])
+        type("signin-email", "hassan@local.test")
+        type("signin-password", "fade-local-1")
+        tap("signin-submit")
+        XCTAssertTrue(app.staticTexts["Choose your password"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.tabBars.firstMatch.exists, "nothing else is reachable before the change")
+        type("newpassword-field", "hassan-chair-1")
+        type("newpassword-confirm", "hassan-chair-1")
+        tap("newpassword-submit")
+        XCTAssertTrue(app.tabBars.buttons["Schedule"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Hassan's chair"].exists)
+    }
+
+    func testWrongPasswordIsExplained() {
+        launch()
+        type("signin-email", "larry@local.test")
+        type("signin-password", "wrong")
+        tap("signin-submit")
+        XCTAssertTrue(el("error-message").waitForExistence(timeout: 5))
+    }
+
+    func testViewOnlyChairHasNoActions() {
+        launch(as: "hassan@local.test")
+        XCTAssertTrue(el("new-appointment").waitForExistence(timeout: 5))
+        tap("chair-larry")
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 5))
+        XCTAssertFalse(el("new-appointment").exists, "no New appointment on a view-only chair")
+        tap("booking-Andre Mitchell")
+        XCTAssertTrue(app.staticTexts["Andre Mitchell"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["View only"].exists)
+        // No phone on a view-only chair: no Call, no Text, no number.
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Call'")).firstMatch.exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Text'")).firstMatch.exists)
+        XCTAssertFalse(element(containing: "(413) 555-").exists)
+        XCTAssertFalse(el("cancel-appointment").exists)
+        XCTAssertFalse(el("mark-no-show").exists)
+        XCTAssertFalse(el("undo-no-show").exists)
+        // Days off are listed but cannot be changed.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tap("open-days-off")
+        XCTAssertTrue(app.staticTexts["Wednesday, October 28"].waitForExistence(timeout: 5))
+        XCTAssertFalse(el("dayoff-add").exists)
+    }
+
+    func testCancelOffersTextToCustomer() {
+        launch(as: "hassan@local.test")
+        tap("booking-Tyler Brooks")
+        tap("cancel-appointment")
+        tapDialogButton("Cancel appointment", id: "confirm-cancel")
+        XCTAssertTrue(el("cancelled-title").waitForExistence(timeout: 5))
+        XCTAssertTrue(el("text-customer").exists)
+        XCTAssertEqual(el("text-customer").label, "Text Tyler")
+        let message = el("cancel-message").label
+        XCTAssertTrue(message.contains("FADE EMPIRE — CANCELLATION"), message)
+        XCTAssertTrue(message.contains("Time:    4:45 PM"), message)
+        tap("cancelled-done")
+        XCTAssertTrue(app.staticTexts["Cancelled"].waitForExistence(timeout: 5))
+        XCTAssertFalse(el("cancel-appointment").exists)
+    }
+
+    func testBookIntoFreeSlot() {
+        launch(as: "hassan@local.test")
+        tap("new-appointment")
+        tap("newday-2026-10-23")
+        XCTAssertFalse(el("slot-10:45").waitForExistence(timeout: 2), "10:45 is taken that day")
+        tap("slot-10:00")
+        type("new-name", "Walk In Test")
+        type("new-phone", "4135550199")
+        tap("keyboard-done")
+        let book = reveal("new-book")
+        XCTAssertEqual(book.label, "Book Fri Oct 23, 10:00 AM")
+        book.tap()
+        XCTAssertTrue(el("booking-Walk In Test").waitForExistence(timeout: 5))
+        XCTAssertTrue(el("day-header").label.contains("Friday, October 23"), el("day-header").label)
+    }
+
+    func testDayOffWarnsAboutBookings() {
+        launch(as: "hassan@local.test")
+        tap("open-days-off")
+        tap("dayoff-picker")
+        let friday = app.buttons["Friday, October 23"].firstMatch
+        XCTAssertTrue(friday.waitForExistence(timeout: 5))
+        friday.tap()
+        type("dayoff-reason", "Dentist")
+        tap("dayoff-add")
+        let alert = app.alerts["3 still booked on Fri Oct 23"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["OK"].tap()
+        XCTAssertTrue(el("dayoff-2026-10-23").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["3 still booked that day"].exists)
+    }
+
+    func testCustomLinkURL() {
+        launch(as: "hassan@local.test")
+        tab("Links")
+        XCTAssertEqual(el("link-url-Hassan's booking page").label, "https://chicopeefadeempire.com/hassan")
+        tap("add-link")
+        type("link-label", "Fade Friday")
+        tap("link-service")
+        tapWhenPresent(app.buttons["Hair Cut"].firstMatch, "Hair Cut in the service menu")
+        XCTAssertEqual(el("link-preview").label, "https://chicopeefadeempire.com/?barber=hassan&service=hair-cut#book")
+        tap("link-save")
+        let url = el("link-url-Fade Friday")
+        XCTAssertTrue(url.waitForExistence(timeout: 5))
+        XCTAssertEqual(url.label, "https://chicopeefadeempire.com/?barber=hassan&service=hair-cut#book")
+        app.buttons["QR code for Fade Friday"].tap()
+        XCTAssertTrue(el("qr-image").waitForExistence(timeout: 5))
+    }
+
+    func testManagerAddsBarberWithHoursAndLogin() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("add-barber")
+        type("barber-name", "Marco Silva")
+        tapWhenPresent(app.keyboards.buttons["return"], "the keyboard's return key")
+        XCTAssertEqual(el("barber-slug").value as? String, "marco-silva")
+        // Sunday off; the switch sits at the row's trailing edge.
+        let sunday = reveal("hours-0")
+        sunday.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertEqual(sunday.value as? String, "0")
+        tap("barber-save")
+        let hours = el("barber-hours")
+        XCTAssertTrue(hours.waitForExistence(timeout: 5))
+        XCTAssertTrue(hours.label.contains("Mon 10:00 AM–6:00 PM"), hours.label)
+        XCTAssertFalse(hours.label.contains("Sun"), hours.label)
+        XCTAssertFalse(hours.label.contains("Tue"), hours.label)
+        tap("create-login")
+        type("login-email", "marco@local.test")
+        tap("login-create")
+        let pw = el("temp-password")
+        XCTAssertTrue(pw.waitForExistence(timeout: 5))
+        XCTAssertNotNil(pw.label.range(of: #"^([a-z]+-){4}\d{2}$"#, options: .regularExpression), pw.label)
+        tap("temp-password-done")
+        XCTAssertFalse(el("temp-password").exists, "shown once")
+        XCTAssertTrue(element(containing: "marco@local.test").waitForExistence(timeout: 5))
+        XCTAssertTrue(el("reset-password").exists)
+    }
+
+    func testManagerToldWhenNewHoursLeaveBookingsOut() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("barber-larry")
+        tap("edit-barber")
+        // Friday off: the switch sits at the row's trailing edge.
+        let friday = reveal("hours-5")
+        friday.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertEqual(friday.value as? String, "0")
+        tap("barber-save")
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.label.contains("2 upcoming appointments no longer fit Larry's hours"), alert.label)
+        alert.buttons["OK"].tap()
+        XCTAssertFalse(el("barber-hours").label.contains("Fri"), el("barber-hours").label)
+    }
+
+    func testManagerDeactivatesAfterSeeingBookings() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("barber-larry")
+        tap("deactivate")
+        let count = el("deactivate-count")
+        XCTAssertTrue(count.waitForExistence(timeout: 5))
+        XCTAssertEqual(count.label, "Upcoming bookings (6)")
+        XCTAssertTrue(element(containing: "Malik Johnson").exists, "the affected customers are listed")
+        tap("confirm-deactivate")
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.label.contains("Larry is inactive"), alert.label)
+        XCTAssertTrue(alert.label.contains("6 upcoming bookings are still booked"), alert.label)
+        alert.buttons["OK"].tap()
+        XCTAssertTrue(el("reactivate").waitForExistence(timeout: 5))
+    }
+
+    /// Larry's hours can't load: the editor offers no day switches, and saving a bio edit
+    /// leaves his week as it was (his chair still works Friday).
+    func testBioEditWhileHoursCannotLoadKeepsHours() {
+        launch(as: "ali@local.test", extra: ["-mock-fault", "barberSchedule:network:*"])
+        tab("Barbers")
+        tap("barber-larry")
+        XCTAssertTrue(el("hours-retry").waitForExistence(timeout: 10), "says the hours failed to load, with Retry")
+        XCTAssertFalse(el("barber-hours").exists, "no \"No hours set\" for hours it doesn't know")
+        tap("edit-barber")
+        XCTAssertTrue(element(containing: "Saving now changes only the profile").waitForExistence(timeout: 5))
+        XCTAssertFalse(el("hours-1").exists, "no day switches to save by accident")
+        type("barber-bio", " Walk-ins welcome.")
+        tap("barber-save")
+        XCTAssertTrue(element(containing: "Walk-ins welcome.").waitForExistence(timeout: 10))
+        tab("Schedule")
+        tap("chair-larry")
+        let friday = el("day-2026-10-23")
+        XCTAssertTrue(friday.waitForExistence(timeout: 5))
+        XCTAssertFalse(friday.label.contains("Not working"), friday.label)
+    }
+
+    func testClearingEveryWorkingDayAsksFirst() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("barber-larry")
+        XCTAssertTrue(el("barber-hours").waitForExistence(timeout: 10))
+        tap("edit-barber")
+        for wd in HoursOrder.workingDays {
+            let day = reveal("hours-\(wd)")
+            day.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+            XCTAssertEqual(day.value as? String, "0", "weekday \(wd)")
+        }
+        tap("barber-save")
+        let confirm = app.alerts["Save Larry with no working days?"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.label.contains("stops offering Larry for booking") || element(containing: "stops offering Larry").exists)
+        tapDialogButton("Keep editing")
+        XCTAssertTrue(el("barber-save").waitForExistence(timeout: 5), "still editing, nothing saved")
+        tap("barber-save")
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        tapDialogButton("Save with no working days", id: "confirm-no-hours")
+        let alert = app.alerts.matching(NSPredicate(format: "label CONTAINS 'no longer fit'")).firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.label.contains("no longer fit Larry's hours"), alert.label)
+        alert.buttons["OK"].tap()
+        XCTAssertEqual(el("barber-hours").label, "No hours set")
+    }
+
+    /// Hassan views Larry's chair: Larry's day off reads "Day off", never his reason.
+    func testViewOnlyChairHidesDayOffReason() {
+        launch(as: "hassan@local.test")
+        tap("chair-larry")
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 5))
+        let wednesday = el("day-2026-10-28")
+        if !wednesday.waitForExistence(timeout: 3) { el("day-2026-10-22").swipeLeft() }
+        XCTAssertTrue(wednesday.waitForExistence(timeout: 5))
+        XCTAssertTrue(wednesday.label.hasSuffix("Day off"), wednesday.label)
+        wednesday.tap()
+        XCTAssertTrue(el("day-header").label.contains("Day off"), el("day-header").label)
+        XCTAssertFalse(element(containing: "Family event").exists)
+        tap("open-days-off")
+        XCTAssertTrue(app.staticTexts["Wednesday, October 28"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(containing: "Family event").exists)
+    }
+
+    /// No network at launch: a retry screen that keeps the session, not the sign-in screen.
+    func testNetworkFailureAtLaunchOffersRetry() {
+        launch(as: "hassan@local.test", extra: ["-mock-fault", "me:network:2"])
+        XCTAssertTrue(el("offline-title").waitForExistence(timeout: 10))
+        XCTAssertFalse(el("signin-email").exists, "still signed in")
+        // Foregrounding may already have used the second failure; Retry until it gets through.
+        for _ in 0..<3 where !app.staticTexts["Hassan's chair"].waitForExistence(timeout: 3) {
+            if el("offline-retry").exists { el("offline-retry").tap() }
+        }
+        XCTAssertTrue(app.staticTexts["Hassan's chair"].exists)
+        XCTAssertFalse(el("signin-email").exists)
+    }
+
+    private func pushPayload(barber: String, date: String) -> String {
+        #"{"barber_id":"\#(barber)","booking_date":"\#(date)","kind":"booked","#
+            + #""booking_id":"6b1f8a2e-1111-4000-8000-000000000001","event_id":1}"#
+    }
+
+    private let larryId = "00000000-0000-4000-8000-0000000000a2"
+
+    /// A push tapped at cold launch, before the root view is up: Hassan lands on Larry's chair
+    /// (view only) on that booking's day.
+    func testColdLaunchPushTapOpensThatChairAndDay() {
+        launch(as: "hassan@local.test", extra: ["-mock-open-push", pushPayload(barber: larryId, date: "2026-10-26")])
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 10))
+        let chip = el("chair-larry")
+        XCTAssertTrue(chip.isSelected)
+        XCTAssertEqual(chip.label, "Larry's chair, view only")
+        XCTAssertFalse(el("new-appointment").exists, "view only")
+        XCTAssertTrue(el("day-header").label.contains("Monday, October 26"), el("day-header").label)
+        XCTAssertTrue(el("day-2026-10-26").isSelected)
+    }
+
+    /// A push tapped while the app is in the background: back on Schedule, Larry's chair, that day.
+    func testWarmPushTapOpensThatChairAndDay() {
+        launch(as: "hassan@local.test", extra: ["-mock-warm-push", pushPayload(barber: larryId, date: "2026-10-30")])
+        XCTAssertTrue(app.staticTexts["Hassan's chair"].waitForExistence(timeout: 10))
+        tab("Activity")
+        XCTAssertTrue(app.navigationBars["Activity"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 20))
+        app.activate()
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.tabBars.buttons["Schedule"].isSelected)
+        XCTAssertTrue(el("chair-larry").isSelected)
+        XCTAssertTrue(el("day-header").label.contains("Friday, October 30"), el("day-header").label)
+    }
+
+    func testActivityBadgeClearsAfterViewing() {
+        launch(as: "hassan@local.test")
+        let activity = app.tabBars.buttons["Activity"].firstMatch
+        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        let badged = NSPredicate(format: "value == '3 unread'")
+        expectation(for: badged, evaluatedWith: activity)
+        waitForExpectations(timeout: 5)
+        activity.tap()
+        XCTAssertTrue(element(containing: "New booking · Tyler Brooks").waitForExistence(timeout: 5))
+        tab("Schedule")
+        let cleared = NSPredicate(format: "value == ''")
+        expectation(for: cleared, evaluatedWith: activity)
+        waitForExpectations(timeout: 5)
+    }
+}
+
+/// Larry's working weekdays in the editor's order (Monday first; Tuesday the shop is closed).
+private enum HoursOrder {
+    static let workingDays = [1, 3, 4, 5, 6, 0]
+}

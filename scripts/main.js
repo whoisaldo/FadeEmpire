@@ -12,6 +12,7 @@ import { initReveals }        from './reveals.js';
 import { initShopVideo }      from './shop-video.js';
 import { initGallery }        from './gallery.js';
 import { initVisit }          from './visit.js';
+import { initBarberSpreads }  from './barbers-section.js';
 import { SHOP_PHONE }         from './config.js';
 
 function ready(fn) {
@@ -66,10 +67,11 @@ ready(() => {
   initShopVideo();
   initGallery();
   initVisit();
+  initBarberSpreads();          // follows the barbers once booking-grid.js reads them
 
-  // cover.js and the four booking modules load side by side and fail on
+  // cover.js and the five booking modules load side by side and fail on
   // their own: a booking module that fails shows the notice at once, without
-  // waiting on cover.js or the other three.
+  // waiting on cover.js or the others.
   import('./cover.js')
     .then((cover) => cover.initCover())
     .catch((err) => console.warn('[main] next open slot and sticky bar failed to start', err));
@@ -84,11 +86,16 @@ ready(() => {
     load(import('./booking-submit.js')),
     load(import('./booking-cancel.js')),
     load(import('./booking-return.js')),
-  ]).then(([grid, submit, cancel, ret]) => {
+    load(import('./booking-link.js')),
+  ]).then(async ([grid, submit, cancel, ret, link]) => {
     try {
       submit.initBookingSubmit();
       cancel.initBookingCancel();
+      // The database's barbers, or config.js's if they fail or are slow
+      // (never throws): the returning customer and a link are checked against them.
+      await grid.loadBarbers();
       ret.initBookingReturn();  // before the grid: it starts on a returning customer's barber
+      link.applyBookingLink();  // ?barber=&service= from a barber's link, over the returning customer's
       grid.initBookingGrid();  // async; loads availability in the background
     } catch (err) {
       bookingFailed(err);

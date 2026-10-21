@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { planParty, partyFits, validateBookingInput } from '../scripts/booking-validate.js';
+import { takenSlots } from '../scripts/booking-helpers.js';
 
 // 2026-07-08 is a Wednesday: Hassan and Larry both work 10–6.
 const WED = '2026-07-08';
@@ -34,7 +35,7 @@ describe('partyFits', () => {
   it('accepts a single cut inside working hours', () => {
     expect(partyFits({
       date: WED, barberSlug: 'hassan', startMin: 600, services: ['hair-cut'],
-    })).toEqual({ ok: true, offenders: [] });
+    })).toEqual({ ok: true, offenders: [], taken: [] });
   });
 
   it('accepts the last slot of the day (5:30 — runs to 6:15, barber stays)', () => {
@@ -91,6 +92,24 @@ describe('partyFits', () => {
   it('rejects 9 AM starts — the shop day runs 10–6 now', () => {
     expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
     expect(partyFits({ date: WED, barberSlug: 'larry', startMin: 540, services: ['hair-cut'] }).ok).toBe(false);
+  });
+
+  it('a later guest whose time overlaps a booking is taken, by the grid\'s own rule (an off-grid 1:15)', () => {
+    const isTaken = takenSlots([{ barber_slug: 'hassan', booking_date: WED, booking_time: '13:15:00' }]);
+    // 12:15 is open (it ends at 1:00); the guest after it would sit at 1:00, which the 1:15 overlaps.
+    expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 735, services: ['hair-cut'], isTaken }))
+      .toEqual({ ok: true, offenders: [], taken: [] });
+    expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 735, services: ['hair-cut', 'kids-cut'], isTaken }))
+      .toEqual({ ok: false, offenders: [], taken: [1] });
+    // Another chair's booking, or another day's, takes nothing.
+    expect(partyFits({ date: WED, barberSlug: 'larry', startMin: 735, services: ['hair-cut', 'kids-cut'], isTaken }).ok).toBe(true);
+    expect(partyFits({ date: SUN, barberSlug: 'hassan', startMin: 735, services: ['hair-cut', 'kids-cut'], isTaken }).ok).toBe(true);
+  });
+
+  it('a guest past closing is past closing, not also taken', () => {
+    const isTaken = () => true;
+    expect(partyFits({ date: WED, barberSlug: 'hassan', startMin: 1050, services: ['hair-cut', 'hair-cut'], isTaken }))
+      .toEqual({ ok: false, offenders: [1], taken: [0] });
   });
 
   it('javier is retired — no bookable slots on any day', () => {

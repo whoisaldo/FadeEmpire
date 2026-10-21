@@ -180,7 +180,7 @@ input, select, textarea, button {
   .feature { gap: 1.5rem; }
   .feature__portrait { aspect-ratio: 4 / 5; }
   .feature__name     { font-size: 2.5rem; }
-  .feature + .feature { margin-top: 3rem; padding-top: 2.5rem; }
+  .feature:not([hidden]) ~ .feature:not([hidden]) { margin-top: 3rem; padding-top: 2.5rem; }
 
   /* --- Booking --- */
   .booking {

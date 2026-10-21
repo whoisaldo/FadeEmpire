@@ -1,0 +1,1179 @@
+-- 007_barber_app.sql — pgTAP: the barber app's database API (0022). Logins and
+-- chairs, what each role sees and may change, booking_events from every path,
+-- app_free_slots against book_slot, the manager RPCs, activity unread state,
+-- devices and push recipients, and the pg_net notify trigger. Rolls back.
+--
+-- Logins are rows in auth.users with fixed ids; "signing in" is setting
+-- request.jwt.claims (what auth.uid() reads) and the authenticated role, the
+-- same two things PostgREST does for a request with that user's JWT.
+
+begin;
+create extension if not exists pgtap with schema extensions;
+select * from no_plan();
+
+create function tap_next_dow(p_dow int) returns date language sql as $$
+  select (current_date + ((p_dow - extract(dow from current_date)::int + 7) % 7 + 7))::date
+$$;
+
+create function tap_claims(p_user uuid) returns void language sql as $$
+  select set_config('request.jwt.claims',
+                    json_build_object('sub', p_user, 'role', 'authenticated')::text, true)
+$$;
+
+create function tap_barber(p_slug text) returns uuid language sql as $$
+  select id from barbers where slug = p_slug
+$$;
+
+-- Security definer so it finds the booking whoever is signed in (RLS would hide it).
+create function tap_booking(p_phone text) returns uuid language sql security definer as $$
+  select id from bookings where customer_phone = p_phone and linked_to is null
+   order by created_at desc, booking_time limit 1
+$$;
+
+create function tap_events(p_phone text) returns text language sql as $$
+  select coalesce(string_agg(e.kind || ':' || e.actor, ',' order by e.id), '')
+    from booking_events e join bookings bk on bk.id = e.booking_id
+   where bk.customer_phone = p_phone
+$$;
+
+create function tap_table_hidden(p_table text) returns boolean
+language plpgsql as $$
+declare v_count int;
+begin
+  execute format('select count(*) from %I', p_table) into v_count;
+  return v_count = 0;
+exception when insufficient_privilege then
+  return true;
+end;
+$$;
+
+-- The view-only attack: read a chair's bookings through app_bookings, then cancel
+-- each one as "the customer" through the site's cancel_booking(id, phone).
+-- Returns how many were cancelled.
+create function tap_viewer_cancels_all(p_slug text, p_date date) returns int language plpgsql as $$
+declare
+  v_row record;
+  v_done int := 0;
+begin
+  for v_row in select id, customer_phone from app_bookings(tap_barber(p_slug), p_date, p_date) loop
+    begin
+      perform cancel_booking(v_row.id, v_row.customer_phone);
+      v_done := v_done + 1;
+    exception when others then
+      null;
+    end;
+  end loop;
+  return v_done;
+end;
+$$;
+
+-- How many booking_links rows a delete by id removes, as the caller (RLS applies).
+create function tap_delete_link(p_id uuid) returns int language plpgsql as $$
+declare v_count int;
+begin
+  delete from booking_links where id = p_id;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+-- True when manager_save_barber refuses p_url as invalid_photo_url.
+create function tap_photo_refused(p_id uuid, p_url text) returns boolean language plpgsql as $$
+begin
+  perform manager_save_barber(p_id, (select slug from barbers where id = p_id), 'Marco', 'Barber', null, p_url);
+  return false;
+exception when others then
+  return sqlerrm = 'invalid_photo_url';
+end;
+$$;
+
+-- Transaction-local two-slot service, to check continuation rows write no events.
+insert into services (slug, display_name, base_price_cents, duration_minutes, sort_order)
+values ('tap-long', 'pgTAP Two-Slot Service', 9000, 90, 999);
+
+-- ---------- Logins ----------
+-- ali (manager), hassan, larry, and a stranger with a login but no staff row.
+insert into auth.users (id, email, aud, role) values
+  ('00000000-0000-4000-a000-000000000001', 'ali@tap.test',      'authenticated', 'authenticated'),
+  ('00000000-0000-4000-a000-000000000002', 'hassan@tap.test',   'authenticated', 'authenticated'),
+  ('00000000-0000-4000-a000-000000000003', 'larry@tap.test',    'authenticated', 'authenticated'),
+  ('00000000-0000-4000-a000-000000000004', 'stranger@tap.test', 'authenticated', 'authenticated');
+
+insert into staff (user_id, role, barber_id, display_name, activity_seen_at) values
+  ('00000000-0000-4000-a000-000000000001', 'manager', null,                 'Ali',    now() - interval '1 hour'),
+  ('00000000-0000-4000-a000-000000000002', 'barber',  tap_barber('hassan'), 'Hassan', now() - interval '1 hour'),
+  ('00000000-0000-4000-a000-000000000003', 'barber',  tap_barber('larry'),  'Larry',  now() - interval '1 hour');
+
+-- ======================= Schema =======================
+select has_table('public', 'staff',              'staff table exists');
+select has_table('public', 'barber_view_grants', 'barber_view_grants table exists');
+select has_table('public', 'booking_events',     'booking_events table exists');
+select has_table('public', 'booking_links',      'booking_links table exists');
+select has_table('public', 'device_tokens',      'device_tokens table exists');
+select has_column('public', 'barbers', 'title',  'barbers.title exists');
+select results_eq(
+  $$ select slug, title from barbers where slug in ('hassan', 'larry') order by sort_order $$,
+  $$ values ('hassan', 'Master Barber'), ('larry', 'Barber') $$,
+  'titles are backfilled'
+);
+select is(
+  (select count(*)::int from barber_view_grants
+    where viewer_barber_id = tap_barber('hassan') and barber_id = tap_barber('larry')),
+  1, 'the migration seeds hassan → larry as a view grant'
+);
+select throws_ok(
+  $$ insert into staff (user_id, role, display_name)
+     values ('00000000-0000-4000-a000-000000000004', 'barber', 'No Chair') $$,
+  '23514', null,
+  'a barber login must have a chair'
+);
+select is(
+  (select bool_and(relrowsecurity) from pg_class
+    where relname in ('staff', 'barber_view_grants', 'booking_events', 'booking_links', 'device_tokens')
+      and relnamespace = 'public'::regnamespace),
+  true, 'RLS is on for every new table'
+);
+
+-- ======================= Grants =======================
+-- Every function this migration adds, by name. The count keeps the checks below
+-- from passing on an empty set.
+create temp table tap_new_functions as
+select p.oid, (p.proname::text collate "default") as proname, p.oid::regprocedure::text as sig, p.prosecdef, p.proconfig
+  from pg_proc p
+ where p.pronamespace = 'public'::regnamespace
+   and (p.proname like 'app\_%' or p.proname like 'manager\_%' or p.proname like 'notify\_%'
+        or p.proname in ('book_slot_at', 'booking_minutes', 'tg_booking_events', 'tg_booking_no_overlap',
+                         'tg_notify_booking_event'));
+grant select on tap_new_functions to anon, authenticated;
+
+select is((select count(*)::int from tap_new_functions), 36, 'the migration adds 36 functions');
+select is(
+  (select count(*)::int from tap_new_functions where has_function_privilege('anon', oid, 'execute')),
+  0, 'anon can execute none of the new functions'
+);
+select is(
+  (select count(*)::int from tap_new_functions where has_function_privilege('public', oid, 'execute')),
+  0, 'public can execute none of the new functions'
+);
+select is(
+  (select count(*)::int from tap_new_functions where not prosecdef),
+  0, 'every new function is security definer'
+);
+select is(
+  (select count(*)::int from tap_new_functions where not coalesce('search_path=public' = any(proconfig), false)),
+  0, 'every new security definer function sets search_path = public'
+);
+select results_eq(
+  $$ select proname from tap_new_functions
+      where not has_function_privilege('authenticated', oid, 'execute') order by 1 $$,
+  $$ values ('app_caller'), ('app_clear_actor'), ('app_set_actor'), ('book_slot_at'), ('booking_minutes'),
+            ('notify_drop_device_tokens'), ('notify_event_payload'),
+            ('tg_booking_events'), ('tg_booking_no_overlap'), ('tg_notify_booking_event') $$,
+  'the internal functions are closed to authenticated too'
+);
+select results_eq(
+  $$ select distinct f.proname
+       from tap_new_functions f
+       join pg_proc p on p.oid = f.oid,
+            unnest(p.proargnames, p.proargmodes) as a(arg_name, arg_mode)
+      where a.arg_mode in ('o', 't', 'b') and a.arg_name like '%phone%'
+      order by 1 $$,
+  $$ values ('app_bookings'), ('app_cancel_booking') $$,
+  'only app_bookings (null on view-only chairs) and app_cancel_booking (manage only) return a phone'
+);
+select is(
+  has_function_privilege('service_role', 'notify_event_payload(bigint)', 'execute'),
+  true, 'service_role can read push payloads'
+);
+select is(
+  has_function_privilege('anon', 'book_slot(text, text, date, time, text, text, text[], text, text, text, int, boolean, boolean)', 'execute'),
+  true, 'anon can still execute book_slot'
+);
+
+-- ======================= Bookings to look at =======================
+select lives_ok($$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(3), '10:00', 'Hassan Client', '5557770001') $$, 'a web booking on hassan''s chair');
+select lives_ok($$ select * from book_slot('larry',  'hair-cut', tap_next_dow(3), '10:00', 'Larry Client',  '5557770002') $$, 'a web booking on larry''s chair');
+select lives_ok($$ select * from book_slot('larry',  'hair-cut', tap_next_dow(3), '10:45', 'Larry Second',  '5557770003') $$, 'a second one on larry''s chair');
+
+-- ======================= Anon =======================
+set local role anon;
+select is(tap_table_hidden('staff'),              true, 'anon cannot read staff');
+select is(tap_table_hidden('barber_view_grants'), true, 'anon cannot read barber_view_grants');
+select is(tap_table_hidden('booking_events'),     true, 'anon cannot read booking_events');
+select is(tap_table_hidden('booking_links'),      true, 'anon cannot read booking_links');
+select is(tap_table_hidden('device_tokens'),      true, 'anon cannot read device_tokens');
+select is(tap_table_hidden('bookings'),           true, 'anon still cannot read bookings');
+select throws_ok($$ select * from app_me() $$, '42501', null, 'anon cannot call app_me');
+select throws_ok($$ select * from app_bookings(tap_barber('larry'), current_date, current_date + 30) $$, '42501', null, 'anon cannot call app_bookings');
+select throws_ok($$ select manager_set_active(tap_barber('larry'), false) $$, '42501', null, 'anon cannot call manager_set_active');
+select throws_ok($$ select * from manager_view_grants() $$, '42501', null, 'anon cannot call manager_view_grants');
+select is((select count(*)::int from barbers where slug = 'javier'), 0, 'anon still cannot see the retired barber');
+reset role;
+
+-- ======================= A stranger: a login with no staff row =======================
+select tap_claims('00000000-0000-4000-a000-000000000004');
+set local role authenticated;
+select is((select count(*)::int from app_me()), 0, 'a login with no staff row gets no app_me row');
+select is((select count(*)::int from bookings), 0, 'a login with no staff row reads no bookings');
+select is((select count(*)::int from app_activity()), 0, 'a login with no staff row has no activity');
+select is((select count(*)::int from booking_links), 0, 'a login with no staff row reads no links');
+select throws_ok($$ select * from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) $$, '42501', 'forbidden', 'a login with no staff row cannot list a chair');
+select throws_ok($$ select app_book(tap_barber('larry'), 'hair-cut', tap_next_dow(3), '11:30', 'Sneaky Booker', '5557770099') $$, '42501', 'forbidden', 'a login with no staff row cannot book');
+select throws_ok($$ select * from manager_staff() $$, '42501', 'forbidden', 'a login with no staff row is not a manager');
+select throws_ok($$ select app_register_device('tok-stranger', 'sandbox') $$, '42501', 'forbidden', 'a login with no staff row cannot register a device');
+select throws_ok($$ select confirm_booking(tap_booking('5557770002')) $$, '42501', null, 'a login with no staff row cannot confirm bookings');
+select is(app_can_view(tap_barber('larry')), false, 'app_can_view is false for a stranger');
+reset role;
+
+-- ======================= Larry: his own chair only =======================
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select results_eq(
+  $$ select role, display_name, barber_slug, jsonb_array_length(chairs) from app_me() $$,
+  $$ values ('barber', 'Larry', 'larry', 1) $$,
+  'larry''s app_me: barber, his chair, one chair'
+);
+select is(
+  (select count(*)::int from bookings where barber_id = tap_barber('hassan')),
+  0, 'larry reads none of hassan''s bookings through RLS'
+);
+select is(
+  (select count(*)::int from bookings where barber_id = tap_barber('larry') and linked_to is null),
+  2, 'larry reads his own bookings through RLS'
+);
+select throws_ok($$ select * from app_bookings(tap_barber('hassan'), tap_next_dow(3), tap_next_dow(3)) $$, '42501', 'forbidden', 'larry cannot list hassan''s chair');
+select is(
+  (select count(*)::int from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3))),
+  2, 'larry lists his own day'
+);
+select throws_ok($$ select app_cancel_booking(tap_booking('5557770001')) $$, '42501', 'forbidden', 'larry cannot cancel on hassan''s chair');
+reset role;
+
+-- ======================= Hassan: his chair, plus larry's read-only =======================
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select results_eq(
+  $$ select role, barber_slug,
+            (select array_agg(c ->> 'slug' order by o) from jsonb_array_elements(chairs) with ordinality as x(c, o)),
+            (select array_agg((c ->> 'can_manage')::boolean order by o) from jsonb_array_elements(chairs) with ordinality as x(c, o))
+       from app_me() $$,
+  $$ values ('barber', 'hassan', array['hassan', 'larry'], array[true, false]) $$,
+  'hassan''s chairs: his own first and managed, then larry''s view-only'
+);
+select is(
+  (select array_agg(k order by k) from app_me(), jsonb_object_keys(chairs -> 0) as k),
+  array['barber_id', 'can_manage', 'display_name', 'is_active', 'slug', 'title'],
+  'a chair has exactly barber_id, slug, display_name, title, is_active, can_manage'
+);
+select is(
+  (select count(*)::int from bookings where linked_to is null and barber_id = tap_barber('hassan')),
+  1, 'hassan reads his own bookings through RLS'
+);
+select is(
+  (select count(*)::int from bookings where barber_id = tap_barber('larry')),
+  0, 'hassan reads none of larry''s bookings directly: the table has their phones'
+);
+select results_eq(
+  $$ select customer_name, customer_phone, can_manage, service_name, status, source, party_size, end_time::text
+       from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) order by booking_time $$,
+  $$ values ('Larry Client', null::text, false, 'Hair Cut', 'confirmed', 'web', 1, '10:45:00'),
+            ('Larry Second', null::text, false, 'Hair Cut', 'confirmed', 'web', 1, '11:30:00') $$,
+  'hassan lists larry''s day: can_manage false, no phones, end_time at the end of the 45-minute slot'
+);
+select is(
+  (select customer_phone from app_bookings(tap_barber('hassan'), tap_next_dow(3), tap_next_dow(3))),
+  '5557770001', 'hassan gets the phones on his own chair'
+);
+select is(tap_viewer_cancels_all('larry', tap_next_dow(3)), 0, 'hassan cannot cancel larry''s bookings through cancel_booking');
+reset role;
+select is(
+  (select count(*)::int from bookings
+    where barber_id = tap_barber('larry') and booking_date = tap_next_dow(3) and status = 'confirmed'),
+  2, 'larry''s two bookings are still confirmed'
+);
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select throws_ok($$ select * from app_cancel_booking(tap_booking('5557770002')) $$, '42501', 'forbidden', 'hassan cannot cancel on larry''s chair');
+select throws_ok($$ select app_set_status(tap_booking('5557770002'), 'no_show') $$, '42501', 'forbidden', 'hassan cannot mark a no-show on larry''s chair');
+select throws_ok($$ select app_book(tap_barber('larry'), 'hair-cut', tap_next_dow(3), '11:30', 'Hassan Books Larry', '5557770004') $$, '42501', 'forbidden', 'hassan cannot book on larry''s chair');
+select throws_ok($$ select app_add_day_off(tap_barber('larry'), tap_next_dow(4)) $$, '42501', 'forbidden', 'hassan cannot add a day off for larry');
+select throws_ok($$ select app_remove_day_off(tap_barber('larry'), tap_next_dow(4)) $$, '42501', 'forbidden', 'hassan cannot remove larry''s day off');
+select throws_ok($$ insert into booking_links (barber_id, label) values (tap_barber('larry'), 'Not mine') $$, '42501', null, 'hassan cannot add a link to larry''s chair');
+select lives_ok($$ insert into booking_links (barber_id, label, service_slug) values (tap_barber('hassan'), 'Fades', 'hair-cut') $$, 'hassan adds a link to his own chair');
+select is((select count(*)::int from booking_links), 1, 'hassan reads his own links');
+select throws_ok($$ select * from manager_staff() $$, '42501', 'forbidden', 'hassan is not a manager');
+select throws_ok($$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), true) $$, '42501', 'forbidden', 'hassan cannot grant himself views');
+select throws_ok($$ select * from manager_view_grants() $$, '42501', 'forbidden', 'hassan cannot list the view grants');
+
+-- booking_links answers with plain SQLSTATEs, and RLS hides another chair's links:
+-- they are not listed, and deleting one deletes nothing, without an error.
+select throws_ok($$ insert into booking_links (barber_id, label) values (tap_barber('hassan'), '   ') $$, '23514', null, 'an empty label is a check violation');
+select throws_ok($$ insert into booking_links (barber_id, label) values (tap_barber('hassan'), repeat('x', 61)) $$, '23514', null, 'so is a label over 60 characters');
+select throws_ok($$ insert into booking_links (barber_id, label, service_slug) values (tap_barber('hassan'), 'Nope', 'no-such-service') $$, '23503', null, 'an unknown service is a foreign key violation');
+reset role;
+insert into booking_links (id, barber_id, label) values ('00000000-0000-4000-d000-000000000001', tap_barber('larry'), 'Larry''s link');
+set local role authenticated;
+select is((select count(*)::int from booking_links where barber_id = tap_barber('larry')), 0, 'hassan does not see larry''s link (he only views that chair)');
+select is(tap_delete_link('00000000-0000-4000-d000-000000000001'), 0, 'deleting it deletes nothing, without an error');
+reset role;
+select is((select count(*)::int from booking_links where id = '00000000-0000-4000-d000-000000000001'), 1, 'it is still there');
+delete from booking_links where id = '00000000-0000-4000-d000-000000000001';
+
+-- ======================= Deactivated barber, disabled login =======================
+update barbers set is_active = false where slug = 'larry';
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select is((select count(*)::int from app_me()), 0, 'a deactivated barber gets no app_me row');
+select is((select count(*)::int from bookings), 0, 'a deactivated barber reads no bookings');
+select is((select count(*)::int from app_activity()), 0, 'a deactivated barber has no activity');
+select throws_ok($$ select * from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) $$, '42501', 'forbidden', 'a deactivated barber cannot list his own chair');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select is(
+  (select jsonb_array_length(chairs) from app_me()), 1,
+  'a grant to an inactive chair shows nothing: hassan sees only his own'
+);
+reset role;
+update barbers set is_active = true where slug = 'larry';
+
+update auth.users set banned_until = now() + interval '100 years' where id = '00000000-0000-4000-a000-000000000002';
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select is((select count(*)::int from app_me()), 0, 'a disabled login gets no app_me row at once');
+select is((select count(*)::int from bookings), 0, 'a disabled login reads no bookings');
+reset role;
+update auth.users set banned_until = null where id = '00000000-0000-4000-a000-000000000002';
+
+-- ======================= The manager =======================
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select results_eq(
+  $$ select role, barber_id, barber_slug, jsonb_array_length(chairs),
+            (select bool_and((c ->> 'can_manage')::boolean) from jsonb_array_elements(chairs) c)
+       from app_me() $$,
+  $$ values ('manager', null::uuid, null::text, 3, true) $$,
+  'the manager sees and manages every chair, the retired one included'
+);
+select is((select count(*)::int from barbers), 3, 'the manager reads inactive barbers through RLS');
+select is((select count(*)::int from bookings where linked_to is null), 3, 'the manager reads every booking');
+select is(
+  (select count(*)::int from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) where can_manage),
+  2, 'the manager manages larry''s chair'
+);
+select results_eq(
+  $$ select customer_phone from app_bookings(tap_barber('larry'), tap_next_dow(3), tap_next_dow(3)) order by booking_time $$,
+  $$ values ('5557770002'), ('5557770003') $$,
+  'the manager gets the phones on every chair'
+);
+select results_eq(
+  $$ select email, role, is_disabled from manager_staff() order by email $$,
+  $$ values ('ali@tap.test', 'manager', false), ('hassan@tap.test', 'barber', false),
+            ('larry@tap.test', 'barber', false) $$,
+  'manager_staff lists every login with its email'
+);
+select lives_ok($$ select * from app_cancel_booking(tap_booking('5557770003')) $$, 'the manager cancels on larry''s chair');
+select is(
+  (select cancelled_by from bookings where id = tap_booking('5557770003')),
+  'manager', 'cancelled_by is manager'
+);
+select lives_ok(
+  $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), true) $$,
+  'the manager grants larry a view of hassan''s chair'
+);
+select results_eq(
+  $$ select viewer_barber_id, barber_id from manager_view_grants() $$,
+  $$ select v, b from (values (tap_barber('hassan'), tap_barber('larry')), (tap_barber('larry'), tap_barber('hassan'))) x(v, b)
+      order by v, b $$,
+  'manager_view_grants lists both grants: viewer, chair'
+);
+select throws_ok(
+  $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('larry'), true) $$,
+  '22023', 'invalid_grant', 'a chair cannot be granted to itself'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select is((select jsonb_array_length(chairs) from app_me()), 2, 'larry now sees two chairs');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok(
+  $$ select manager_set_view_grant(tap_barber('larry'), tap_barber('hassan'), false) $$,
+  'the manager takes the grant back'
+);
+select results_eq(
+  $$ select viewer_barber_id, barber_id from manager_view_grants() $$,
+  $$ values (tap_barber('hassan'), tap_barber('larry')) $$,
+  'and manager_view_grants shows only hassan → larry again'
+);
+
+-- ---------- manager_save_barber ----------
+select lives_ok(
+  $$ select manager_save_barber(null, 'Marco', 'Marco', 'Barber', 'New chair.', null) $$,
+  'the manager adds a barber'
+);
+select results_eq(
+  $$ select slug, display_name, title, is_active,
+            sort_order > (select max(sort_order) from barbers where slug <> 'marco')
+       from barbers where slug = 'marco' $$,
+  $$ values ('marco', 'Marco', 'Barber', true, true) $$,
+  'a new barber is active, slug lowercased, sorted after the last one'
+);
+select throws_ok($$ select manager_save_barber(null, 'larry', 'Larry Two', null, null, null) $$, '22023', 'slug_taken', 'slugs are unique');
+select throws_ok($$ select manager_save_barber(null, 'a', 'Al', null, null, null) $$, '22023', 'invalid_slug', 'slugs are 2-30 characters');
+select throws_ok($$ select manager_save_barber(null, 'bad slug', 'Al', null, null, null) $$, '22023', 'invalid_slug', 'slugs are [a-z0-9-]');
+select throws_ok($$ select manager_save_barber(null, 'assets', 'Al', null, null, null) $$, '22023', 'slug_reserved', 'a slug cannot be one of the site''s own paths');
+select throws_ok($$ select manager_save_barber(tap_barber('larry'), 'lawrence', 'Larry', 'Barber', null, null) $$, '22023', 'slug_locked', 'a slug with bookings cannot change');
+-- 0013's relative photo path for larry (hassan has none) stays valid while untouched.
+select results_eq(
+  $$ select slug, photo_url from barbers where slug in ('hassan', 'larry') order by slug $$,
+  $$ values ('hassan', null::text), ('larry', './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'the shop''s two barbers as 0013 left them'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Barber', 'Second chair.',
+       './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'saving larry with his ./assets photo unchanged works, with the bio edited'
+);
+select results_eq(
+  $$ select bio, photo_url from barbers where slug = 'larry' $$,
+  $$ values ('Second chair.', './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'the bio changed, the photo is kept'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('hassan'), 'hassan', 'Hassan', 'Master Barber',
+       'Master barber. Licensed. Originally from Lebanon, cutting in Chicopee since 2018.', null) $$,
+  'saving hassan as he is works'
+);
+select throws_ok(
+  $$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Barber', 'Second chair.',
+       './assets/Barbers/Javier/optimized/JavierBarber_tablet.jpg') $$,
+  '22023', 'invalid_photo_url', 'a different ./assets path is a new photo, and refused'
+);
+select lives_ok($$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Senior Barber', 'Bio.', null) $$, 'the rest of a barber with bookings can change');
+select is((select title from barbers where slug = 'larry'), 'Senior Barber', 'the title changed');
+select lives_ok($$ select manager_save_barber(tap_barber('marco'), 'marco-b', 'Marco', 'Barber', null, null) $$, 'a slug without bookings can change');
+
+-- Text reaches the site's HTML: no angle brackets or control characters.
+select throws_ok($$ select manager_save_barber(null, 'xss', '<img src=x onerror=alert(1)>', null, null, null) $$, '22023', 'invalid_text', 'a name with markup is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', 'Barber</h3><script>', null, null) $$, '22023', 'invalid_text', 'a title with markup is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, 'Fades > tapers', null) $$, '22023', 'invalid_text', 'a bio with > is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Mar\tco', null, null, null) $$, '22023', 'invalid_text', 'a tab in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\nBold', null, null, null) $$, '22023', 'invalid_text', 'a line break in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u0085ber', null, null) $$, '22023', 'invalid_text', 'a C1 control in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u0007two', null) $$, '22023', 'invalid_text', 'a control character in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\ttwo', null) $$, '22023', 'invalid_text', 'a tab in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u0085two', null) $$, '22023', 'invalid_text', 'a C1 control in a bio is refused');
+-- Unicode format characters (Cf) and line/paragraph separators (Zl, Zp): a U+202E shows
+-- the rest of the name reversed on the site, in pushes and in texts.
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u202Eocram', null, null, null) $$, '22023', 'invalid_text', 'a right-to-left override (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'\u202AMarco', null, null, null) $$, '22023', 'invalid_text', 'a left-to-right embedding (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2067ber', null, null) $$, '22023', 'invalid_text', 'a right-to-left isolate (Cf) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'Fades\u2069 tapers', null) $$, '22023', 'invalid_text', 'a pop directional isolate (Cf) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Mar\u200Bco', null, null, null) $$, '22023', 'invalid_text', 'a zero-width space (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'\uFEFFMarco', null, null, null) $$, '22023', 'invalid_text', 'a byte order mark (Cf) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u00ADber', null, null) $$, '22023', 'invalid_text', 'a soft hyphen (Cf) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Barber\U000E0041', null, null) $$, '22023', 'invalid_text', 'a tag character (Cf, outside the BMP) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\U0001D173two', null) $$, '22023', 'invalid_text', 'a musical format character (Cf, outside the BMP) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u2028Bold', null, null, null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2028ber', null, null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u2028two', null) $$, '22023', 'invalid_text', 'a line separator (Zl) in a bio is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\u2029Bold', null, null, null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u2029ber', null, null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u2029two', null) $$, '22023', 'invalid_text', 'a paragraph separator (Zp) in a bio is refused');
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', e'Jos\u00E9 \u00D1u\u00F1ez', e'Barbero \u2702\uFE0F', e'Desde 2019 \u2014 fades.\nCort\u00E9s.', null) $$, 'accents, a dash, an emoji and its variation selector are text');
+select is((select display_name from barbers where slug = 'marco-b'), e'Jos\u00E9 \u00D1u\u00F1ez', 'and saved as typed');
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', null) $$, 'a bio keeps its line breaks, & and dashes');
+select is((select bio from barbers where slug = 'marco-b'), e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', 'stored as typed');
+select is((select count(*)::int from barbers where slug = 'xss'), 0, 'nothing refused was saved');
+
+-- Photos: a public barber-photos object, https (or http on loopback, the local stack).
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null,
+       'https://abcdefghijklmnop.supabase.co/storage/v1/object/public/barber-photos/marco-b/5B1D0A52-7C1E-4F0B-9A43-0D8C1E2F3A4B.jpg') $$,
+  'a hosted barber-photos URL is accepted'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null,
+       'http://127.0.0.1:56321/storage/v1/object/public/barber-photos/marco-b/1f2e3d4c-0000-4000-8000-000000000001.jpg') $$,
+  'the local stack''s http URL is accepted'
+);
+select is((select photo_url from barbers where slug = 'marco-b'),
+          'http://127.0.0.1:56321/storage/v1/object/public/barber-photos/marco-b/1f2e3d4c-0000-4000-8000-000000000001.jpg', 'and saved');
+select is(
+  (select count(*)::int from unnest(array[
+     'javascript:alert(1)',
+     'https://evil.example/x.jpg',
+     'http://evil.example/storage/v1/object/public/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/other-bucket/a.jpg',
+     'https://h.example/storage/v1/object/sign/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/',
+     'https://h.example/storage/v1/object/public/barber-photos/../avatars/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/.hidden',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg?download=1',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg#x',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg" onerror="alert(1)',
+     'https://user@h.example/storage/v1/object/public/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/a b.jpg',
+     './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg'
+   ]) as u(url)
+    where tap_photo_refused(tap_barber('marco-b'), u.url)),
+  14, 'every other photo URL is invalid_photo_url, a relative ./assets path included'
+);
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null, '  ') $$, 'an empty photo clears it');
+select is((select photo_url from barbers where slug = 'marco-b'), null, 'stored as null');
+
+
+-- ---------- manager_set_schedule ----------
+select throws_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":1,"open":"09:00","close":"17:00"}]') $$,
+  '22023', 'outside_store_hours', 'opening before the store opens is rejected'
+);
+select throws_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":1,"open":"10:00","close":"18:30"}]') $$,
+  '22023', 'outside_store_hours', 'closing after the store closes is rejected'
+);
+select throws_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":2,"open":"10:00","close":"18:00"}]') $$,
+  '22023', 'outside_store_hours', 'a Tuesday is rejected: the store is closed'
+);
+select throws_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":1,"open":"12:00","close":"11:00"}]') $$,
+  '22023', 'invalid_schedule', 'open must be before close'
+);
+select throws_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":1,"open":"10:00","close":"18:00"},{"weekday":1,"open":"10:00","close":"12:00"}]') $$,
+  '22023', 'invalid_schedule', 'a weekday appears once'
+);
+select lives_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'),
+       '[{"weekday":1,"open":"10:00","close":"18:00"},{"weekday":3,"open":"12:00","close":"16:00"}]') $$,
+  'a week inside store hours is saved'
+);
+select results_eq(
+  $$ select weekday, open_time::text, close_time::text from manager_barber_schedule(tap_barber('marco-b')) $$,
+  $$ values (1, '10:00:00', '18:00:00'), (3, '12:00:00', '16:00:00') $$,
+  'manager_barber_schedule reads it back'
+);
+select lives_ok(
+  $$ select manager_set_schedule(tap_barber('marco-b'), '[{"weekday":5,"open":"10:00","close":"14:00"}]') $$,
+  'a new week replaces the old one'
+);
+select is((select count(*)::int from barber_schedules where barber_id = tap_barber('marco-b')), 1, 'only the new week remains');
+
+-- ---------- manager_set_active ----------
+select is(manager_set_active(tap_barber('larry'), false), 1, 'deactivating larry reports his one upcoming booking');
+select is((select is_active from barbers where slug = 'larry'), false, 'larry is inactive');
+select is(manager_set_active(tap_barber('larry'), true), 1, 'reactivating reports the same booking, still there');
+reset role;
+set local role anon;
+select is((select count(*)::int from barbers where is_active), 3, 'anon sees the new barber at once');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select manager_set_active(tap_barber('marco-b'), false) $$, 'the new barber is deactivated');
+reset role;
+set local role anon;
+select is((select count(*)::int from barbers where is_active), 2, 'and disappears from the site at once');
+reset role;
+
+-- ======================= booking_events =======================
+select is(tap_events('5557770001'), 'booked:customer', 'a web booking writes booked by the customer');
+select is(tap_events('5557770003'), 'booked:customer,cancelled:manager', 'the manager''s cancel writes cancelled by the manager');
+
+select lives_ok(
+  $$ select cancel_booking(tap_booking('5557770002'), '5557770002') $$,
+  'the customer cancels on the site'
+);
+select is(tap_events('5557770002'), 'booked:customer,cancelled:customer', 'a customer cancellation writes cancelled by the customer');
+
+-- "Move it": cancel_booking, then the same phone books again.
+select lives_ok($$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '10:00', 'Mover Customer', '5557770010') $$, 'a booking to move');
+select lives_ok($$ select cancel_booking(tap_booking('5557770010'), '5557770010') $$, 'Move it cancels it');
+select lives_ok($$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '12:15', 'Mover Customer', '15557770010') $$, 'and books the new time (same number, with the country code)');
+select is(tap_events('5557770010') || '|' || tap_events('15557770010'),
+          'booked:customer,cancelled:customer|moved:customer',
+          'the rebooking reads as moved');
+
+-- Group: one booked event per person, none for continuation slots.
+select lives_ok(
+  $$ select * from book_slot_group('hassan', tap_next_dow(4), '13:00', '5557770020',
+       '[{"name":"Group Parent","service_slug":"tap-long"},{"name":"Group Kid","service_slug":"kids-cut"}]'::jsonb) $$,
+  'a group: a two-slot service and a kids cut'
+);
+select is(tap_events('5557770020'), 'booked:customer,booked:customer', 'a group writes one booked event per person, none for the continuation slot');
+
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select lives_ok($$ select * from app_cancel_booking(tap_booking('5557770001')) $$, 'hassan cancels on his own chair');
+reset role;
+select is(tap_events('5557770001'), 'booked:customer,cancelled:barber', 'a barber cancel writes cancelled by the barber');
+select results_eq(
+  $$ select cancelled_by, actor_user_id from bookings bk join booking_events e on e.booking_id = bk.id
+      where bk.id = tap_booking('5557770001') and e.kind = 'cancelled' $$,
+  $$ values ('barber', '00000000-0000-4000-a000-000000000002'::uuid) $$,
+  'the barber cancel records who did it'
+);
+
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select results_eq(
+  $$ select customer_name, customer_phone, booking_time::text
+       from app_cancel_booking((select id from bookings where customer_phone = '5557770020'
+                                  and customer_name = 'Group Kid')) $$,
+  $$ values ('Group Kid', '5557770020', '14:30:00') $$,
+  'app_cancel_booking returns what the app needs to text the customer'
+);
+select throws_ok(
+  $$ select * from app_cancel_booking((select id from bookings where customer_phone = '5557770020'
+                                         and customer_name = 'Group Kid')) $$,
+  '22023', 'cannot_cancel', 'a cancelled booking cannot be cancelled again'
+);
+select throws_ok(
+  $$ select * from app_cancel_booking((select id from bookings where customer_phone = '5557770020'
+                                         and linked_to is not null)) $$,
+  '22023', 'not_primary', 'a continuation slot is cancelled through its primary'
+);
+select lives_ok($$ select * from app_cancel_booking(tap_booking('5557770020')) $$, 'cancelling the two-slot primary');
+select is(
+  (select count(*)::int from bookings where customer_phone = '5557770020' and status = 'cancelled'),
+  3, 'the continuation slot is freed with it'
+);
+
+-- No-show and undo.
+select lives_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '10:00', 'Late Larry Fan', '5557770030') $$, 'hassan books in the app');
+select is(
+  (select source || ':' || remind_sms::text from bookings where id = tap_booking('5557770030')),
+  'app:false', 'an app booking is source app, no SMS reminder (no consent box was ticked)'
+);
+select lives_ok($$ select app_set_status(tap_booking('5557770030'), 'no_show') $$, 'hassan marks it a no-show');
+select is((select status::text from bookings where id = tap_booking('5557770030')), 'no_show', 'it is a no-show');
+select throws_ok($$ select app_set_status(tap_booking('5557770030'), 'no_show') $$, '22023', 'invalid_status_change', 'a no-show cannot be marked twice');
+select throws_ok($$ select app_set_status(tap_booking('5557770030'), 'completed') $$, '22023', 'invalid_status', 'only no_show and confirmed are accepted');
+reset role;
+select is(tap_events('5557770030'), 'booked:barber,no_show:barber', 'an app booking and a no-show, both by the barber');
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select lives_ok($$ select app_set_status(tap_booking('5557770030'), 'confirmed') $$, 'hassan undoes the no-show');
+select is((select status::text from bookings where id = tap_booking('5557770030')), 'confirmed', 'it is confirmed again');
+select throws_ok($$ select app_set_status(tap_booking('5557770030'), 'confirmed') $$, '22023', 'invalid_status_change', 'undo only applies to a no-show');
+reset role;
+select is(tap_events('5557770030'), 'booked:barber', 'undoing a no-show removes its event');
+
+-- ======================= app_book enforces book_slot's rules =======================
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(2), '10:00', 'Tue Try', '5557770040') $$, '22023', 'store_closed', 'app_book: closed Tuesdays');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '10:00', 'Taken Try', '5557770041') $$, '23505', 'slot_taken', 'app_book: a taken slot raises slot_taken');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '10:30', 'Grid Try', '5557770042') $$, '22023', 'invalid_slot_alignment', 'app_book: off the 45-minute grid');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '18:00', 'Late Try', '5557770043') $$, '22023', 'store_closed', 'app_book: after close');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', current_date - 1, '10:00', 'Past Try', '5557770044') $$, '22023', 'date_out_of_range', 'app_book: no past dates');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'nope', tap_next_dow(5), '10:45', 'Svc Try', '5557770045') $$, 'P0002', 'service_not_found', 'app_book: unknown service');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '10:45', 'Phone Try', '555') $$, '22023', 'invalid_phone', 'app_book: phone is validated');
+select lives_ok($$ select app_add_day_off(tap_barber('hassan'), tap_next_dow(6), 'Wedding') $$, 'hassan takes a Saturday off');
+select throws_ok($$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(6), '10:00', 'Closed Try', '5557770046') $$, '22023', 'barber_closed', 'app_book: a day off');
+select lives_ok(
+  $$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(5), '10:45', 'Price Check', '5557770047',
+                     array['beard', 'eyebrows'], '  Fade, no line  ') $$,
+  'app_book with add-ons and notes'
+);
+select results_eq(
+  $$ select total_price_cents, customer_notes from bookings where id = tap_booking('5557770047') $$,
+  $$ values (4500, 'Fade, no line') $$,
+  'app_book prices on the server: $30 cut + $15 beard + free eyebrows'
+);
+select is(
+  (select addons from app_bookings(tap_barber('hassan'), tap_next_dow(5), tap_next_dow(5)) where customer_name = 'Price Check'),
+  array['Beard', 'Eyebrows'], 'app_bookings shows add-ons by name'
+);
+-- The site's per-phone limit (6 active future bookings) is for anon; staff book past it.
+select lives_ok(
+  $$ select app_book(tap_barber('hassan'), 'hair-cut', tap_next_dow(0) + 7 * n, '10:00', 'Standing Regular', '5557770048')
+       from generate_series(0, 6) as n $$,
+  'staff can book a regular''s seven standing appointments'
+);
+reset role;
+select throws_ok(
+  $$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(1), '10:00', 'Standing Regular', '5557770048') $$,
+  '23505', 'too_many_active_bookings', 'the same phone on the site still hits the limit'
+);
+
+-- ======================= app_free_slots agrees with book_slot =======================
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select is(
+  (select count(*)::int from app_free_slots(tap_barber('hassan'), tap_next_dow(3))),
+  11, 'an open day with hassan''s one booking cancelled lists all 11 grid slots'
+);
+select results_eq(
+  $$ select slot_time::text from app_free_slots(tap_barber('hassan'), tap_next_dow(3)) limit 3 $$,
+  $$ values ('10:00:00'), ('10:45:00'), ('11:30:00') $$,
+  'slots run on the 45-minute grid from open'
+);
+select is(
+  (select max(slot_time)::text from app_free_slots(tap_barber('hassan'), tap_next_dow(3))),
+  '17:30:00', 'the last slot starts at 5:30'
+);
+select is((select count(*)::int from app_free_slots(tap_barber('hassan'), tap_next_dow(2))), 0, 'no slots on a closed Tuesday');
+select is((select count(*)::int from app_free_slots(tap_barber('hassan'), tap_next_dow(6))), 0, 'no slots on a day off');
+select is((select count(*)::int from app_free_slots(tap_barber('hassan'), current_date - 1)), 0, 'no slots in the past');
+select is((select count(*)::int from app_free_slots(tap_barber('hassan'), current_date + 61)), 0, 'no slots past the 60-day window');
+select is(
+  (select count(*)::int from app_free_slots(tap_barber('larry'), tap_next_dow(4))),
+  10, 'larry''s Thursday: the moved booking holds one slot'
+);
+select is(
+  (select count(*)::int from app_free_slots(tap_barber('larry'), tap_next_dow(4)) where slot_time = '12:15'),
+  0, 'the taken slot is not listed'
+);
+select is(
+  (select count(*)::int from app_free_slots(tap_barber('larry'), tap_next_dow(4)) where slot_time = '10:00'),
+  1, 'the slot freed by the move is listed again'
+);
+select throws_ok($$ select * from app_free_slots(tap_barber('marco-b'), tap_next_dow(5)) $$, '42501', 'forbidden', 'a chair hassan cannot view has no slots for him');
+reset role;
+
+-- Every slot listed books, and each one booked drops off the list.
+create function tap_book_every_free_slot(p_slug text, p_date date) returns int language plpgsql as $$
+declare
+  v_slot time;
+  v_failed int := 0;
+  v_n int := 0;
+begin
+  for v_slot in select slot_time from app_free_slots(tap_barber(p_slug), p_date) loop
+    v_n := v_n + 1;
+    begin
+      perform * from book_slot(p_slug, 'hair-cut', p_date, v_slot, 'Fill Customer',
+                               '55577781' || lpad(v_n::text, 2, '0'));
+    exception when others then
+      v_failed := v_failed + 1;
+    end;
+  end loop;
+  return v_failed;
+end;
+$$;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+select is(tap_book_every_free_slot('larry', tap_next_dow(4)), 0, 'book_slot accepts every slot app_free_slots lists');
+select is((select count(*)::int from app_free_slots(tap_barber('larry'), tap_next_dow(4))), 0, 'and once booked, none is listed');
+select throws_ok(
+  $$ select * from book_slot('larry', 'hair-cut', tap_next_dow(4), '10:45', 'Late Comer', '5557770050') $$,
+  '23505', 'slot_taken', 'the full day really is full'
+);
+
+-- ======================= No overlapping bookings, whatever the grid =======================
+-- A test chair whose Wednesday and Thursday move from 10:00 to 10:15 with
+-- bookings on the old grid: the reviewer's double booking, then every other path.
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select manager_save_barber(null, 'tap-shift', 'Shift', null, null, null) $$, 'a chair for the grid tests');
+select is(
+  manager_set_schedule(tap_barber('tap-shift'),
+    '[{"weekday":3,"open":"10:00","close":"18:00"},{"weekday":4,"open":"10:00","close":"18:00"},
+      {"weekday":5,"open":"10:00","close":"18:00"}]'),
+  0, 'a first week strands no bookings'
+);
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(3), '10:00', 'Early Bird', '5557771001') $$, 'wednesday 10:00 on the old grid');
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(4), '11:30', 'Thursday Regular', '5557771002') $$, 'thursday 11:30 on the old grid');
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(4), '13:00', 'No Show Guy', '5557771003') $$, 'thursday 13:00');
+select lives_ok($$ select app_set_status(tap_booking('5557771003'), 'no_show') $$, 'which is a no-show');
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(5), '10:00', 'Friday Fixed', '5557771004') $$, 'friday 10:00, a day the new week keeps');
+select is(
+  manager_set_schedule(tap_barber('tap-shift'),
+    '[{"weekday":3,"open":"10:15","close":"18:00"},{"weekday":4,"open":"10:15","close":"18:00"},
+      {"weekday":5,"open":"10:00","close":"18:00"}]'),
+  2, 'moving wednesday and thursday to 10:15 strands 10:00 (before open) and 11:30 (off the grid), not the no-show or friday'
+);
+select is(
+  (select count(*)::int from barber_schedules where barber_id = tap_barber('tap-shift') and open_time = '10:15'),
+  2, 'and still saves the new week'
+);
+select is(
+  manager_set_schedule(tap_barber('tap-shift'), '[{"weekday":5,"open":"10:00","close":"18:00"}]'),
+  2, 'dropping wednesday and thursday strands the same two'
+);
+select lives_ok(
+  $$ select manager_set_schedule(tap_barber('tap-shift'),
+       '[{"weekday":3,"open":"10:15","close":"18:00"},{"weekday":4,"open":"10:15","close":"18:00"},
+         {"weekday":5,"open":"10:00","close":"18:00"}]') $$,
+  'back to the moved week'
+);
+
+-- The reviewer's scenario.
+select is(
+  (select count(*)::int from app_free_slots(tap_barber('tap-shift'), tap_next_dow(3)) where slot_time = '10:15'),
+  0, 'app_free_slots does not offer 10:15 over the 10:00-10:45 booking'
+);
+select is(
+  (select min(slot_time)::text from app_free_slots(tap_barber('tap-shift'), tap_next_dow(3))),
+  '11:00:00', 'the first free slot is 11:00, after it'
+);
+select throws_ok(
+  $$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(3), '10:15', 'Overlap Try', '5557771011') $$,
+  '23505', 'slot_taken', 'app_book cannot book 10:15 on top of 10:00'
+);
+reset role;
+select throws_ok(
+  $$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(3), '10:15', 'Overlap Web', '5557771012') $$,
+  '23505', 'slot_taken', 'nor can the site'
+);
+
+-- The race, as two statements: the first booking's row is there when the second
+-- one checks, whichever path the second takes (here a direct insert, as owner
+-- tooling would make).
+select lives_ok($$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(3), '11:00', 'First In', '5557771013') $$, 'one booking takes 11:00');
+select throws_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(3), '11:30',
+             'Second In', '5557771014', 3000, 'confirmed', null) $$,
+  '23505', 'slot_taken', 'a second one at 11:30, overlapping it, is refused outside the RPCs too'
+);
+select throws_ok(
+  $$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(3), '11:00', 'Same Time', '5557771015') $$,
+  '23505', 'slot_taken', 'the same start is still refused'
+);
+select is(
+  (select count(*)::int from bookings
+    where barber_id = tap_barber('tap-shift') and booking_date = tap_next_dow(3)
+      and status in ('pending', 'confirmed', 'completed')),
+  2, 'wednesday holds exactly 10:00 and 11:00'
+);
+
+-- Group and multi-slot bookings: a later slot that overlaps refuses the whole booking.
+select throws_ok(
+  $$ select * from book_slot_group('tap-shift', tap_next_dow(4), '10:15', '5557771020',
+       '[{"name":"Group One","service_slug":"hair-cut"},{"name":"Group Two","service_slug":"hair-cut"}]'::jsonb) $$,
+  '23505', 'slot_taken', 'a group whose second person (11:00) overlaps the 11:30 booking is refused'
+);
+select is((select count(*)::int from bookings where customer_phone = '5557771020'), 0, 'and none of the group is booked');
+select throws_ok(
+  $$ select * from book_slot('tap-shift', 'tap-long', tap_next_dow(4), '10:15', 'Long Service', '5557771021') $$,
+  '23505', 'slot_taken', 'a two-slot service whose continuation (11:00) overlaps 11:30 is refused'
+);
+select is((select count(*)::int from bookings where customer_phone = '5557771021'), 0, 'and neither of its slots is booked');
+select lives_ok(
+  $$ select * from book_slot('tap-shift', 'tap-long', tap_next_dow(4), '15:30', 'Long Fits', '5557771022') $$,
+  'a two-slot service in a free stretch: its own two slots touch, they do not overlap'
+);
+select is((select count(*)::int from bookings where customer_phone = '5557771022' and status = 'confirmed'), 2, 'both slots are booked');
+
+-- Undoing a no-show gives its time back only when nothing overlaps it now.
+select lives_ok(
+  $$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(4), '12:30', 'Took The Gap', '5557771023') $$,
+  '12:30 books: the 13:00 no-show holds no chair time'
+);
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select throws_ok(
+  $$ select app_set_status(tap_booking('5557771003'), 'confirmed') $$,
+  '23505', 'slot_taken', 'undoing the no-show would overlap 12:30: slot_taken'
+);
+select results_eq(
+  $$ select slot_time::text from app_free_slots(tap_barber('tap-shift'), tap_next_dow(4)) $$,
+  $$ values ('10:15:00'), ('13:15:00'), ('14:00:00'), ('14:45:00'), ('17:00:00'), ('17:45:00') $$,
+  'thursday lists only the slots that overlap nothing: not 11:00 or 11:45 (11:30), 12:30, 15:30 or 16:15'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+select is(tap_book_every_free_slot('tap-shift', tap_next_dow(4)), 0, 'book_slot accepts every one of them');
+
+-- ======================= Bookings made before 0016 (30-minute grid) =======================
+-- Rows as 0015's book_slot made them: a 60-minute service as a primary at 10:00 and
+-- a continuation at 10:30, and single cuts at 10:00 and 10:30, created before 0016.
+-- They hold 30 minutes each, and an appointment's own rows never conflict.
+reset role;
+insert into bookings (id, barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                      total_price_cents, status, hold_expires_at, linked_to, created_at)
+select v.id, tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), v.d, v.t,
+       'Legacy Client', v.phone, v.price, 'confirmed', null, v.link, timestamptz '2026-08-01 12:00-04'
+  from (values
+    ('00000000-0000-4000-c000-000000000001'::uuid, tap_next_dow(5) + 21, time '10:00', '5557772001', 4500, null::uuid),
+    ('00000000-0000-4000-c000-000000000002'::uuid, tap_next_dow(5) + 21, time '10:30', '5557772001', 0,
+     '00000000-0000-4000-c000-000000000001'::uuid),
+    ('00000000-0000-4000-c000-000000000003'::uuid, tap_next_dow(5) + 28, time '10:00', '5557772002', 3000, null),
+    ('00000000-0000-4000-c000-000000000004'::uuid, tap_next_dow(5) + 28, time '10:30', '5557772003', 3000, null)
+  ) as v(id, d, t, phone, price, link);
+select is((select count(*)::int from bookings where customer_phone like '555777200_' and status = 'confirmed'), 4,
+          'the pre-0016 rows insert under the trigger: 30 minutes each, a continuation beside its own primary');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000001', 'no_show') $$, 'a pre-0016 two-slot appointment is marked a no-show');
+select is((select string_agg(status::text, ',' order by booking_time) from bookings where customer_phone = '5557772001'),
+          'no_show,no_show', 'both of its rows');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000001', 'confirmed') $$, 'and undone on its empty day: its own continuation is no conflict');
+select is((select string_agg(status::text, ',' order by booking_time) from bookings where customer_phone = '5557772001'),
+          'confirmed,confirmed', 'both rows are back');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000003', 'no_show') $$, 'a pre-0016 10:00 is marked a no-show');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000003', 'confirmed') $$, 'and undone beside the pre-0016 10:30: 10:00-10:30 and 10:30-11:00 touch');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000004', 'no_show') $$, 'the pre-0016 10:30 is marked a no-show');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000004', 'confirmed') $$, 'and undone beside the 10:00');
+reset role;
+select throws_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 28, '10:45',
+             'Modern Over Legacy', '5557772004', 3000, 'confirmed', null) $$,
+  '23505', 'slot_taken', 'a new booking at 10:45 overlaps the pre-0016 10:30-11:00'
+);
+select throws_ok(
+  $$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '10:45', 'Over The Continuation', '5557772005') $$,
+  '23505', 'slot_taken', 'nor can the site book 10:45 over the pre-0016 continuation'
+);
+select lives_ok($$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '11:30', 'Modern One', '5557772006') $$, '11:30 books after it');
+select throws_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 21, '12:00',
+             'Modern Two', '5557772007', 3000, 'confirmed', null) $$,
+  '23505', 'slot_taken', 'two bookings made today still hold 45 minutes: 12:00 overlaps 11:30'
+);
+select lives_ok($$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '12:15', 'Modern Three', '5557772008') $$, '12:15 books');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select app_set_status(tap_booking('5557772008'), 'no_show') $$, 'a booking made today is a no-show');
+reset role;
+select lives_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 21, '12:30',
+             'In The Gap', '5557772009', 3000, 'confirmed', null) $$,
+  '12:30 takes its time'
+);
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select throws_ok($$ select app_set_status(tap_booking('5557772008'), 'confirmed') $$, '23505', 'slot_taken', 'so its undo is refused');
+reset role;
+
+-- app_free_slots measures them the same way: on the 10:15 grid, a pre-0016 10:30
+-- (to 11:00) blocks 10:15, not 11:00.
+insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                      total_price_cents, status, hold_expires_at, created_at)
+values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(3) + 21, '10:30',
+        'Legacy Wednesday', '5557772010', 3000, 'confirmed', null, timestamptz '2026-08-01 12:00-04');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select results_eq(
+  $$ select slot_time::text from app_free_slots(tap_barber('tap-shift'), tap_next_dow(3) + 21) where slot_time < '12:00' $$,
+  $$ values ('11:00:00'::text), ('11:45:00') $$,
+  'wednesday lists 11:00 and 11:45, not 10:15'
+);
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(3) + 21, '11:00', 'Right After', '5557772011') $$, 'and 11:00 books');
+reset role;
+
+-- ======================= Days off =======================
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select is(app_add_day_off(tap_barber('hassan'), tap_next_dow(5), 'Doctor'), 2, 'a day off with bookings reports them, and does not cancel them');
+select is(
+  (select count(*)::int from bookings where barber_id = tap_barber('hassan') and booking_date = tap_next_dow(5)
+     and status = 'confirmed' and linked_to is null),
+  2, 'those bookings are still confirmed'
+);
+select results_eq(
+  $$ select closure_date, reason, bookings_that_day from app_days_off(tap_barber('hassan')) $$,
+  $$ values (tap_next_dow(5), 'Doctor', 2), (tap_next_dow(6), 'Wedding', 0) $$,
+  'app_days_off lists them in date order with their booking counts'
+);
+select lives_ok($$ select app_remove_day_off(tap_barber('hassan'), tap_next_dow(5)) $$, 'hassan removes one');
+select is((select count(*)::int from app_days_off(tap_barber('hassan'))), 1, 'one day off left');
+select is((select count(*)::int from app_days_off(tap_barber('larry'))), 0, 'hassan can read larry''s days off');
+select throws_ok($$ select app_add_day_off(tap_barber('hassan'), current_date - 1) $$, '22023', 'date_out_of_range', 'no days off in the past');
+reset role;
+
+-- A day off's reason is for its barber and the manager. A viewer sees the day, the
+-- site (anon) and any other login read only the dates.
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select lives_ok($$ select app_add_day_off(tap_barber('larry'), tap_next_dow(4) + 35, 'Custody hearing') $$, 'larry takes a Thursday off with a reason');
+select results_eq(
+  $$ select closure_date, reason from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, 'Custody hearing') $$,
+  'larry reads his own reason'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select results_eq(
+  $$ select closure_date, reason, bookings_that_day from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, null::text, 0) $$,
+  'hassan, who views larry''s chair, sees the day but not the reason'
+);
+select throws_ok($$ select reason from barber_closures $$, '42501', null, 'hassan cannot read reasons from the table');
+select is(
+  (select count(*)::int from barber_closures where barber_id = tap_barber('larry') and closure_date = tap_next_dow(4) + 35),
+  1, 'the dates stay readable to a login'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select results_eq(
+  $$ select closure_date, reason from app_days_off(tap_barber('larry')) $$,
+  $$ values (tap_next_dow(4) + 35, 'Custody hearing') $$,
+  'the manager reads larry''s reason'
+);
+reset role;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+select throws_ok($$ select reason from barber_closures $$, '42501', null, 'anon cannot read reasons');
+select throws_ok($$ select * from barber_closures $$, '42501', null, 'nor every column');
+select throws_ok($$ select * from app_days_off(tap_barber('larry')) $$, '42501', null, 'nor app_days_off');
+-- What the site reads: barbers with their closure dates embedded (PostgREST joins on barber_id).
+select is(
+  (select array_agg(c.closure_date) from barbers b join barber_closures c on c.barber_id = b.id
+    where b.slug = 'larry' and c.closure_date >= current_date),
+  array[tap_next_dow(4) + 35], 'anon reads the dates, joined to the barber, as the site does'
+);
+reset role;
+
+-- ======================= Activity =======================
+-- hassan's chair so far: booked + cancelled (his own cancel) for 5557770001, a group
+-- of two booked (customer) then both cancelled by hassan, and app bookings by hassan.
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select is(
+  (select count(*)::int from app_activity(null, 200) where is_unread and actor = 'barber'),
+  0, 'hassan''s own actions are never unread for him'
+);
+select ok(
+  (select count(*)::int from app_activity(null, 200) where is_unread and actor = 'customer') >= 3,
+  'customer events on his chairs are unread for hassan'
+);
+select is(
+  (select count(*)::int from app_activity(null, 200) where barber_slug = 'larry') > 0,
+  true, 'hassan''s activity includes larry''s chair'
+);
+select ok(
+  (select array_agg(event_id) = array_agg(event_id order by event_id desc) from app_activity(null, 200)),
+  'activity is newest first'
+);
+select is(
+  (select count(*)::int from app_activity((select max(event_id) from app_activity(null, 1)), 2)),
+  2, 'p_before and p_limit page through it'
+);
+select is(
+  (select count(*)::int from app_activity((select min(event_id) from app_activity(null, 200)), 50)),
+  0, 'nothing before the oldest event'
+);
+select lives_ok($$ select app_mark_activity_seen() $$, 'hassan marks activity seen');
+select is((select count(*)::int from app_activity(null, 200) where is_unread), 0, 'nothing is unread after that');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select ok(
+  (select count(*)::int from app_activity(null, 200) where is_unread and actor = 'barber') > 0,
+  'hassan''s actions are unread for the manager'
+);
+select is(
+  (select count(*)::int from app_activity(null, 200) where barber_slug = 'hassan' and kind = 'cancelled' and actor = 'barber'),
+  3, 'the manager sees hassan''s three cancellations'
+);
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select is(
+  (select count(*)::int from app_activity(null, 200) where barber_slug <> 'larry'),
+  0, 'larry''s activity has only his own chair'
+);
+reset role;
+
+-- ======================= Settings and devices =======================
+update staff set must_change_password = true where user_id = '00000000-0000-4000-a000-000000000003';
+select tap_claims('00000000-0000-4000-a000-000000000003');
+set local role authenticated;
+select is((select must_change_password from app_me()), true, 'a new login must change its password');
+select lives_ok($$ select app_password_changed() $$, 'larry changes it');
+select is((select must_change_password from app_me()), false, 'and the flag clears');
+select lives_ok($$ select app_set_notify_prefs(false, true, true) $$, 'larry sets his notifications');
+select results_eq(
+  $$ select notify_bookings, notify_cancellations, notify_viewed_chairs from app_me() $$,
+  $$ values (false, true, true) $$, 'app_me reads them back'
+);
+select lives_ok($$ select app_register_device('tok-larry', 'sandbox') $$, 'larry registers his phone');
+select throws_ok($$ select app_register_device('tok-larry-2', 'staging') $$, '22023', 'invalid_environment', 'environment is sandbox or production');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000002');
+set local role authenticated;
+select lives_ok($$ select app_register_device('tok-hassan', 'production') $$, 'hassan registers his phone');
+select lives_ok($$ select app_register_device('tok-hassan-old', 'production') $$, 'and an old one');
+select lives_ok($$ select app_unregister_device('tok-hassan-old') $$, 'and removes the old one');
+select lives_ok($$ select app_unregister_device('tok-larry') $$, 'removing someone else''s token does nothing');
+reset role;
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select app_register_device('tok-ali', 'sandbox') $$, 'the manager registers his phone');
+reset role;
+select results_eq(
+  $$ select token, user_id::text, environment from device_tokens order by token $$,
+  $$ values ('tok-ali', '00000000-0000-4000-a000-000000000001', 'sandbox'),
+            ('tok-hassan', '00000000-0000-4000-a000-000000000002', 'production'),
+            ('tok-larry', '00000000-0000-4000-a000-000000000003', 'sandbox') $$,
+  'three devices, one per login'
+);
+
+-- ======================= Push payloads =======================
+select lives_ok($$ select * from book_slot('larry', 'hair-cut', tap_next_dow(0), '10:00', 'Marcus Reed', '5557770060') $$, 'a booking on larry''s chair');
+select results_eq(
+  $$ select r ->> 'token', (r ->> 'own_chair')::boolean, r ->> 'role'
+       from jsonb_array_elements(notify_event_payload(
+              (select max(e.id) from booking_events e where e.booking_id = tap_booking('5557770060'))) -> 'recipients') r
+      order by 1 $$,
+  $$ values ('tok-ali', false, 'manager'), ('tok-hassan', false, 'barber'), ('tok-larry', true, 'barber') $$,
+  'larry''s chair: larry (own), hassan (granted), ali (manager)'
+);
+select results_eq(
+  $$ select e ->> 'kind', e ->> 'customer_first_name', e ->> 'service_name', e ->> 'barber_name',
+            (e ->> 'party_size')::int, e ->> 'booking_time'
+       from (select notify_event_payload(
+               (select max(id) from booking_events where booking_id = tap_booking('5557770060'))) -> 'event' as e) x $$,
+  $$ values ('booked', 'Marcus', 'Hair Cut', 'Larry', 1, '10:00:00') $$,
+  'the payload carries what the push says, first name only'
+);
+select is(
+  (select count(*)::int
+     from jsonb_object_keys(notify_event_payload(
+            (select max(id) from booking_events where booking_id = tap_booking('5557770060'))) -> 'event') k
+    where k like '%phone%' or k = 'customer_name'),
+  0, 'the payload has no phone or full name: viewers of the chair get it too'
+);
+select lives_ok($$ select * from book_slot('hassan', 'hair-cut', tap_next_dow(0), '10:45', 'Other Guy', '5557770061') $$, 'a booking on hassan''s chair');
+select results_eq(
+  $$ select r ->> 'token'
+       from jsonb_array_elements(notify_event_payload(
+              (select max(id) from booking_events where booking_id = tap_booking('5557770061'))) -> 'recipients') r
+      order by 1 $$,
+  $$ values ('tok-ali'), ('tok-hassan') $$,
+  'hassan''s chair: not larry, who has no grant'
+);
+update auth.users set banned_until = now() + interval '1 day' where id = '00000000-0000-4000-a000-000000000002';
+select is(
+  (select count(*)::int from jsonb_array_elements(notify_event_payload(
+     (select max(id) from booking_events where booking_id = tap_booking('5557770061'))) -> 'recipients') r
+    where r ->> 'token' = 'tok-hassan'),
+  0, 'a disabled login gets no pushes'
+);
+update auth.users set banned_until = null where id = '00000000-0000-4000-a000-000000000002';
+select is(notify_drop_device_tokens(array['tok-hassan', 'nope']), 1, 'notify_drop_device_tokens removes the tokens APNs rejected');
+
+-- ======================= The notify trigger (pg_net + Vault) =======================
+select is(
+  (select count(*)::int from net.http_request_queue),
+  0, 'without the Vault secrets, events queue no requests'
+);
+select lives_ok(
+  $$ select vault.create_secret('http://functions.test/notify-booking-event', 'notify-booking-event-url'),
+            vault.create_secret('tap-service-key', 'notify-booking-event-key') $$,
+  'the two Vault secrets'
+);
+select lives_ok($$ select * from book_slot('larry', 'hair-cut', tap_next_dow(0), '10:45', 'Pushed Customer', '5557770070') $$, 'a booking with the secrets set');
+select results_eq(
+  $$ select url, method::text, headers ->> 'Authorization',
+            convert_from(body, 'utf8')::jsonb ->> 'event_id'
+       from net.http_request_queue $$,
+  $$ select 'http://functions.test/notify-booking-event', 'POST', 'Bearer tap-service-key',
+            (select max(id)::text from booking_events) $$,
+  'the event is posted to the function with the key'
+);
+
+select * from finish();
+rollback;

@@ -11,7 +11,8 @@ Live: <https://chicopeefadeempire.com>
 ## What it does
 
 - **Landing page** built around the shop's own photos and the professionally edited tour video: hero, "inside the shop" (video with a sound toggle, off by default), the price list and a "which one do I book?" comparison, a fifteen-plate gallery with a lightbox, the two barbers, booking, and the storefront with live hours.
-- **Per-barber booking** — pick Hassan or Larry; each barber has his own days off, opening hours, and availability grid
+- **Per-barber booking** — pick a barber; each has their own weekly hours, days off, and availability grid. The barbers come from the database (`barbers` + `barber_schedules` + upcoming `barber_closures`), so one the manager adds in the barber app shows up without a deploy and a deactivated one disappears; `config.js`'s Hassan and Larry are the fallback when the read fails or takes over 2.5 s (it is taken when it lands, and re-checks the day and time already picked). A read that finds no bookable barber means nobody is offered online: the booking section gives the shop's phone instead. A slot is taken when any booking on that chair overlaps it, so a booking left off a barber's new hours still blocks it
+- **Booking links** — barbers share `chicopeefadeempire.com/<slug>` and `/?barber=<slug>&service=<service-slug>#book` from the app. The query picks the barber and the service and lands on the form; `404.html` forwards `/<slug>` (and `/<slug>/`) to it when the slug is an active barber and shows the normal 404 otherwise. Unknown or inactive values change nothing
 - **Race-proof booking** — visual day picker + slot pills, served by an atomic Supabase Postgres RPC (`book_slot`) that uses a partial unique index to make double-booking impossible at the database level
 - **The price list books itself** — each service row is a button ("Book Hair Cut, $30") that picks that service in the form and moves to the next step still to do; each add-on row ("Add Hot Towel, +$5") ticks or unticks its box the same way
 - **Group bookings** — book yourself + friends/kids in consecutive 45-minute slots, all-or-nothing transactional, duration-aware (a service longer than one slot pushes the next guest back before they start)
@@ -23,7 +24,7 @@ Live: <https://chicopeefadeempire.com>
 - **Add to calendar** — the confirmation offers `fade-empire-<date>.ics`: one event per booking (a group spans the first start to the last end), in UTC from the shop's clock, with the address, the shop phone and the cancel link
 - **Messaging fallback** — if the DB is unreachable for any reason, the customer is still routed to WhatsApp/SMS with all the booking details, and the failure is logged to `booking_errors` for review
 - **PWA** — installable on iOS / Android via Add to Home Screen; service worker caches assets and survives offline
-- **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across both barbers) pulled from Supabase
+- **Live shop status** — OPEN / CLOSING SOON / CLOSED in the nav, "Open now · Closes 6 PM" in the hero and the hours card (today's row highlighted), "Next open slot" (earliest slot across every barber) pulled from Supabase
 - **Mobile-first** — sticky bottom Book-a-Chair CTA, swipe filmstrip gallery, thumb-sized tap targets, safe-area insets, lazy video that only downloads once it scrolls into view
 - **Tests** — 140+ vitest cases: schedule math, validation, message building, the live status line across DST, the real booking form driven under jsdom with mocked RPCs, the video/lightbox/hours modules, and drift guards that read `index.html` and fail if a price, hour, or asset path disagrees with `config.js` or the disk
 
@@ -52,7 +53,7 @@ No build step at deploy time: `package.json` exists only for the test tooling, `
 ```
 FadeEmpire/
 ├── index.html                    The page (single-page layout)
-├── 404.html                      Custom 404
+├── 404.html                      Custom 404; forwards /<barber-slug> to the booking form
 ├── manifest.webmanifest          PWA manifest (icons in assets/brand/)
 ├── sw.js                         Service worker (network-first JS/CSS, cache-first images, video bypassed)
 ├── robots.txt · sitemap.xml      SEO
@@ -66,17 +67,19 @@ FadeEmpire/
 │   ├── shop.css                  "Inside the shop": tour video, room photo, LED-grid motif
 │   ├── menu.css                  Price list, VIP card, add-ons, comparison (cards on phone, table on desktop)
 │   ├── gallery.css               12-column editorial grid + lightbox
-│   ├── barbers.css               The two chair spreads
+│   ├── barbers.css               The chair spreads (two built by hand, plain ones for barbers added in the app)
 │   ├── booking-grid.css          Day chips, slot pills, form, success/error/fallback cards, cancel panel
 │   ├── visit.css                 Storefront, hours card, contact
 │   ├── motion.css                Scroll reveals + reduced-motion fallbacks
 │   └── responsive.css            The phone layer (≤600px), tablet tweaks, sticky CTA bar, print
 ├── scripts/
 │   ├── main.js                   Entry point: boots every module, registers the SW
-│   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS / prices
+│   ├── config.js                 SUPABASE_URL / anon key / STORE_HOURS / BARBERS (the fallback) / prices
+│   ├── roster.js                 The barbers on offer: config.js's until the database's are read
 │   ├── supabase.js               Singleton Supabase client (postgrest-js, vendored in scripts/vendor/)
-│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable
-│   ├── booking-grid.js           Barber picker + day picker + slot pills + auto-refresh
+│   ├── booking-rpc.js            bookSlot, bookSlotGroup, cancelBooking, findBookingsByPhone, fetchNextAvailable, fetchBarbers
+│   ├── booking-grid.js           Reads the barbers; barber picker + day picker + slot pills + auto-refresh
+│   ├── booking-link.js           ?barber=&service= from a barber's link
 │   ├── booking-submit.js         Form submit, group flow, the result cards and their WhatsApp/text links, fallback path
 │   ├── booking-cancel.js         Phone lookup → two-tap cancel → prefilled text to the shop
 │   ├── booking-return.js         The remembered customer: saved choices, the rebook card, Clear
@@ -84,6 +87,8 @@ FadeEmpire/
 │   ├── booking-messages.js       Booking + cancellation message builders, deep-link URLs
 │   ├── booking-calendar.js       The .ics for "Add to calendar"
 │   ├── booking-helpers.js        Timezone math, schedule intersection, shopStatus(), formatting, error map
+│   ├── barbers-section.js        The barbers section follows the database: hides, appends, renames the heading
+│   ├── pretty-link.js            404.html's /<slug> lookup (one anon REST read)
 │   ├── nav.js                    Mobile menu (loads without the database client)
 │   ├── page.js                   Nav stamp, hero status, sticky nav, compare collapse, footer year, #fragment landing (no database)
 │   ├── cover.js                  Next-open-slot lines, sticky CTA
@@ -95,8 +100,17 @@ FadeEmpire/
 │   ├── build-assets.py           Source photos → assets/img/*-{480..2000}.{jpg,webp} + assets/brand/ (icons, social card)
 │   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
 │   ├── screenshot.py             Playwright captures at phone/tablet/desktop sizes + overflow check
+│   ├── serve-pages.py            Local server that answers like GitHub Pages (404.html, status 404)
+│   ├── preview-local.sh          The site against the local stack, on :8021 over the tailnet
 │   ├── export-appointments.sh    Owner tooling (see tools/README.md)
-│   └── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
+│   ├── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
+│   ├── deploy-barber-app.sh      Deploys the barber app backend (see Barber app backend below)
+│   ├── local-stack.sh            Local Supabase stack for the barber app (own Colima VM)
+│   ├── local-stack-check.py      Its staff-admin login flow check (local-stack.sh check)
+│   ├── service-role-check.sql    The privileges the Edge Functions need as service_role (CI, check, deploy)
+│   ├── service-role-check-test.sql  That the check names each revoked privilege, and a missing migration (CI)
+│   ├── booking-lock-check.sh     Two-session check of the booking overlap lock on the local stack
+│   └── local-stack-seed.sql      Its sample logins and week of bookings
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
 │   ├── migrations/
@@ -120,8 +134,11 @@ FadeEmpire/
 │   │   ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
 │   │   ├── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
 │   │   ├── 0020_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
-│   │   └── 0021_beard_addon_15.sql         Beard add-on $10 → $15
+│   │   ├── 0021_beard_addon_15.sql         Beard add-on $10 → $15
+│   │   └── 0022_barber_app.sql             Barber app: logins, view grants, booking events, app + manager RPCs
 │   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
+│   ├── functions/staff-admin/    Edge Function: the manager creates, resets, disables app logins
+│   ├── functions/notify-booking-event/  Edge Function: APNs pushes for booking events
 │   └── tests/                    pgTAP suites
 └── assets/
     ├── img/                      Everything the page serves (generated, committed)
@@ -176,7 +193,7 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 - `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `bookings` directly (RLS denies all)
 - `SELECT` on `booking_errors` (Hassan-only via Supabase Studio)
 - `SELECT` on `v_people` (one row per person who has booked; service role / Studio only)
-- `EXECUTE` `confirm_booking` (authenticated only)
+- `EXECUTE` `confirm_booking` (service_role only; signed-in app users cannot either, since 0022)
 
 ### Messaging fallback
 
@@ -251,6 +268,53 @@ To keep the schedule but stop sending, remove the Twilio secrets (`supabase secr
 - **Sent but not marked.** If Twilio accepts a message but the mark fails, the function logs an error with the booking ids. Mark them by hand, or they are texted again once the claim expires: `select mark_reminder_sent(array['<id>']::uuid[], 'reminder');`
 - **Tests.** `deno test --no-lock supabase/functions/send-reminders/` for the function; `supabase/tests/006_reminders.sql` for the queries.
 
+### Barber app backend
+
+The database API, access rules and Edge Functions behind the iOS barber app (`docs/barber-app/CONTRACT.md` is the full contract). Migration 0022 adds:
+
+- **Logins and access.** `staff` (one row per app login: `manager` or `barber`, keyed by `auth.users`), `barber_view_grants` (Hassan views Larry's chair read-only), and `barbers.title`. A barber sees their own chair plus granted chairs; the manager sees and changes everything. A deactivated barber, or a login the manager disabled, sees nothing at once. The app reads `bookings` through RLS (`app_can_view`) and changes them only through RPCs: `app_*` for barbers, `manager_*` for the manager. anon can execute none of them.
+- **Bookings from the app.** `app_book` and `book_slot` share one body (`book_slot_at`), so the store hours, barber schedule, closures, 45-minute grid, `slot_taken` race safety and server-side prices are the same. Staff skip the anon per-phone limit, and app bookings get no SMS reminder (no consent box). `app_free_slots` uses the site's slot rule, so every slot it lists books.
+- **Activity and pushes.** Triggers on `bookings` write `booking_events` (`booked`, `cancelled`, `no_show`, and `moved` for a rebooking within 30 minutes of the same customer's own cancellation, which is what the site's "Move it" does). A trigger on `booking_events` posts each event to the `notify-booking-event` function through pg_net, with the URL and key in Vault; without those secrets it does nothing. The function sends APNs alerts by each login's settings, and runs dry (logs, sends nothing) without the `APNS_*` secrets.
+- **Logins.** The `staff-admin` function (manager JWT only) creates logins with a temporary password, resets passwords, and disables or enables logins. No email or SMS goes out.
+- **Photos.** Storage bucket `barber-photos`: public read, manager writes.
+
+#### Local stack
+
+```bash
+tools/local-stack.sh start   # Colima profile fadeempire, project fadeempire-app, API http://127.0.0.1:56321, seeded
+tools/local-stack.sh test    # fresh database, db lint, every pgTAP suite, then seeds again and checks
+tools/local-stack.sh check   # service_role's privileges, then staff-admin's login flow end to end (reset and test end with it)
+tools/local-stack.sh env     # URL + anon key for the app's Debug-Local config
+tools/local-stack.sh reset | functions | stop
+tools/booking-lock-check.sh  # two sessions at once: no deadlock across chairs, one slot_taken per overlap
+```
+
+It runs only on its own Colima VM (`DOCKER_HOST=unix://$HOME/.colima/fadeempire/docker.sock`) and ports 56320-56329; the default docker context and ports 5432x/5532x belong to other projects on this machine. Seeded logins (local only, password `fade-local-1`): `ali@local.test` (manager), `hassan@local.test`, `larry@local.test`, plus a week of bookings on both chairs with a group, a cancellation, a move and a no-show (`tools/local-stack-seed.sql`).
+
+#### Deploy
+
+```bash
+tools/deploy-barber-app.sh --dry-run
+SUPABASE_SERVICE_ROLE_KEY=eyJ... MANAGER_EMAIL=you@example.com \
+APNS_KEY_ID=... APNS_TEAM_ID=9X79V37Q89 APNS_KEY_FILE=~/AuthKey_XXXXXXXXXX.p8 \
+CONFIRM_PROD=1 tools/deploy-barber-app.sh   # db push, two functions, APNs secrets, Vault, manager login
+SUPABASE_SERVICE_ROLE_KEY=<local service role key> MANAGER_EMAIL=you@example.com \
+tools/deploy-barber-app.sh --local          # the manager login step only, against the local stack
+```
+
+Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. The APNs variables can come later; until then pushes run dry.
+
+Before it pushes, the script reads `supabase migration list --linked` and stops unless the only pending migrations are 0021 (the beard add-on price, safe to run again) and 0022. Some of production's migrations were applied by hand in the SQL editor, so its migration history can lack them, and `supabase db push` would run them again: `0001_init.sql` starts with `drop table if exists bookings cascade`. When it stops, it lists what is pending and prints the `supabase migration repair --linked --status applied <versions>` that records hand-applied migrations without running them. Check in the dashboard that each one really is in production before marking it. It also stops when it cannot read the list.
+
+Rollout, in this order. 0022 is safe to apply while the old site is live; the new site needs it (its barbers read asks for `barbers.title`), so the merge comes after:
+
+1. `tools/deploy-barber-app.sh --dry-run`, then the real run (`CONFIRM_PROD=1`).
+2. The privilege check passes (the script stops if it does not). Then, in the dashboard: turn off **Allow new users to sign up** (the app has no sign-up), check the password policy (temporary passwords have upper and lower case, a digit and hyphens), and confirm the `barber-photos` bucket and both functions are there.
+3. Merge the pull request.
+4. The APNs secrets (run the script again with the `APNS_*` variables), then TestFlight (`ios/README.md`, Ship to the barbers).
+
+Until 0022 is applied, live health prints a note ("migration 0022 not applied yet") and skips its three barbers checks instead of failing.
+
 ---
 
 ## Local development
@@ -262,6 +326,15 @@ open http://localhost:8000
 ```
 
 That's it. Open the site, edit any file, refresh. Phone first: check the ≤600px layout before desktop.
+
+`http.server` answers a missing path with its own 404, so barber links (`/larry`) only work under `tools/serve-pages.py`, which answers like GitHub Pages: 404.html with status 404.
+
+```bash
+python3 tools/serve-pages.py . --port 8000   # like GitHub Pages, on 0.0.0.0
+tools/preview-local.sh                       # a copy wired to the local stack (tools/local-stack.sh), on :8021
+```
+
+`preview-local.sh` hard-links the site into `site-preview` next to the checkout (no extra disk), writes that copy's `config.js` with the local stack's URL (the Tailscale IP, so a phone can use it) and anon key, and serves it on port 8021; it stops if the port is taken. To try a barber added in the app, insert one into the local database (a `barbers` row and `barber_schedules` inside store hours) and reload.
 
 ```bash
 pip3 install playwright && python3 -m playwright install chromium   # once
@@ -284,9 +357,13 @@ npm run test:watch # watch mode while developing
 | `booking-validate.test.js` | Duration-aware party planning and pure form validation |
 | `booking-messages.test.js` | The WhatsApp/SMS texts and deep links |
 | `booking-calendar.test.js` | The .ics read back by a small parser (`ics-parse.js`): required properties, UTC times in EDT and EST, groups, escaping, CRLF |
+| `barbers.dom.test.js` | The site following the database's barbers, booted as main.js boots: a third barber in the picker (hours, days, times, booking), a deactivated one gone, a day off, a failed or slow read falling back to `config.js`, the barbers section (hidden spreads, plain spreads, heading) and the hero line, booking links (`?barber=&service=`, bad values, a link over the returning customer, a link to a barber that arrives late), hostile text in every field, an empty answer, barbers that land during a confirmation or close the picked day or time, and off-grid bookings |
+| `pretty-link.test.js` | `/<slug>` links: which paths are slugs, the redirect target, the anon lookup (found, not found, error, timeout) |
 | `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
 | `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse, landing on a #fragment), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return) |
-| `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the barbers match `BARBERS`, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
+| `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the shipped picker and spreads match `BARBERS` (the fallback) and its hours lines, 404.html's inline slug check matches `pretty-link.js`, one `?v=` release, no served folder a barber slug could shadow, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
+| `live-health.test.js` | `tests/ci/live-health.mjs` against a fake production (fetch replaced, nothing contacted): before 0022 a note and three skipped checks, any other failed barbers read still fails, hours the app changed are a note naming the barber and days, hours outside the store's still fail |
+| `deploy-dry-run.test.js` | `tools/deploy-barber-app.sh` with a fake `supabase`: the dry run end to end, and the pending-migration guard (0022, or 0021 and 0022, go on; 0001-0022, 0020 + 0022, a migration with no file here, or a list it cannot read stop it before the push, in a dry run and a real one) |
 
 ### Database tests (pgTAP)
 
@@ -294,8 +371,9 @@ npm run test:watch # watch mode while developing
 (the same `supabase/postgres` image the hosted project uses) with all
 migrations applied from scratch: schema + seeds + hours, the booking RPC
 (store/barber hours enforcement, double-booking races, VIP multi-slot,
-server-side pricing, rate limits), group bookings, the cancellation flow, and
-the anon security model (RLS + function grants). Needs Docker:
+server-side pricing, rate limits), group bookings, the cancellation flow,
+the anon security model (RLS + function grants), people tracking, reminders,
+and the barber app (007). Needs Docker:
 
 ```bash
 npm run test:db    # supabase db start && supabase test db
@@ -305,16 +383,25 @@ npm run test:db    # supabase db start && supabase test db
 
 - **`.github/workflows/ci.yml`** — on every push/PR: the vitest suite, the
   full DB suite above (fresh Postgres, all migrations, `db lint`, pgTAP), and
-  the send-reminders Deno tests. The Supabase CLI (2.109.0) and Deno (2.9.7)
+  the Deno tests for send-reminders, staff-admin and notify-booking-event. The Supabase CLI (2.109.0) and Deno (2.9.7)
   versions are pinned. Make all three jobs required checks on `main` so
   nothing broken can deploy.
 - **`.github/workflows/live-health.yml`** — daily at 7 am ET, after every push
   to `main`, and on demand: read-only end-to-end checks against the LIVE site
   and database using only the public anon key. Verifies the deploy is current,
-  prices/hours/barbers in Supabase still match the `config.js` mirrors, the
+  prices and store hours in Supabase still match the `config.js` mirrors, the
   booking + cancellation RPCs are live and validating, and the security
-  posture holds (no PII readable by anon, owner RPCs not executable). Run it
-  locally anytime with `npm run health`.
+  posture holds (no PII readable by anon, owner and manager RPCs not
+  executable). Barbers are managed in the app, so it checks the barbers read
+  the site makes (it works, and every barber in it has a link-safe slug and
+  hours inside the store's, and some barber can be booked), and that `/<slug>`
+  reaches the forwarding 404 page. A barber added, deactivated, renamed or given
+  new hours in the app is not a failure: `config.js`'s barbers are only the
+  offline fallback, so where they differ from the database (a fallback barber
+  gone, or hours the manager changed) it prints a note naming the barber and the
+  days; refresh `config.js` in a later deploy. Before 0022 is applied the barbers
+  read fails on `barbers.title`: that is a note too, and the three checks on the
+  read are skipped. Run it locally anytime with `npm run health`.
 
 The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears. Bump `VERSION` in `sw.js` and the `?v=` query on the stylesheet/script tags in `index.html` with every release so installed PWAs refresh.
 
@@ -325,8 +412,11 @@ The Supabase project is referenced from `scripts/config.js` (anon key is public 
 ```bash
 supabase login                                    # one-time
 supabase link --project-ref mjehfaonibgobimfiijk  # one-time
-supabase db push --linked --yes                   # pushes any unpushed migrations
+supabase migration list --linked                  # first: what a push would run
+supabase db push --linked                         # pushes any unpushed migrations, after asking
 ```
+
+Check the list before every push: a migration applied by hand in the SQL editor is missing from the history, and a push runs it again (0001 drops the bookings table). Record it with `supabase migration repair --linked --status applied <version>` first (see Barber app backend, Deploy).
 
 To inspect failed booking attempts:
 
