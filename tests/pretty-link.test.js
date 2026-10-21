@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import {
-  slugFromPath, bookingUrl, isActiveBarber, resolvePrettyLink, SLUG_PATH,
+  slugFromPath, bookingUrl, isActiveBarber, resolvePrettyLink, SLUG_PATH, LOOKUP_WAIT_MS,
 } from '../scripts/pretty-link.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../scripts/config.js';
 
@@ -68,9 +68,18 @@ describe('isActiveBarber', () => {
     const fetchFn = vi.fn((url, { signal }) => new Promise((_, reject) => {
       signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
     }));
-    const started = Date.now();
-    expect(await isActiveBarber('larry', { fetchFn, waitMs: 30 })).toBe(false);
-    expect(Date.now() - started).toBeLessThan(1000);
+    vi.useFakeTimers();
+    try {
+      let active;
+      isActiveBarber('larry', { fetchFn }).then((answer) => { active = answer; });
+      await vi.advanceTimersByTimeAsync(LOOKUP_WAIT_MS - 1);
+      expect(active).toBeUndefined();                  // still asking
+      await vi.advanceTimersByTimeAsync(1);
+      expect(active).toBe(false);
+      expect(fetchFn.mock.calls[0][1].signal.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -118,9 +118,11 @@ async function reboot(extraHtml = '') {
 }
 
 beforeEach(async () => {
-  // Date + intervals are faked (the grid's midnight/refresh timers); timeouts
-  // stay real so vi.waitFor and the modules' rAF fallbacks keep working.
-  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setInterval', 'clearInterval'] });
+  // Date and every timer the modules set are faked (the grid's midnight and
+  // refresh ticks, the live regions' delay, the cancel panel's windows), so
+  // nothing here waits on the machine's clock: a test moves time on with
+  // vi.advanceTimersByTimeAsync, and vi.waitFor moves it on as it polls.
+  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   vi.resetModules();
 
   // jsdom gaps the modules rely on
@@ -492,7 +494,7 @@ describe('booking submit — success', () => {
     $('button[data-book-barber="larry"]').click();
     $('.menu__feature-cta').click();
     document.dispatchEvent(new CustomEvent('booking:pick', { detail: { date: '2026-07-10', time: '10:00:00', barberSlug: 'larry' } }));
-    await new Promise((r) => setTimeout(r, 30));
+    await vi.advanceTimersByTimeAsync(30);
     expect($('[data-barber-option="hassan"]').getAttribute('aria-checked')).toBe('true');
     expect({ date: $('[data-form-date]').value, time: $('[data-form-time]').value,
              pill: $('[data-selected-text]').textContent, total: $('[data-total-display]').textContent }).toEqual(before);
@@ -1211,6 +1213,7 @@ describe('cancellation flow', () => {
     expect($('#cancel').contains($('[data-cancel-open]'))).toBe(true);
 
     window.location.hash = '#cancel';                           // the page loads with it
+    await vi.advanceTimersByTimeAsync(0);                       // jsdom's hashchange for it, before the page starts
     await reboot();
     const root = $('[data-cancel-root]');
     expect(root.hidden).toBe(false);
@@ -1221,7 +1224,7 @@ describe('cancellation flow', () => {
     $('[data-cancel-open]').click();                            // closed again
     expect(root.hidden).toBe(true);
     window.location.hash = '';
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     window.location.hash = '#cancel';                           // the hash changes to it
     await vi.waitFor(() => expect(root.hidden).toBe(false));
     expect(document.activeElement).toBe($('[data-cancel-phone]'));
@@ -1230,6 +1233,7 @@ describe('cancellation flow', () => {
 
   async function bootLoadingAtCancel() {
     window.location.hash = '#cancel';
+    await vi.advanceTimersByTimeAsync(0);                       // jsdom's hashchange for it, before the page starts
     Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
     try {
       await reboot();
@@ -1243,10 +1247,10 @@ describe('cancellation flow', () => {
   it('a blur to the page just after a #cancel load puts the cursor back in Phone once (R19)', async () => {
     await bootLoadingAtCancel();
     $('[data-cancel-phone]').blur();                            // WebKit, ~50 ms after load
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(document.activeElement).toBe($('[data-cancel-phone]'));
     $('[data-cancel-phone]').blur();                            // only once
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(document.activeElement).toBe(document.body);
     window.location.hash = '';
   });
@@ -1254,19 +1258,20 @@ describe('cancellation flow', () => {
   it('after a #cancel load, focus the customer moves elsewhere stays there, and a late blur is left alone (R19)', async () => {
     await bootLoadingAtCancel();
     $('[data-cancel-find]').focus();                            // the customer moved on
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(document.activeElement).toBe($('[data-cancel-find]'));
 
     await bootLoadingAtCancel();
-    await new Promise(r => setTimeout(r, 320));                 // past the 300 ms window
+    await vi.advanceTimersByTimeAsync(320);                     // past the 300 ms window
     $('[data-cancel-phone]').blur();
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(document.activeElement).toBe(document.body);
     window.location.hash = '';
   });
 
   async function bootLoadingAtCancelThen(customer) {
     window.location.hash = '#cancel';
+    await vi.advanceTimersByTimeAsync(0);                       // jsdom's hashchange for it, before the page starts
     Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
     try {
       await reboot();
@@ -1277,7 +1282,7 @@ describe('cancellation flow', () => {
     customer();
     Element.prototype.scrollIntoView.mockClear();
     window.dispatchEvent(new Event('load'));
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
   }
 
   it('a customer who focused a field before a #cancel load keeps it, and the page does not jump (review A)', async () => {
@@ -1300,6 +1305,7 @@ describe('cancellation flow', () => {
 
   it('a #cancel link followed while the hash is already #cancel opens the panel again (R13d)', async () => {
     window.location.hash = '#cancel';
+    await vi.advanceTimersByTimeAsync(0);                       // jsdom's hashchange for it, before the page starts
     await reboot('<a href="#cancel" data-test-link>Cancel</a>');
     const root = $('[data-cancel-root]');
     $('[data-cancel-open]').click();                            // closed, the hash stays #cancel
@@ -1315,6 +1321,7 @@ describe('cancellation flow', () => {
 
   it('#cancel on a page still loading focuses Phone again after load, past the browser\'s fragment jump (R7)', async () => {
     window.location.hash = '#cancel';
+    await vi.advanceTimersByTimeAsync(0);                       // jsdom's hashchange for it, before the page starts
     Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'loading' });
     try {
       await reboot();
@@ -1409,7 +1416,7 @@ describe('cancellation flow', () => {
     expect(text.href).toMatch(/^sms:\+14138854440\?&body=/);
     expect(decodeURIComponent(text.href)).toContain('CANCELLATION');
     expect(document.activeElement).toBe(wa);
-    await new Promise((r) => setTimeout(r, 800));                 // the old auto-open fired at 600 ms
+    await vi.advanceTimersByTimeAsync(800);                       // the old auto-open fired at 600 ms
     expect(window.location.href).toBe(start);
   });
 
@@ -2211,7 +2218,7 @@ describe('booking edge cases', () => {
     $('input[name="name"]').focus();
     land([]);
     await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot:not([disabled])')).toBeTruthy());
-    await new Promise(r => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(document.activeElement).toBe($('input[name="name"]'));
     expect($('[data-form-time]').value).toBe('');
     expect(Element.prototype.scrollIntoView.mock.contexts.some((el) => el.classList?.contains('booking__slot'))).toBe(false);
@@ -2304,7 +2311,7 @@ describe('booking edge cases', () => {
     grid.refreshAvailability();                // the 5-minute tick or a tab wake-up
     expect(lands).toHaveLength(2);
     lands[0]([]);                              // the first read lands stale and is dropped
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect($('[data-form-time]').value).toBe('');
     lands[1]([]);
     await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
@@ -2330,7 +2337,7 @@ describe('booking edge cases', () => {
 
     clickSlot('13:00:00');                     // the customer changes their mind
     lands[0]([]);                              // the stale read lands
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect($('[data-form-time]').value).toBe('13:00:00');
 
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'r15', slot_index: 0, booking_time: '13:00:00', total_price_cents: 3000 }]);
@@ -2347,12 +2354,12 @@ describe('booking edge cases', () => {
     }));
     grid.refreshAvailability();
     lands[0]([]);                              // superseded: nothing happens yet
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect($('[data-form-time]').value).toBe('');
     clickDay('2026-07-10');                    // chosen by hand while the pick waits
     lands[1]([]);
     await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect($('[data-form-date]').value).toBe('2026-07-10');
     expect($('[data-form-time]').value).toBe('');
   });
@@ -2365,7 +2372,7 @@ describe('booking edge cases', () => {
     }));
     clickSlot('13:00:00');
     lands[0]([]);
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect($('[data-form-time]').value).toBe('13:00:00');
     expect(document.activeElement).not.toBe($('input[name="name"]'));
   });
@@ -2382,7 +2389,7 @@ describe('booking edge cases', () => {
     }));
     lands.forEach(land => land([]));
     await vi.waitFor(() => expect($('[data-form-time]').value).toBe('13:45:00'));
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect(focusNext).toHaveBeenCalledTimes(1);
   });
 
@@ -2424,7 +2431,7 @@ describe('booking edge cases', () => {
     $('input[name="phone"]').focus();
     land([]);
     await vi.waitFor(() => expect($('[data-form-time]').value).toBe('12:15:00'));
-    await new Promise(r => setTimeout(r, 0));
+    await vi.advanceTimersByTimeAsync(0);
     expect(document.activeElement).toBe($('input[name="phone"]'));
   });
 
@@ -2672,7 +2679,7 @@ describe('booking edge cases', () => {
     expect($('[data-submit]').disabled).toBe(true);
     $('[data-submit]').click();
     $('[data-booking-form]').dispatchEvent(new Event('submit', { cancelable: true }));
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
     expect(rpc.bookSlot).toHaveBeenCalledTimes(1);
     $('[data-book-another]').click();
     expect($('[data-submit]').disabled).toBe(false);

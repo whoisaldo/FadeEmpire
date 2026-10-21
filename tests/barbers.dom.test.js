@@ -88,13 +88,17 @@ const pickerSlugs = () => $$('[data-barber-option]').map(b => b.dataset.barberOp
 const checked = () => $('[data-barber-option][aria-checked="true"]')?.dataset.barberOption;
 const visibleSpreads = () => $$('[data-barber-spread]:not([hidden])').map(s => s.dataset.barberSpread);
 
-/** The database answers with these rows (or rejects with an Error). */
-function database(rows, { delayMs = 0 } = {}) {
-  rpc.fetchBarbers.mockImplementation(() => new Promise((resolve, reject) => setTimeout(() => (
-    rows instanceof Error ? reject(rows) : resolve(rosterFromRows(rows))), delayMs)));
+/** The database answers at once with these rows (or rejects with an Error):
+ *  the read is in before the booking form's wait is up. */
+function database(rows) {
+  rpc.fetchBarbers.mockImplementation(async () => {
+    if (rows instanceof Error) throw rows;
+    return rosterFromRows(rows);
+  });
 }
 
-/** The answer is held until release(rows) (or release(new Error(...))). */
+/** The answer is held until release(rows) (or release(new Error(...))): a
+ *  read slower than the booking form's wait, landing when the test says. */
 function heldDatabase() {
   let release;
   const answer = new Promise((resolve, reject) => {
@@ -111,8 +115,9 @@ function heldAvailability() {
   return (rows = []) => release(rows);
 }
 
-/** main.js's order, with the barbers' wait shortened for the slow-read tests. */
-async function boot({ search = '', waitMs = 200, more = '' } = {}) {
+/** main.js's order. The barbers' wait is the booking form's own, on the fake
+ *  clock: a held read is still out when it ends. */
+async function boot({ search = '', more = '' } = {}) {
   document.body.innerHTML = section('hero') + section('barbers') + section('book') + mobileCta() + more;
   const spreads = await import('../scripts/barbers-section.js');
   grid = await import('../scripts/booking-grid.js');
@@ -123,7 +128,9 @@ async function boot({ search = '', waitMs = 200, more = '' } = {}) {
   spreads.initBarberSpreads();
   submit.initBookingSubmit();
   cancel.initBookingCancel();
-  await grid.loadBarbers({ waitMs });
+  const barbers = grid.loadBarbers();
+  await vi.advanceTimersByTimeAsync(grid.ROSTER_WAIT_MS);
+  await barbers;
   ret.initBookingReturn();
   link.applyBookingLink(search);
   await grid.initBookingGrid();
@@ -146,7 +153,7 @@ const chip = (iso) => $(`[data-day-row] .booking__day[data-date="${iso}"]`);
 const pills = () => $$('[data-slot-grid] .booking__slot').map(p => p.dataset.time);
 
 beforeEach(async () => {
-  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setInterval', 'clearInterval'] });
+  vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   vi.resetModules();
   window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener() {}, removeEventListener() {} });
   Element.prototype.scrollIntoView = vi.fn();
@@ -298,12 +305,13 @@ describe('the picker follows the database', () => {
   });
 
   it('an empty answer that lands late takes the form down, picks and all', async () => {
-    database([], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     expect(pickerSlugs()).toEqual(['hassan', 'larry']);
     $('[data-slot-grid] .booking__slot:not([disabled])').click();
     expect($('[data-form-time]').value).toBe('10:45:00');
 
+    release([]);
     await vi.waitFor(() => expect($('#book').hasAttribute('data-no-barbers')).toBe(true));
     expect(pickerSlugs()).toEqual([]);
     expect($('[data-no-barbers-note]').hidden).toBe(false);
@@ -313,20 +321,22 @@ describe('the picker follows the database', () => {
   });
 
   it('a slow read: the form starts on config.js\'s barbers, then follows the database when it lands', async () => {
-    database([HASSAN, MARCUS], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     expect(pickerSlugs()).toEqual(['hassan', 'larry']);
     expect(visibleSpreads()).toEqual(['hassan', 'larry']);
 
+    release([HASSAN, MARCUS]);
     await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan', 'marcus']));
     expect(checked()).toBe('hassan');
     expect(visibleSpreads()).toEqual(['hassan', 'marcus']);
   });
 
   it('a slow read that drops the barber being looked at moves the form to the first one offered', async () => {
-    database([HASSAN], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     $('[data-barber-option="larry"]').click();
+    release([HASSAN]);
     await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan']));
     expect(checked()).toBe('hassan');
     expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'hassan' }));
@@ -459,16 +469,18 @@ describe('booking links (?barber=&service=)', () => {
   });
 
   it('with slow barbers, a link to one added in the app is picked once they arrive', async () => {
-    database([HASSAN, LARRY, MARCUS], { delayMs: 150 });
-    await boot({ search: '?barber=marcus', waitMs: 20 });
+    const release = heldDatabase();
+    await boot({ search: '?barber=marcus' });
     expect(checked()).toBe('hassan');
+    release([HASSAN, LARRY, MARCUS]);
     await vi.waitFor(() => expect(checked()).toBe('marcus'));
   });
 
   it('…unless the customer picked a barber by hand meanwhile', async () => {
-    database([HASSAN, LARRY, MARCUS], { delayMs: 150 });
-    await boot({ search: '?barber=marcus', waitMs: 20 });
+    const release = heldDatabase();
+    await boot({ search: '?barber=marcus' });
     $('[data-barber-option="larry"]').click();
+    release([HASSAN, LARRY, MARCUS]);
     await vi.waitFor(() => expect(pickerSlugs()).toContain('marcus'));
     expect(checked()).toBe('larry');
   });
@@ -553,7 +565,7 @@ describe('what the app sends reaches the page as text', () => {
   it('the reviewer\'s race: a late roster that closes every day, then late availability, makes no markup', async () => {
     const releaseRoster = heldDatabase();
     const releaseAvailability = heldAvailability();
-    const booting = boot({ waitMs: 20 });
+    const booting = boot();
     await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenCalled());   // the grid is up, reading
     const everyDay = Array.from({ length: 18 }, (_, i) => ({ closure_date: `2026-07-${String(5 + i).padStart(2, '0')}` }));
     releaseRoster([{ ...HASSAN, display_name: HOSTILE_NAME, barber_closures: everyDay }]);
@@ -570,12 +582,12 @@ describe('what the app sends reaches the page as text', () => {
 
 describe('a late roster checks the customer\'s picks again', () => {
   it('days off for every day: nothing stays selected or offered, and the grid says so', async () => {
-    database([{ ...HASSAN, barber_closures: Array.from({ length: 14 }, (_, i) => ({ closure_date: `2026-07-${String(6 + i).padStart(2, '0')}` })) }, LARRY],
-      { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
     expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: '10:45:00' });
 
+    release([{ ...HASSAN, barber_closures: Array.from({ length: 14 }, (_, i) => ({ closure_date: `2026-07-${String(6 + i).padStart(2, '0')}` })) }, LARRY]);
     await vi.waitFor(() => expect($$('[data-day-row] .booking__day:not([disabled])')).toHaveLength(0));
     expect(grid.getSelection()).toMatchObject({ date: null, time: null, barberSlug: 'hassan' });
     expect($$('[data-slot-grid] .booking__slot')).toHaveLength(0);
@@ -591,9 +603,10 @@ describe('a late roster checks the customer\'s picks again', () => {
   });
 
   it('new hours that leave the picked time off the grid drop it and say so; the day stays', async () => {
-    database([{ ...HASSAN, barber_schedules: days('12:00:00', '18:00:00', OPEN_DAYS) }, LARRY], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+    release([{ ...HASSAN, barber_schedules: days('12:00:00', '18:00:00', OPEN_DAYS) }, LARRY]);
 
     await vi.waitFor(() => expect($('[data-barber-option="hassan"] .booking__barber-hours').textContent).toBe('12 to 6 · Closed Tue'));
     expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: null });
@@ -604,9 +617,10 @@ describe('a late roster checks the customer\'s picks again', () => {
   });
 
   it('new hours that keep the picked time keep it, and say nothing', async () => {
-    database([{ ...HASSAN, barber_schedules: days('10:45:00', '18:00:00', OPEN_DAYS) }, LARRY], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     $('[data-slot-grid] .booking__slot[data-time="11:30:00"]').click();
+    release([{ ...HASSAN, barber_schedules: days('10:45:00', '18:00:00', OPEN_DAYS) }, LARRY]);
     await vi.waitFor(() => expect(pills()[0]).toBe('10:45:00'));
     expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: '11:30:00' });
     expect($('[data-slot-grid] .booking__slot.is-selected').dataset.time).toBe('11:30:00');
@@ -614,11 +628,14 @@ describe('a late roster checks the customer\'s picks again', () => {
   });
 
   it('a barber taken off the site gives way to the first one, and the form says who is gone', async () => {
-    database([HASSAN], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     $('[data-barber-option="larry"]').click();
     await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
     $('[data-slot-grid] .booking__slot:not([disabled])').click();
+    expect(grid.getSelection()).toMatchObject({ barberSlug: 'larry', time: expect.any(String) });
+
+    release([HASSAN]);
     await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan']));
     expect(checked()).toBe('hassan');
     expect(grid.getSelection().time).toBeNull();
@@ -629,7 +646,7 @@ describe('a late roster checks the customer\'s picks again', () => {
 describe('barbers that land while a confirmation shows', () => {
   it('are taken on "Book another": the picker is the database\'s and its buttons work', async () => {
     const release = heldDatabase();
-    await boot({ waitMs: 20 });
+    await boot();
     rpc.bookSlot.mockResolvedValue([{ booking_id: 'b1', slot_index: 0, booking_time: '10:45:00', total_price_cents: 3000 }]);
     $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
     fill('input[name="name"]', 'Test Customer');
@@ -660,7 +677,7 @@ describe('barbers that land while a Reserve request is in flight', () => {
    *  request held: returns { release, answer, fail } for the two answers. */
   async function reserveHeld() {
     const release = heldDatabase();
-    await boot({ waitMs: 20 });
+    await boot();
     let answer, fail;
     rpc.bookSlot.mockImplementation(() => new Promise((resolve, reject) => { answer = resolve; fail = reject; }));
     $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
@@ -793,11 +810,12 @@ describe('a returning customer whose barber a late roster drops', () => {
 
   it('the welcome card and the sticky bar stop naming him; the form keeps the rest', async () => {
     localStorage.setItem('fe.lastBooking', JSON.stringify(HASSAN_RECORD));
-    database([LARRY], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hassan, Hair Cut. Pick a day.');
     expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
 
+    release([LARRY]);
     await vi.waitFor(() => expect(checked()).toBe('larry'));
     expect($('[data-rebook]').hidden).toBe(false);
     expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hair Cut. Pick a day.');
@@ -818,8 +836,9 @@ describe('a returning customer whose barber a late roster drops', () => {
 
   it('a late roster that keeps him changes nothing', async () => {
     localStorage.setItem('fe.lastBooking', JSON.stringify(HASSAN_RECORD));
-    database([HASSAN, MARCUS], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
+    release([HASSAN, MARCUS]);
     await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan', 'marcus']));
     expect(checked()).toBe('hassan');
     expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hassan, Hair Cut. Pick a day.');
@@ -853,9 +872,10 @@ describe('the sticky bar with nobody online', () => {
   });
 
   it('an empty answer that lands late turns it into the call too', async () => {
-    database([], { delayMs: 150 });
-    await boot({ waitMs: 20 });
+    const release = heldDatabase();
+    await boot();
     expect(shown()).toEqual(['[data-mobile-cta-book]', '[data-mobile-cta-call]']);
+    release([]);
     await vi.waitFor(() => expect(shown()).toEqual(['[data-mobile-cta-offline]']));
   });
 });
