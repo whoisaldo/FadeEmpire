@@ -302,7 +302,18 @@ SUPABASE_SERVICE_ROLE_KEY=<local service role key> MANAGER_EMAIL=you@example.com
 tools/deploy-barber-app.sh --local          # the manager login step only, against the local stack
 ```
 
-Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. Then, in the dashboard, turn off **Allow new users to sign up**: the app has no sign-up. The APNs variables can come later; until then pushes run dry.
+Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. The APNs variables can come later; until then pushes run dry.
+
+Before it pushes, the script reads `supabase migration list --linked` and stops unless the only pending migrations are 0021 (the beard add-on price, safe to run again) and 0022. Some of production's migrations were applied by hand in the SQL editor, so its migration history can lack them, and `supabase db push` would run them again: `0001_init.sql` starts with `drop table if exists bookings cascade`. When it stops, it lists what is pending and prints the `supabase migration repair --linked --status applied <versions>` that records hand-applied migrations without running them. Check in the dashboard that each one really is in production before marking it. It also stops when it cannot read the list.
+
+Rollout, in this order. 0022 is safe to apply while the old site is live; the new site needs it (its barbers read asks for `barbers.title`), so the merge comes after:
+
+1. `tools/deploy-barber-app.sh --dry-run`, then the real run (`CONFIRM_PROD=1`).
+2. The privilege check passes (the script stops if it does not). Then, in the dashboard: turn off **Allow new users to sign up** (the app has no sign-up), check the password policy (temporary passwords have upper and lower case, a digit and hyphens), and confirm the `barber-photos` bucket and both functions are there.
+3. Merge the pull request.
+4. The APNs secrets (run the script again with the `APNS_*` variables), then TestFlight (`ios/README.md`, Ship to the barbers).
+
+Until 0022 is applied, live health prints a note ("migration 0022 not applied yet") and skips its three barbers checks instead of failing.
 
 ---
 
@@ -351,6 +362,8 @@ npm run test:watch # watch mode while developing
 | `booking-form.dom.test.js` | The real `#book` markup with the real modules and a mocked RPC layer: grid, barber switching, success, group, slot_taken hard-fail, fallback, cancellation, and the edge cases (closed-day tags, next-slot pick, last slot of the day, guest cap, custom requests, double-tap, midnight rollover, the five-minute refresh) |
 | `page-modules.dom.test.js` | page.js (stamp, hero status, sticky nav, phone-only compare collapse, landing on a #fragment), cover.js (next-slot lines), nav.js (mobile menu), main.js (booking or database client failing to load), visit.js (today's row, status, midnight), shop-video.js (lazy file choice, muted default, sound toggle, reduced motion), gallery.js (lightbox, keys, swipe, focus return) |
 | `site-content.test.js` | Drift guards on `index.html`: every price in the menu / form / guest rows / JSON-LD matches `config.js`, the hours card and structured data match `STORE_HOURS`, the shipped picker and spreads match `BARBERS` (the fallback) and its hours lines, 404.html's inline slug check matches `pretty-link.js`, one `?v=` release, no served folder a barber slug could shadow, every referenced asset exists on disk, every image has alt + dimensions, videos are muted/inline/lazy |
+| `live-health.test.js` | `tests/ci/live-health.mjs` against a fake production (fetch replaced, nothing contacted): before 0022 a note and three skipped checks, any other failed barbers read still fails, hours the app changed are a note naming the barber and days, hours outside the store's still fail |
+| `deploy-dry-run.test.js` | `tools/deploy-barber-app.sh` with a fake `supabase`: the dry run end to end, and the pending-migration guard (0022, or 0021 and 0022, go on; 0001-0022, 0020 + 0022, a migration with no file here, or a list it cannot read stop it before the push, in a dry run and a real one) |
 
 ### Database tests (pgTAP)
 
@@ -376,16 +389,19 @@ npm run test:db    # supabase db start && supabase test db
 - **`.github/workflows/live-health.yml`** — daily at 7 am ET, after every push
   to `main`, and on demand: read-only end-to-end checks against the LIVE site
   and database using only the public anon key. Verifies the deploy is current,
-  prices/hours/barbers in Supabase still match the `config.js` mirrors, the
+  prices and store hours in Supabase still match the `config.js` mirrors, the
   booking + cancellation RPCs are live and validating, and the security
   posture holds (no PII readable by anon, owner and manager RPCs not
   executable). Barbers are managed in the app, so it checks the barbers read
   the site makes (it works, and every barber in it has a link-safe slug and
-  hours inside the store's), that `config.js`'s fallback barbers have the
-  database's hours, and that `/<slug>` reaches the forwarding 404 page; a
-  barber added or deactivated in the app is not a failure (a fallback barber
-  gone from the database is printed as a note). Run it locally anytime with
-  `npm run health`.
+  hours inside the store's, and some barber can be booked), and that `/<slug>`
+  reaches the forwarding 404 page. A barber added, deactivated, renamed or given
+  new hours in the app is not a failure: `config.js`'s barbers are only the
+  offline fallback, so where they differ from the database (a fallback barber
+  gone, or hours the manager changed) it prints a note naming the barber and the
+  days; refresh `config.js` in a later deploy. Before 0022 is applied the barbers
+  read fails on `barbers.title`: that is a note too, and the three checks on the
+  read are skipped. Run it locally anytime with `npm run health`.
 
 The Service Worker is `network-first` for same-origin JS/CSS, so deploys propagate immediately without manual cache clears. Bump `VERSION` in `sw.js` and the `?v=` query on the stylesheet/script tags in `index.html` with every release so installed PWAs refresh.
 
@@ -396,8 +412,11 @@ The Supabase project is referenced from `scripts/config.js` (anon key is public 
 ```bash
 supabase login                                    # one-time
 supabase link --project-ref mjehfaonibgobimfiijk  # one-time
-supabase db push --linked --yes                   # pushes any unpushed migrations
+supabase migration list --linked                  # first: what a push would run
+supabase db push --linked                         # pushes any unpushed migrations, after asking
 ```
+
+Check the list before every push: a migration applied by hand in the SQL editor is missing from the history, and a push runs it again (0001 drops the bookings table). Record it with `supabase migration repair --linked --status applied <version>` first (see Barber app backend, Deploy).
 
 To inspect failed booking attempts:
 

@@ -3,7 +3,8 @@
 # Read-only: every request is one the public website itself makes from a
 # visitor's browser (public anon key only — no secrets needed). Catches:
 #   * site down or serving a stale deploy
-#   * config drift: prices/hours/barbers differ between Supabase and config.js
+#   * config drift: prices/store hours differ between Supabase and config.js
+#     (config.js's barbers are only the fallback: differences are printed as notes)
 #   * missing RPCs after a migration mishap (booking/cancellation broken)
 #   * security regressions (booking PII readable, owner RPCs executable)
 #
