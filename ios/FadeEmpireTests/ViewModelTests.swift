@@ -64,7 +64,7 @@ final class ViewModelTests: XCTestCase {
         let schedule = ScheduleModel(app: app)
         await schedule.selectChair(MockSeed.larryId)
         XCTAssertEqual(schedule.status(of: ShopDay(iso: "2026-10-27")!), .shopClosed)
-        XCTAssertEqual(schedule.status(of: ShopDay(iso: "2026-10-28")!), .dayOff(reason: "Family event"))
+        XCTAssertEqual(schedule.status(of: ShopDay(iso: "2026-10-28")!), .dayOff(reason: nil), "Larry's reason is his and Ali's")
         XCTAssertEqual(schedule.status(of: ShopDay(iso: "2026-10-22")!),
                        .open(OpenHours(open: ShopTime(hour: 10), close: ShopTime(hour: 18))))
     }
@@ -107,7 +107,7 @@ final class ViewModelTests: XCTestCase {
         XCTAssertEqual(app.phase, .signedOut)
         XCTAssertNil(app.me)
         XCTAssertEqual(app.signInNotice, BackendError.noAccess.message)
-        let session = await backend.restoreSession()
+        let session = try await backend.restoreSession()
         XCTAssertFalse(session, "the session is dropped, not left half signed in")
         try await app.signIn(email: "larry@local.test", password: MockSeed.password)
         XCTAssertEqual(app.phase, .ready)

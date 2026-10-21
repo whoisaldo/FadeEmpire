@@ -68,12 +68,10 @@ struct SettingsView: View {
         Toggle(title, isOn: Binding(
             get: { app.me?[keyPath: key] ?? false },
             set: { on in
-                guard var prefs = app.me else { return }
-                prefs[keyPath: key] = on
+                let send = app.setNotifyPref(key, on)
                 Task {
                     do {
-                        try await app.setNotifyPrefs(bookings: prefs.notifyBookings, cancellations: prefs.notifyCancellations,
-                                                     viewedChairs: prefs.notifyViewedChairs)
+                        try await send.value
                         error = nil
                     } catch {
                         self.error = app.handle(error)

@@ -1,3 +1,4 @@
+import Network
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -5,7 +6,8 @@ import UserNotifications
 /// Launch arguments for previews, UI tests and screenshots:
 /// `-mock-backend` uses `MockBackend`; with it, `-mock-now 2026-10-22T13:00` pins the clock
 /// (shop time), `-mock-session hassan@local.test` starts signed in, and
-/// `-mock-must-change hassan@local.test` makes that login pick a new password (as after a reset).
+/// `-mock-must-change hassan@local.test` makes that login pick a new password (as after a reset), and
+/// `-mock-fault me:network:1,barberSchedule:network:*` makes those calls fail (count, or `*` for every call).
 enum LaunchOptions {
     static let arguments = ProcessInfo.processInfo.arguments
 
@@ -23,6 +25,19 @@ enum LaunchOptions {
         return day.at(time)
     }
 
+    /// `call:network|server[:count|*]`, comma-separated; a count of 1 when left out.
+    static func parseFaults(_ raw: String) -> [MockBackend.Call: MockBackend.Fault] {
+        var faults: [MockBackend.Call: MockBackend.Fault] = [:]
+        for item in raw.split(separator: ",") {
+            let parts = item.split(separator: ":").map(String.init)
+            guard parts.count >= 2, let call = MockBackend.Call(rawValue: parts[0]) else { continue }
+            let error: BackendError = parts[1] == "network" ? .network : .server(parts[1])
+            let times: Int? = parts.count > 2 ? (parts[2] == "*" ? nil : Int(parts[2]) ?? 1) : 1
+            faults[call] = MockBackend.Fault(error: error, times: times)
+        }
+        return faults
+    }
+
     @MainActor static func makeModel() -> AppModel {
         if useMock {
             let clock: ShopClock
@@ -35,21 +50,59 @@ enum LaunchOptions {
             }
             if arguments.contains("-disable-animations") { UIView.setAnimationsEnabled(false) }
             let backend = MockBackend(clock: clock, signedInAs: value("-mock-session"),
-                                      mustChangePassword: Set([value("-mock-must-change")].compactMap { $0 }))
+                                      mustChangePassword: Set([value("-mock-must-change")].compactMap { $0 }),
+                                      faults: value("-mock-fault").map(parseFaults) ?? [:])
             return AppModel(backend: backend, clock: clock)
         }
         let info = Bundle.main.infoDictionary ?? [:]
         let url = URL(string: info["FESupabaseURL"] as? String ?? "")!
         let key = info["FESupabaseKey"] as? String ?? ""
-        let environment = info["FEPushEnvironment"] as? String ?? "sandbox"
-        return AppModel(backend: SupabaseBackend(url: url, key: key), pushEnvironment: environment, usesPush: true)
+        return AppModel(backend: SupabaseBackend(url: url, key: key), pushEnvironment: PushEnvironment.current(), usesPush: true)
+    }
+}
+
+/// The APNs environment the device token belongs to, which the provisioning profile decides, not
+/// the build configuration: a Release build run from Xcode is signed for development and gets a
+/// sandbox token. App Store and TestFlight installs carry no `embedded.mobileprovision`.
+enum PushEnvironment {
+    static func current() -> String {
+        #if targetEnvironment(simulator)
+        return "sandbox"
+        #else
+        let profile = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision").flatMap { try? Data(contentsOf: $0) }
+        return from(provisioningProfile: profile)
+        #endif
+    }
+
+    /// The profile is a signed envelope around a plist whose `Entitlements` name the environment:
+    /// `production` for ad hoc and distribution profiles, `development` otherwise.
+    static func from(provisioningProfile data: Data?) -> String {
+        guard let data else { return "production" }
+        guard let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(from: data[start.lowerBound..<end.upperBound], format: nil),
+              let entitlements = (plist as? [String: Any])?["Entitlements"] as? [String: Any]
+        else { return "sandbox" }
+        return entitlements["aps-environment"] as? String == "production" ? "production" : "sandbox"
     }
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var onToken: ((Data) -> Void)?
     var onPush: (() -> Void)?
-    var onOpen: ((PushRoute) -> Void)?
+    var onOpen: ((PushRoute) -> Void)? {
+        didSet {
+            guard let onOpen, let route = waitingRoute else { return }
+            waitingRoute = nil
+            onOpen(route)
+        }
+    }
+    /// A push tapped at cold launch arrives before the root view installs `onOpen`.
+    private var waitingRoute: PushRoute?
+
+    func open(_ route: PushRoute) {
+        if let onOpen { onOpen(route) } else { waitingRoute = route }
+    }
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -73,7 +126,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     /// Tapping a push opens that booking's day on that chair.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         guard let route = PushRoute(userInfo: response.notification.request.content.userInfo) else { return }
-        await MainActor.run { onOpen?(route) }
+        await MainActor.run { open(route) }
     }
 
     static func registerForPush() {
@@ -100,10 +153,11 @@ struct FadeEmpireApp: App {
                 .tint(.gold)
                 .task {
                     delegate.onToken = { token in Task { await model.deviceTokenReceived(token) } }
-                    delegate.onPush = { Task { await model.refresh() } }
+                    delegate.onPush = { Task { await model.pushReceived() } }
                     delegate.onOpen = { route in Task { @MainActor in model.open(route) } }
                     await model.start()
                 }
+                .task { await watchNetwork() }
                 .onChange(of: model.phase) { _, phase in
                     if phase == .ready, model.usesPush { AppDelegate.registerForPush() }
                 }
@@ -111,5 +165,17 @@ struct FadeEmpireApp: App {
                     if phase == .active { Task { await model.refresh() } }
                 }
         }
+    }
+
+    /// Tells the model each time the network path changes, so a launch that found no network
+    /// tries again once it is back.
+    private func watchNetwork() async {
+        let monitor = NWPathMonitor()
+        let updates = AsyncStream<Bool> { continuation in
+            monitor.pathUpdateHandler = { continuation.yield($0.status == .satisfied) }
+            monitor.start(queue: DispatchQueue(label: "network-path"))
+        }
+        for await isUp in updates { await model.networkChanged(isUp: isUp) }
+        monitor.cancel()
     }
 }

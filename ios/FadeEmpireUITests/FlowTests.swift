@@ -176,6 +176,84 @@ final class FlowTests: MockUITestCase {
         XCTAssertTrue(el("reactivate").waitForExistence(timeout: 5))
     }
 
+    /// Larry's hours can't load: the editor offers no day switches, and saving a bio edit
+    /// leaves his week as it was (his chair still works Friday).
+    func testBioEditWhileHoursCannotLoadKeepsHours() {
+        launch(as: "ali@local.test", extra: ["-mock-fault", "barberSchedule:network:*"])
+        tab("Barbers")
+        tap("barber-larry")
+        XCTAssertTrue(el("hours-retry").waitForExistence(timeout: 10), "says the hours failed to load, with Retry")
+        XCTAssertFalse(el("barber-hours").exists, "no \"No hours set\" for hours it doesn't know")
+        tap("edit-barber")
+        XCTAssertTrue(element(containing: "Saving now changes only the profile").waitForExistence(timeout: 5))
+        XCTAssertFalse(el("hours-1").exists, "no day switches to save by accident")
+        type("barber-bio", " Walk-ins welcome.")
+        tap("barber-save")
+        XCTAssertTrue(element(containing: "Walk-ins welcome.").waitForExistence(timeout: 10))
+        tab("Schedule")
+        tap("chair-larry")
+        let friday = el("day-2026-10-23")
+        XCTAssertTrue(friday.waitForExistence(timeout: 5))
+        XCTAssertFalse(friday.label.contains("Not working"), friday.label)
+    }
+
+    func testClearingEveryWorkingDayAsksFirst() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("barber-larry")
+        XCTAssertTrue(el("barber-hours").waitForExistence(timeout: 10))
+        tap("edit-barber")
+        for wd in HoursOrder.workingDays {
+            let day = reveal("hours-\(wd)")
+            day.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+            XCTAssertEqual(day.value as? String, "0", "weekday \(wd)")
+        }
+        tap("barber-save")
+        let confirm = app.alerts["Save Larry with no working days?"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.label.contains("stops offering Larry for booking") || element(containing: "stops offering Larry").exists)
+        tapDialogButton("Keep editing")
+        XCTAssertTrue(el("barber-save").waitForExistence(timeout: 5), "still editing, nothing saved")
+        tap("barber-save")
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        tapDialogButton("Save with no working days", id: "confirm-no-hours")
+        let alert = app.alerts.matching(NSPredicate(format: "label CONTAINS 'no longer fit'")).firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.label.contains("no longer fit Larry's hours"), alert.label)
+        alert.buttons["OK"].tap()
+        XCTAssertEqual(el("barber-hours").label, "No hours set")
+    }
+
+    /// Hassan views Larry's chair: Larry's day off reads "Day off", never his reason.
+    func testViewOnlyChairHidesDayOffReason() {
+        launch(as: "hassan@local.test")
+        tap("chair-larry")
+        XCTAssertTrue(app.staticTexts["Larry's chair"].waitForExistence(timeout: 5))
+        let wednesday = el("day-2026-10-28")
+        if !wednesday.waitForExistence(timeout: 3) { el("day-2026-10-22").swipeLeft() }
+        XCTAssertTrue(wednesday.waitForExistence(timeout: 5))
+        XCTAssertTrue(wednesday.label.hasSuffix("Day off"), wednesday.label)
+        wednesday.tap()
+        XCTAssertTrue(el("day-header").label.contains("Day off"), el("day-header").label)
+        XCTAssertFalse(element(containing: "Family event").exists)
+        tap("open-days-off")
+        XCTAssertTrue(app.staticTexts["Wednesday, October 28"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(containing: "Family event").exists)
+    }
+
+    /// No network at launch: a retry screen that keeps the session, not the sign-in screen.
+    func testNetworkFailureAtLaunchOffersRetry() {
+        launch(as: "hassan@local.test", extra: ["-mock-fault", "me:network:2"])
+        XCTAssertTrue(el("offline-title").waitForExistence(timeout: 10))
+        XCTAssertFalse(el("signin-email").exists, "still signed in")
+        // Foregrounding may already have used the second failure; Retry until it gets through.
+        for _ in 0..<3 where !app.staticTexts["Hassan's chair"].waitForExistence(timeout: 3) {
+            if el("offline-retry").exists { el("offline-retry").tap() }
+        }
+        XCTAssertTrue(app.staticTexts["Hassan's chair"].exists)
+        XCTAssertFalse(el("signin-email").exists)
+    }
+
     func testActivityBadgeClearsAfterViewing() {
         launch(as: "hassan@local.test")
         let activity = app.tabBars.buttons["Activity"].firstMatch
@@ -190,4 +268,9 @@ final class FlowTests: MockUITestCase {
         expectation(for: cleared, evaluatedWith: activity)
         waitForExpectations(timeout: 5)
     }
+}
+
+/// Larry's working weekdays in the editor's order (Monday first; Tuesday the shop is closed).
+private enum HoursOrder {
+    static let workingDays = [1, 3, 4, 5, 6, 0]
 }

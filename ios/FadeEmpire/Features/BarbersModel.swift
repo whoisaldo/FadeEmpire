@@ -37,6 +37,37 @@ struct HoursDraft: Equatable {
     }
 }
 
+/// The hours half of the editor. `original` is what is saved, nil while it is still loading or
+/// failed to load; the hours are sent only when they were loaded and changed, so editing just
+/// the profile never touches them. A new barber has no hours yet, so theirs are always sent.
+struct HoursEdit: Equatable {
+    var original: HoursDraft?
+    var edited: HoursDraft?
+    let isNew: Bool
+
+    static func forNewBarber() -> HoursEdit { HoursEdit(original: HoursDraft(days: [:]), edited: .storeDefault, isNew: true) }
+
+    static func forBarber(saved: [ScheduleDay]?) -> HoursEdit {
+        HoursEdit(original: saved.map(HoursDraft.init), edited: saved.map(HoursDraft.init), isNew: false)
+    }
+
+    /// The saved hours arrived after the editor opened.
+    mutating func loaded(_ saved: [ScheduleDay]) {
+        guard original == nil else { return }
+        original = HoursDraft(saved)
+        edited = original
+    }
+
+    /// The week to send to `manager_set_schedule`, or nil to leave the saved hours alone.
+    var toSave: [ScheduleDay]? {
+        guard let original, let edited, isNew || edited != original else { return nil }
+        return edited.schedule
+    }
+
+    /// Saving would leave the barber with no working day, so the website stops offering them.
+    var leavesNoWorkingDays: Bool { toSave?.isEmpty == true }
+}
+
 /// The manager's Barbers tab: profiles, hours, logins, view grants, active state.
 @MainActor @Observable
 final class BarbersModel {
@@ -46,8 +77,12 @@ final class BarbersModel {
     private(set) var grants: Set<ViewGrant> = []
     /// False when `manager_view_grants` failed: the switches can't show the current state.
     private(set) var grantsLoaded = false
+    /// Each barber's saved hours, once loaded (`manager_barber_schedule`).
     private(set) var schedules: [UUID: [ScheduleDay]] = [:]
+    /// Barbers whose hours failed to load on the last try.
+    private(set) var scheduleFailed: Set<UUID> = []
     var error: String?
+    @ObservationIgnored private var loads = LoadGeneration()
 
     init(app: AppModel) { self.app = app }
 
@@ -69,38 +104,79 @@ final class BarbersModel {
     }
 
     func load() async {
+        let generation = loads.next()
         do {
             async let b = backend.barbers()
             async let s = backend.staff()
             let (rows, people) = try await (b, s)
+            guard loads.isCurrent(generation) else { return }
             barbers = rows
             staff = people
-            // Loaded on its own, so the rest of the tab works without it.
-            if let grantRows = try? await backend.viewGrants() {
-                grants = Set(grantRows)
-                grantsLoaded = true
-            } else {
-                grantsLoaded = false
-            }
-            var hours: [UUID: [ScheduleDay]] = [:]
-            for row in rows { hours[row.id] = try await backend.barberSchedule(barberId: row.id) }
-            schedules = hours
             error = nil
+            // Loaded on their own, so the rest of the tab works without them.
+            let grantRows = try? await backend.viewGrants()
+            guard loads.isCurrent(generation) else { return }
+            if let grantRows { grants = Set(grantRows) }
+            grantsLoaded = grantRows != nil
+            await withTaskGroup(of: (UUID, [ScheduleDay]?).self) { group in
+                for row in rows {
+                    group.addTask { [backend] in (row.id, try? await backend.barberSchedule(barberId: row.id)) }
+                }
+                for await (id, week) in group where loads.isCurrent(generation) {
+                    record(id, week)
+                }
+            }
         } catch {
+            guard loads.isCurrent(generation) else { return }
             self.error = app.handle(error)
         }
     }
 
-    /// Saves the profile (uploading a new photo first), then the week's hours. Also returns
-    /// how many upcoming bookings the new hours leave out (they stay booked).
-    func save(_ draft: BarberDraft, hours: HoursDraft, photo: Data?) async throws -> (id: UUID, outsideHours: Int) {
+    /// The Retry next to hours that failed to load.
+    func loadSchedule(_ barberId: UUID) async {
+        scheduleFailed.remove(barberId)
+        record(barberId, try? await backend.barberSchedule(barberId: barberId))
+    }
+
+    private func record(_ id: UUID, _ week: [ScheduleDay]?) {
+        schedules[id] = week
+        if week == nil { scheduleFailed.insert(id) } else { scheduleFailed.remove(id) }
+    }
+
+    enum HoursResult: Equatable {
+        case unchanged
+        /// With how many upcoming bookings the new hours leave out (they stay booked).
+        case saved(outsideHours: Int)
+        case failed(String)
+    }
+
+    struct SaveResult {
+        let id: UUID
+        /// The photo now saved, so a retry does not upload it again.
+        let photoUrl: String?
+        let hours: HoursResult
+    }
+
+    /// Saves the profile, uploading a picked photo first, then the hours when `hours` is set.
+    /// The fields are checked before anything is uploaded, so a refused save leaves no stray
+    /// photo behind. A failed profile save throws; a failed hours save is in the result, as
+    /// the profile is saved by then.
+    func save(_ draft: BarberDraft, photo: Data?, hours: [ScheduleDay]?) async throws -> SaveResult {
+        if let problem = draft.problems(others: barbers).first { throw problem }
         var d = draft
         if let photo { d.photoUrl = try await backend.uploadBarberPhoto(photo, slug: d.slug) }
         let id = try await backend.saveBarber(d)
-        let outside = try await backend.setSchedule(barberId: id, days: hours.schedule)
+        var result = HoursResult.unchanged
+        if let hours {
+            do {
+                result = .saved(outsideHours: try await backend.setSchedule(barberId: id, days: hours))
+            } catch {
+                result = .failed(app.handle(error))
+            }
+        }
         await load()
         await app.refresh()
-        return (id, outside)
+        return SaveResult(id: id, photoUrl: d.photoUrl, hours: result)
     }
 
     /// After saving hours that leave bookings outside them, so the manager contacts those customers.

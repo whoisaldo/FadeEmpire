@@ -87,8 +87,22 @@ final class SupabaseBackend: Backend {
 
     // MARK: - Auth
 
-    func restoreSession() async -> Bool {
-        (try? await client.auth.session) != nil
+    /// `auth.session` refreshes an expired token. Auth answers a revoked or expired refresh
+    /// token with `sessionMissing` (it clears the stored session), a banned or deleted user with
+    /// a 4xx: both mean sign in again. No connection or a 5xx keeps the session for a retry.
+    func restoreSession() async throws -> Bool {
+        let stored = client.auth.currentSession != nil
+        do {
+            _ = try await client.auth.session
+            return true
+        } catch AuthError.sessionMissing {
+            if stored { throw BackendError.notSignedIn }
+            return false
+        } catch let AuthError.api(_, _, _, response) where (400..<500).contains(response.statusCode) && response.statusCode != 429 {
+            throw BackendError.notSignedIn
+        } catch {
+            throw Self.mapError(error)
+        }
     }
 
     func signIn(email: String, password: String) async throws {

@@ -10,6 +10,7 @@ struct NewAppointmentView: View {
     @State private var day: ShopDay
     @State private var slots: [ShopTime] = []
     @State private var slotsLoaded = false
+    @State private var slotLoads = LoadGeneration()
     @State private var time: ShopTime?
     @State private var name = ""
     @State private var phone = ""
@@ -153,12 +154,18 @@ struct NewAppointmentView: View {
         }
     }
 
+    /// A quick change of day can leave an older day's answer landing last; only the newest applies.
     private func loadSlots() async {
+        let generation = slotLoads.next()
+        let requested = day
         slotsLoaded = false
         time = nil
         do {
-            slots = try await app.backend.freeSlots(barberId: chair.id, date: day)
+            let free = try await app.backend.freeSlots(barberId: chair.id, date: requested)
+            guard slotLoads.isCurrent(generation), requested == day else { return }
+            slots = free
         } catch {
+            guard slotLoads.isCurrent(generation), requested == day else { return }
             slots = []
             self.error = app.handle(error)
         }

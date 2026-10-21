@@ -1,4 +1,3 @@
 // Production backend, debug build. Values from scripts/config.js.
 SUPABASE_URL = https:/$()/mjehfaonibgobimfiijk.supabase.co
 SUPABASE_PUBLISHABLE_KEY = sb_publishable_vCj7QAuA2-9Wp_ufQiv84Q_qDYwP9fd
-PUSH_ENVIRONMENT = sandbox

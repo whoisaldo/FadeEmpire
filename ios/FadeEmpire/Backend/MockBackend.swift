@@ -48,9 +48,29 @@ actor MockBackend: Backend {
     var devices: [String: UUID] = [:]
     var signedIn: UUID?
 
+    /// Calls a test can slow down or make fail (`inject`, or `-mock-fault` at launch).
+    enum Call: String, Sendable {
+        case restoreSession, me, bookings, daysOff, weeklyHours, links, activity, markActivitySeen
+        case setNotifyPrefs, barbers, staff, viewGrants, barberSchedule, saveBarber, uploadBarberPhoto, setSchedule
+    }
+
+    /// `times` nil: every call.
+    struct Fault: Sendable {
+        var delay: Duration = .zero
+        var error: BackendError?
+        var times: Int? = 1
+    }
+
+    private var faults: [Call: [Fault]] = [:]
+    private(set) var callCounts: [Call: Int] = [:]
+    /// Paths `uploadBarberPhoto` stored, so tests can see a refused save uploaded nothing.
+    private(set) var uploadedPhotos: [String] = []
+
     /// `mustChangePassword` lists logins that start as if the manager had just reset them.
-    init(clock: ShopClock, signedInAs email: String? = nil, mustChangePassword: Set<String> = []) {
+    init(clock: ShopClock, signedInAs email: String? = nil, mustChangePassword: Set<String> = [],
+         faults: [Call: Fault] = [:]) {
         self.clock = clock
+        self.faults = faults.mapValues { [$0] }
         let seed = MockSeed(clock: clock)
         accounts = seed.accounts
         barberRows = seed.barbers
@@ -66,6 +86,25 @@ actor MockBackend: Backend {
         if let email, let i = accounts.firstIndex(where: { $0.email == email }) {
             signedIn = accounts[i].userId
         }
+    }
+
+    /// Queues a fault for the next calls of `call`, after any already queued.
+    func inject(_ call: Call, delay: Duration = .zero, error: BackendError? = nil, times: Int? = 1) {
+        faults[call, default: []].append(Fault(delay: delay, error: error, times: times))
+    }
+
+    func callCount(_ call: Call) -> Int { callCounts[call] ?? 0 }
+
+    /// Reads call this after taking their answer, so a delayed read returns what was true when it
+    /// was asked (and can land after a newer one); writes call it before changing anything.
+    private func fault(_ call: Call) async throws {
+        callCounts[call, default: 0] += 1
+        guard var f = faults[call]?.first else { return }
+        if let times = f.times {
+            if times <= 1 { faults[call]!.removeFirst() } else { f.times = times - 1; faults[call]![0] = f }
+        }
+        if f.delay > .zero { try? await Task.sleep(for: f.delay) }
+        if let e = f.error { throw e }
     }
 
     // MARK: - Permission rules (app_caller, app_is_manager, app_my_barber_id, app_can_view, app_can_manage)
@@ -131,7 +170,11 @@ actor MockBackend: Backend {
 
     // MARK: - Auth
 
-    func restoreSession() async -> Bool { signedIn != nil }
+    func restoreSession() async throws -> Bool {
+        let restored = signedIn != nil
+        try await fault(.restoreSession)
+        return restored
+    }
 
     func signIn(email: String, password: String) async throws {
         let e = email.trimmingCharacters(in: .whitespaces).lowercased()
@@ -172,17 +215,19 @@ actor MockBackend: Backend {
                   isActive: $0.isActive, canManage: canManage(a, $0.id))
         }
         let slug = mine.flatMap { id in barberRows.first { $0.id == id }?.slug }
-        return Me(userId: a.userId, role: a.role, displayName: a.displayName, barberId: mine, barberSlug: slug,
+        let me = Me(userId: a.userId, role: a.role, displayName: a.displayName, barberId: mine, barberSlug: slug,
                   mustChangePassword: a.mustChangePassword, notifyBookings: a.notifyBookings,
                   notifyCancellations: a.notifyCancellations, notifyViewedChairs: a.notifyViewedChairs,
                   chairs: chairs)
+        try await fault(.me)
+        return me
     }
 
     func bookings(barberId: UUID, from: ShopDay, to: ShopDay) async throws -> [Booking] {
         let a = try requireView(barberId)
         guard from <= to, from.days(until: to) <= 62 else { throw BackendError.invalidRange }
         let manage = canManage(a, barberId)
-        return storedBookings
+        let rows: [Booking] = storedBookings
             .map(\.row)
             .filter { $0.barberId == barberId && $0.date >= from && $0.date <= to && $0.status != .expired }
             .sorted { ($0.date, $0.time) < ($1.date, $1.time) }
@@ -192,6 +237,8 @@ actor MockBackend: Backend {
                 if !manage { b.customerPhone = nil }   // a view-only chair gets no phones
                 return b
             }
+        try await fault(.bookings)
+        return rows
     }
 
     /// Store hours ∩ the barber's hours, minus days off and taken slots, on the
@@ -303,7 +350,7 @@ actor MockBackend: Backend {
     func activity(before: Int64?, limit: Int) async throws -> [ActivityEvent] {
         let a = try caller()
         let byId = Dictionary(uniqueKeysWithValues: storedBookings.map { ($0.row.id, $0.row) })
-        return events
+        let page: [ActivityEvent] = events
             .filter { e in before.map { e.id < $0 } ?? true }
             .sorted { $0.id > $1.id }
             .compactMap { e -> ActivityEvent? in
@@ -317,21 +364,26 @@ actor MockBackend: Backend {
             }
             .prefix(limit)
             .map { $0 }
+        try await fault(.activity)
+        return page
     }
 
     func markActivitySeen() async throws {
         let a = try caller()
+        try await fault(.markActivitySeen)
         let i = accounts.firstIndex { $0.userId == a.userId }!
         accounts[i].activitySeenAt = clock.now()
     }
 
     func daysOff(barberId: UUID) async throws -> [DayOff] {
         _ = try requireView(barberId)
-        return (closures[barberId] ?? [:])
+        let rows: [DayOff] = (closures[barberId] ?? [:])
             .filter { $0.key >= clock.today }
             .sorted { $0.key < $1.key }
             .map { DayOff(date: $0.key, reason: $0.value.isEmpty ? nil : $0.value,
                          bookingsThatDay: activeCount(barberId, on: $0.key)) }
+        try await fault(.daysOff)
+        return rows
     }
 
     /// Pending or confirmed bookings that day (bookings_that_day).
@@ -356,6 +408,7 @@ actor MockBackend: Backend {
 
     func setNotifyPrefs(bookings: Bool, cancellations: Bool, viewedChairs: Bool) async throws {
         let a = try caller()
+        try await fault(.setNotifyPrefs)
         let i = accounts.firstIndex { $0.userId == a.userId }!
         accounts[i].notifyBookings = bookings
         accounts[i].notifyCancellations = cancellations
@@ -376,7 +429,9 @@ actor MockBackend: Backend {
     }
 
     func weeklyHours(barberId: UUID) async throws -> [ScheduleDay] {
-        (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
+        let week = (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
+        try await fault(.weeklyHours)
+        return week
     }
 
     // MARK: - booking_links
@@ -384,8 +439,9 @@ actor MockBackend: Backend {
     /// RLS: a chair the caller cannot manage reads as no links.
     func links(barberId: UUID) async throws -> [BookingLink] {
         let a = try caller()
-        guard canManage(a, barberId) else { return [] }
-        return linkRows.filter { $0.barberId == barberId }.sorted { $0.createdAt < $1.createdAt }
+        let rows = canManage(a, barberId) ? linkRows.filter { $0.barberId == barberId }.sorted { $0.createdAt < $1.createdAt } : []
+        try await fault(.links)
+        return rows
     }
 
     func addLink(barberId: UUID, label: String, serviceSlug: String?) async throws -> BookingLink {
@@ -410,19 +466,24 @@ actor MockBackend: Backend {
 
     func barbers() async throws -> [Barber] {
         _ = try requireManager()
-        return barberRows.sorted { $0.sortOrder < $1.sortOrder }
+        let rows = barberRows.sorted { $0.sortOrder < $1.sortOrder }
+        try await fault(.barbers)
+        return rows
     }
 
     func staff() async throws -> [StaffMember] {
         _ = try requireManager()
-        return accounts.map {
+        let rows = accounts.map {
             StaffMember(userId: $0.userId, email: $0.email, role: $0.role, displayName: $0.displayName,
                         barberId: $0.barberId, lastSignInAt: $0.lastSignInAt.map(Instant.init), isDisabled: $0.isDisabled)
         }
+        try await fault(.staff)
+        return rows
     }
 
     func saveBarber(_ d: BarberDraft) async throws -> UUID {
         _ = try requireManager()
+        try await fault(.saveBarber)
         let slug = d.slug.trimmingCharacters(in: .whitespaces).lowercased()
         guard BarberDraft.isValidSlug(slug) else { throw BackendError.invalidSlug }
         guard !BarberDraft.reservedSlugs.contains(slug) else { throw BackendError.slugReserved }
@@ -431,6 +492,13 @@ actor MockBackend: Backend {
         if barberRows.contains(where: { $0.slug == slug && $0.id != d.id }) { throw BackendError.slugTaken }
         let title = d.title.trimmingCharacters(in: .whitespaces)
         let bio = d.bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !BarberDraft.hasRefusedCharacters(name), !BarberDraft.hasRefusedCharacters(title),
+              !BarberDraft.hasRefusedCharacters(bio, allowsLineBreaks: true) else { throw BackendError.invalidText }
+        // A photo passed back unchanged is not checked (Larry's is a relative path).
+        let oldPhoto = d.id.flatMap { id in barberRows.first { $0.id == id }?.photoUrl }
+        if let photo = d.photoUrl, !photo.isEmpty, photo != oldPhoto, !BarberDraft.isValidPhotoUrl(photo) {
+            throw BackendError.invalidPhotoUrl
+        }
         if let id = d.id {
             guard let i = barberRows.firstIndex(where: { $0.id == id }) else { throw BackendError.barberNotFound }
             if barberRows[i].slug != slug, storedBookings.contains(where: { $0.row.barberId == id }) {
@@ -452,18 +520,24 @@ actor MockBackend: Backend {
 
     func uploadBarberPhoto(_ jpeg: Data, slug: String) async throws -> String {
         _ = try requireManager()
-        return "https://mock.local/barber-photos/\(slug).jpg"
+        try await fault(.uploadBarberPhoto)
+        let path = "\(slug)/\(UUID().uuidString.lowercased()).jpg"
+        uploadedPhotos.append(path)
+        return "https://mock.local/storage/v1/object/public/barber-photos/\(path)"
     }
 
     func barberSchedule(barberId: UUID) async throws -> [ScheduleDay] {
         _ = try requireManager()
-        return (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
+        let week = (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
+        try await fault(.barberSchedule)
+        return week
     }
 
     /// Replaces the week; returns the upcoming active bookings it leaves on a day off, outside
     /// the hours, or off the 45-minute grid from open. They stay booked.
     func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws -> Int {
         _ = try requireManager()
+        try await fault(.setSchedule)
         _ = try barber(barberId)
         guard Set(days.map(\.weekday)).count == days.count,
               days.allSatisfy({ (0...6).contains($0.weekday) && $0.open < $0.close }) else { throw BackendError.invalidSchedule }
@@ -490,7 +564,9 @@ actor MockBackend: Backend {
 
     func viewGrants() async throws -> [ViewGrant] {
         _ = try requireManager()
-        return Array(grants)
+        let rows = Array(grants)
+        try await fault(.viewGrants)
+        return rows
     }
 
     func setViewGrant(viewer: UUID, barber: UUID, granted: Bool) async throws {

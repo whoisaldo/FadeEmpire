@@ -5,6 +5,8 @@ struct ActivityView: View {
     @State private var events: [ActivityEvent] = []
     @State private var canLoadOlder = false
     @State private var error: String?
+    @State private var loads = LoadGeneration()
+    @Environment(\.scenePhase) private var scenePhase
     static let pageSize = 50
 
     var body: some View {
@@ -34,24 +36,31 @@ struct ActivityView: View {
         }
     }
 
-    /// Loading the list counts as viewing it: the badge clears, and the rows keep their
-    /// unread shading until the next load.
+    /// Loading the list while it is on screen counts as viewing it: the badge clears, and the
+    /// rows keep their unread shading until the next load.
     private func load() async {
+        let generation = loads.next()
         do {
             let page = try await app.backend.activity(before: nil, limit: Self.pageSize)
+            guard loads.isCurrent(generation) else { return }
             events = page
             canLoadOlder = page.count == Self.pageSize
             error = nil
-            if page.contains(where: \.isUnread) || app.unreadCount > 0 { await app.markActivitySeen() }
+            if AppModel.marksActivitySeen(tab: app.tab, isActive: scenePhase == .active, page: page, unreadCount: app.unreadCount) {
+                await app.markActivitySeen()
+            }
         } catch {
+            guard loads.isCurrent(generation) else { return }
             self.error = app.handle(error)
         }
     }
 
     private func loadOlder() async {
         guard let last = events.last else { return }
+        let generation = loads.current
         do {
             let page = try await app.backend.activity(before: last.eventId, limit: Self.pageSize)
+            guard loads.isCurrent(generation) else { return }   // a reload replaced the list meanwhile
             events += page
             canLoadOlder = page.count == Self.pageSize
         } catch {

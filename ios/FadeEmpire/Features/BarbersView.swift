@@ -52,7 +52,7 @@ private struct BarbersList: View {
             .navigationDestination(for: UUID.self) { BarberDetailView(model: model, barberId: $0) }
             .autoRefresh { await model.load() }
             .sheet(isPresented: $adding) {
-                BarberEditorView(model: model, barber: nil, hours: .storeDefault) { id, _ in path = [id] }
+                BarberEditorView(model: model, barber: nil) { id, _ in path = [id] }
             }
         }
     }
@@ -84,7 +84,6 @@ struct BarberDetailView: View {
 
     private func content(_ b: Barber) -> some View {
         let login = model.login(for: b.id)
-        let hours = model.schedules[b.id] ?? []
         return List {
             Section {
                 HStack(spacing: 14) {
@@ -113,10 +112,12 @@ struct BarberDetailView: View {
             .listRowBackground(Color.ink2)
 
             Section("Weekly hours") {
-                Text(HoursDraft.summary(hours))
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(Color.bone)
-                    .accessibilityIdentifier("barber-hours")
+                HoursStatus(model: model, barber: b) { hours in
+                    Text(HoursDraft.summary(hours))
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(Color.bone)
+                        .accessibilityIdentifier("barber-hours")
+                }
             }
             .listRowBackground(Color.ink2)
 
@@ -189,7 +190,7 @@ struct BarberDetailView: View {
         .navigationTitle(b.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editing) {
-            BarberEditorView(model: model, barber: b, hours: HoursDraft(hours)) { id, outside in
+            BarberEditorView(model: model, barber: b) { id, outside in
                 notice = BarbersModel.outsideHoursNotice(name: model.barber(id)?.displayName ?? b.displayName, count: outside)
             }
         }
@@ -242,6 +243,42 @@ struct BarberDetailView: View {
         run {
             _ = try await model.setActive(b.id, true)
             notice = "\(b.displayName) is active and bookable on the website again."
+        }
+    }
+}
+
+/// A barber's saved hours once loaded; until then that they are loading, or that they failed
+/// to load, with a Retry.
+private struct HoursStatus<Loaded: View>: View {
+    let model: BarbersModel
+    let barber: Barber
+    @ViewBuilder let loaded: ([ScheduleDay]) -> Loaded
+    @State private var retrying = false
+
+    var body: some View {
+        if let hours = model.schedules[barber.id] {
+            loaded(hours)
+        } else if model.scheduleFailed.contains(barber.id) {
+            VStack(alignment: .leading, spacing: 8) {
+                ErrorText(message: "Can't load \(barber.displayName)'s hours.")
+                Button(retrying ? "Loading…" : "Retry") {
+                    retrying = true
+                    Task {
+                        await model.loadSchedule(barber.id)
+                        retrying = false
+                    }
+                }
+                .disabled(retrying)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("hours-retry")
+            }
+        } else {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Loading \(barber.displayName)'s hours…").foregroundStyle(Color.boneSoft)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("hours-loading")
         }
     }
 }
@@ -407,13 +444,18 @@ struct BarberEditorView: View {
     @State private var slugEdited: Bool
     @State private var title: String
     @State private var bio: String
-    @State private var hours: HoursDraft
+    @State private var hours: HoursEdit
     @State private var photoItem: PhotosPickerItem?
     @State private var photo: Data?
     @State private var error: String?
     @State private var busy = false
+    @State private var confirmingNoHours = false
+    /// After the profile saved but the hours did not: the barber's id (a new barber exists now)
+    /// and the photo already uploaded, so Save retries without a second barber or upload.
+    @State private var savedId: UUID?
+    @State private var photoUrl: String?
 
-    init(model: BarbersModel, barber: Barber?, hours: HoursDraft, onSaved: @escaping (UUID, Int) -> Void) {
+    init(model: BarbersModel, barber: Barber?, onSaved: @escaping (UUID, Int) -> Void) {
         self.model = model
         self.barber = barber
         self.onSaved = onSaved
@@ -422,10 +464,18 @@ struct BarberEditorView: View {
         _slugEdited = State(initialValue: barber != nil)
         _title = State(initialValue: barber?.title ?? "Barber")
         _bio = State(initialValue: barber?.bio ?? "")
-        _hours = State(initialValue: hours)
+        _hours = State(initialValue: barber.map { HoursEdit.forBarber(saved: model.schedules[$0.id]) } ?? .forNewBarber())
+        _savedId = State(initialValue: barber?.id)
+        _photoUrl = State(initialValue: barber?.photoUrl)
     }
 
-    private var slugValid: Bool { BarberDraft.isValidSlug(slug) }
+    private var draft: BarberDraft {
+        BarberDraft(id: savedId, slug: slug, displayName: name.trimmingCharacters(in: .whitespaces),
+                    title: title, bio: bio, photoUrl: photoUrl)
+    }
+
+    private var problems: BarberDraft.Problems { draft.problems(others: model.barbers) }
+    private var displayName: String { barber?.displayName ?? (name.isEmpty ? "this barber" : name) }
 
     var body: some View {
         NavigationStack {
@@ -435,6 +485,7 @@ struct BarberEditorView: View {
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("barber-name")
                         .onChange(of: name) { _, new in if !slugEdited { slug = BarbersModel.suggestedSlug(new) } }
+                    fieldProblem(name.isEmpty ? nil : problems.name, id: "name")
                     TextField("Link name", text: Binding(get: { slug }, set: { slug = $0.lowercased(); slugEdited = true }))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -443,16 +494,17 @@ struct BarberEditorView: View {
                     TextField("Title, e.g. Master Barber", text: $title)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("barber-title")
+                    fieldProblem(problems.title, id: "title")
                     TextField("Bio for the website", text: $bio, axis: .vertical)
                         .lineLimit(2...6)
                         .accessibilityIdentifier("barber-bio")
+                    fieldProblem(problems.bio, id: "bio")
                 } header: {
                     Text("Profile")
                 } footer: {
-                    Text(slugValid ? BookingLinks.plain(slug: slug).absoluteString
-                                   : "Link name: 2–30 lowercase letters, numbers or dashes.")
+                    Text(problems.slug?.message ?? BookingLinks.plain(slug: slug).absoluteString)
                         .font(.footnote.monospaced())
-                        .foregroundStyle(slugValid ? Color.goldPale : Color.danger)
+                        .foregroundStyle(problems.slug == nil ? Color.goldPale : Color.danger)
                 }
                 .listRowBackground(Color.ink2)
 
@@ -469,11 +521,16 @@ struct BarberEditorView: View {
                 .listRowBackground(Color.ink2)
 
                 Section {
-                    ForEach(HoursDraft.displayOrder, id: \.self) { wd in dayRow(wd) }
+                    if hours.edited != nil {
+                        ForEach(HoursDraft.displayOrder, id: \.self) { wd in dayRow(wd) }
+                    } else if let barber {
+                        HoursStatus(model: model, barber: barber) { _ in EmptyView() }
+                    }
                 } header: {
                     Text("Weekly hours")
                 } footer: {
-                    Text("Inside the shop's hours: 10 AM – 6 PM, closed Tuesdays.")
+                    Text(hours.edited != nil ? "Inside the shop's hours: 10 AM – 6 PM, closed Tuesdays."
+                                             : "Saving now changes only the profile; the hours stay as they are.")
                 }
                 .listRowBackground(Color.ink2)
 
@@ -481,7 +538,7 @@ struct BarberEditorView: View {
                     ErrorText(message: error)
                     Button(barber == nil ? "Add barber" : "Save", action: save)
                         .buttonStyle(PrimaryButtonStyle())
-                        .disabled(!slugValid || name.trimmingCharacters(in: .whitespaces).count < 2 || busy)
+                        .disabled(problems.first != nil || name.trimmingCharacters(in: .whitespaces).count < 2 || busy)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         .accessibilityIdentifier("barber-save")
                 }
@@ -498,6 +555,27 @@ struct BarberEditorView: View {
                     photo = Self.jpeg(img)
                 }
             }
+            .onChange(of: barber.flatMap { model.schedules[$0.id] }) { _, saved in
+                if let saved { hours.loaded(saved) }
+            }
+            .alert("Save \(displayName) with no working days?", isPresented: $confirmingNoHours) {
+                Button("Save with no working days", role: .destructive) { commit() }
+                    .accessibilityIdentifier("confirm-no-hours")
+                Button("Keep editing", role: .cancel) {}
+            } message: {
+                Text(hours.isNew
+                     ? "The website won't offer \(displayName) for booking until you set hours."
+                     : "The website stops offering \(displayName) for booking. Bookings already made stay booked.")
+            }
+        }
+    }
+
+    @ViewBuilder private func fieldProblem(_ problem: BackendError?, id: String) -> some View {
+        if let problem {
+            Text(problem.message)
+                .font(.footnote)
+                .foregroundStyle(Color.danger)
+                .accessibilityIdentifier("problem-\(id)")
         }
     }
 
@@ -508,17 +586,17 @@ struct BarberEditorView: View {
         } else {
             let choices = HoursDraft.choices(for: wd)
             VStack(alignment: .leading, spacing: 6) {
-                Toggle(name, isOn: Binding(get: { hours.days[wd] != nil },
-                                           set: { hours.days[wd] = $0 ? Catalog.storeHours[wd] : nil }))
+                Toggle(name, isOn: Binding(get: { hours.edited?.days[wd] != nil },
+                                           set: { hours.edited?.days[wd] = $0 ? Catalog.storeHours[wd] : nil }))
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("hours-\(wd)")
-                if let h = hours.days[wd] {
+                if let h = hours.edited?.days[wd] {
                     HStack {
-                        Picker("\(name) start", selection: Binding(get: { h.open }, set: { hours.days[wd] = OpenHours(open: $0, close: max(h.close, $0.adding(minutes: 30))) })) {
+                        Picker("\(name) start", selection: Binding(get: { h.open }, set: { hours.edited?.days[wd] = OpenHours(open: $0, close: max(h.close, $0.adding(minutes: 30))) })) {
                             ForEach(choices.dropLast(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
                         }
                         Text("to").foregroundStyle(Color.boneSoft)
-                        Picker("\(name) end", selection: Binding(get: { h.close }, set: { hours.days[wd] = OpenHours(open: min(h.open, $0.adding(minutes: -30)), close: $0) })) {
+                        Picker("\(name) end", selection: Binding(get: { h.close }, set: { hours.edited?.days[wd] = OpenHours(open: min(h.open, $0.adding(minutes: -30)), close: $0) })) {
                             ForEach(choices.dropFirst(), id: \.self) { Text(ShopFormat.time($0)).tag($0) }
                         }
                     }
@@ -538,15 +616,29 @@ struct BarberEditorView: View {
     }
 
     private func save() {
+        if hours.leavesNoWorkingDays { confirmingNoHours = true } else { commit() }
+    }
+
+    private func commit() {
         busy = true
         error = nil
-        let draft = BarberDraft(id: barber?.id, slug: slug, displayName: name.trimmingCharacters(in: .whitespaces),
-                                title: title, bio: bio, photoUrl: barber?.photoUrl)
         Task {
             do {
-                let saved = try await model.save(draft, hours: hours, photo: photo)
-                dismiss()
-                onSaved(saved.id, saved.outsideHours)
+                let saved = try await model.save(draft, photo: photo, hours: hours.toSave)
+                savedId = saved.id
+                photoUrl = saved.photoUrl
+                photo = nil
+                switch saved.hours {
+                case .unchanged:
+                    dismiss()
+                    onSaved(saved.id, 0)
+                case .saved(let outside):
+                    dismiss()
+                    onSaved(saved.id, outside)
+                case .failed(let message):
+                    // The profile is saved; Save again retries the hours.
+                    self.error = "Profile saved. The hours weren't saved: \(message)"
+                }
             } catch {
                 self.error = model.app.handle(error)
             }

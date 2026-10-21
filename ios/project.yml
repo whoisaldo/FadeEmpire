@@ -69,7 +69,6 @@ targets:
           NSAllowsLocalNetworking: true
         FESupabaseURL: $(SUPABASE_URL)
         FESupabaseKey: $(SUPABASE_PUBLISHABLE_KEY)
-        FEPushEnvironment: $(PUSH_ENVIRONMENT)
 
   FadeEmpireTests:
     type: bundle.unit-test
