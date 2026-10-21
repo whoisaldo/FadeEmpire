@@ -5,11 +5,20 @@
 // RPC call that fails validation before it could ever write a row).
 //
 // What it catches:
-//   * site down / stale deploy (missing markup the current client needs)
-//   * DB drift: prices/hours/barbers changed in Studio but not in config.js
+//   * site down / stale deploy (missing markup the current client needs,
+//     a 404 page that no longer forwards barber links)
+//   * DB drift: prices/store hours changed in Studio but not in config.js
 //     (or vice versa) — the #1 hazard of the mirror-constants architecture
+//   * the barbers read the site makes failing, or returning data the booking
+//     form cannot use (bad slugs, hours outside the store's)
+//   * config.js's fallback barbers disagreeing with the database on hours
 //   * missing RPCs after a botched migration (booking + cancellation break)
 //   * security regressions: bookings PII readable by anon, owner RPCs exposed
+//
+// Barbers are managed in the app: the site reads them from the database, so
+// a barber added or deactivated there is not drift. config.js's BARBERS is only
+// the fallback for a failed read; a fallback barber who is no longer active,
+// or renamed, is printed as a note, not a failure.
 //
 // Usage:  node tests/ci/live-health.mjs
 //   LIVE_BASE_URL   override the site origin (default https://chicopeefadeempire.com)
@@ -17,9 +26,10 @@
 //                   because GitHub Pages deploys lag a push by a minute or two)
 
 import {
-  SUPABASE_URL, SUPABASE_ANON_KEY, STORE_HOURS, BARBERS,
+  SUPABASE_URL, SUPABASE_ANON_KEY, STORE_HOURS, BARBERS, SHOP_TZ,
   SERVICE_PRICES_CENTS, SERVICE_DURATIONS_MIN, ADDON_PRICES_CENTS,
 } from '../../scripts/config.js';
+import { ROSTER_SELECT } from '../../scripts/roster.js';
 
 const SITE = process.env.LIVE_BASE_URL || 'https://chicopeefadeempire.com';
 const SITE_RETRIES = Math.max(1, parseInt(process.env.SITE_RETRIES || '1', 10));
@@ -32,6 +42,14 @@ const HEADERS = {
 
 const hmsToMin = (hms) => { const [h, m] = hms.split(':').map(Number); return h * 60 + m; };
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shopToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: SHOP_TZ }).format(new Date());
+
+// The active barbers, read once the way the site reads them (booking-rpc.js
+// fetchBarbers): { status, body } with body in sort order.
+let rosterRead;
+const readRoster = () => (rosterRead ||= rest(
+  `barbers?select=${ROSTER_SELECT}&is_active=eq.true&barber_closures.closure_date=gte.${shopToday()}&order=sort_order,slug`));
+const notes = [];
 
 async function rest(path) {
   const res = await fetch(`${REST}/${path}`, { headers: HEADERS });
@@ -59,7 +77,8 @@ check('site is up and serving the current client', async () => {
       const res = await fetch(SITE, { headers: { 'cache-control': 'no-cache' } });
       const html = await res.text();
       if (res.status !== 200) { last = `HTTP ${res.status}`; }
-      else if (!html.includes('data-barber-option="larry"')) { last = 'barber picker markup missing (stale deploy?)'; }
+      else if (!html.includes('data-barber-option=')) { last = 'barber picker markup missing (stale deploy?)'; }
+      else if (!html.includes('data-barbers-head')) { last = 'barbers section hooks missing (stale deploy?)'; }
       else if (html.includes('data-barber-option="javier"')) { last = 'retired barber still in the markup (stale deploy?)'; }
       else if (!html.includes('data-cancel-root')) { last = 'cancellation panel markup missing (stale deploy?)'; }
       else if (!html.includes('data-hours-list')) { last = 'hours card markup missing (stale deploy?)'; }
@@ -70,15 +89,70 @@ check('site is up and serving the current client', async () => {
   throw new Error(last);
 });
 
-check('active barbers in DB match config.js BARBERS', async () => {
-  const { status, body } = await rest('barbers?select=slug,is_active&is_active=eq.true&order=slug');
-  if (status !== 200) throw new Error(`HTTP ${status}`);
-  const db = body.map(b => b.slug).sort();
-  const mirror = Object.keys(BARBERS).sort();
-  if (JSON.stringify(db) !== JSON.stringify(mirror)) {
-    throw new Error(`DB [${db}] != config.js [${mirror}]`);
+check('the barbers read the site makes works, and every barber in it can be booked', async () => {
+  const { status, body } = await readRoster();
+  if (status !== 200) throw new Error(`HTTP ${status}: ${JSON.stringify(body)}`);
+  if (!Array.isArray(body)) throw new Error('response is not an array');
+  const store = await rest('store_hours?select=weekday,open_time,close_time');
+  if (store.status !== 200) throw new Error(`store_hours HTTP ${store.status}`);
+  const storeByDay = Object.fromEntries(store.body.map(r => [r.weekday, r]));
+  const problems = [];
+  const slugs = new Set();
+  for (const b of body) {
+    if (!/^[a-z0-9-]{2,30}$/.test(b.slug || '')) problems.push(`slug "${b.slug}" is not a link-safe slug`);
+    if (slugs.has(b.slug)) problems.push(`slug ${b.slug} twice`);
+    slugs.add(b.slug);
+    if (!(b.display_name || '').trim()) problems.push(`${b.slug} has no name`);
+    if (!Array.isArray(b.barber_schedules) || !Array.isArray(b.barber_closures)) problems.push(`${b.slug}: schedules/closures not embedded`);
+    for (const s of b.barber_schedules || []) {
+      const day = storeByDay[s.weekday];
+      if (!day) problems.push(`${b.slug} works weekday ${s.weekday}, when the store is closed`);
+      else if (s.open_time < day.open_time || s.close_time > day.close_time || s.open_time >= s.close_time) {
+        problems.push(`${b.slug} weekday ${s.weekday}: ${s.open_time}-${s.close_time} outside store ${day.open_time}-${day.close_time}`);
+      }
+    }
   }
-  return `barbers: ${db.join(', ')}`;
+  const bookable = body.filter(b => b.barber_schedules?.length);
+  if (!bookable.length) problems.push('no active barber has weekly hours: the site falls back to config.js');
+  if (problems.length) throw new Error(problems.join(' | '));
+  const waiting = body.filter(b => !b.barber_schedules?.length).map(b => b.slug);
+  return `barbers: ${bookable.map(b => b.slug).join(', ')}${waiting.length ? ` (no hours yet, not offered: ${waiting})` : ''}`;
+});
+
+check('config.js fallback barbers agree with the database', async () => {
+  const { status, body } = await readRoster();
+  if (status !== 200) throw new Error(`HTTP ${status}`);
+  const db = Object.fromEntries(body.map(b => [b.slug, b]));
+  const drift = [];
+  const agreed = [];
+  for (const [slug, cfg] of Object.entries(BARBERS)) {
+    const row = db[slug];
+    if (!row) { notes.push(`config.js fallback barber ${slug} is not active in the database`); continue; }
+    if (row.display_name !== cfg.name) notes.push(`config.js names ${slug} "${cfg.name}", the database "${row.display_name}"`);
+    const week = Object.fromEntries(row.barber_schedules.map(r => [r.weekday, { open: hmsToMin(r.open_time), close: hmsToMin(r.close_time) }]));
+    for (const wk of [0, 1, 2, 3, 4, 5, 6]) {
+      const a = cfg.schedule[wk], b = week[wk];
+      if (JSON.stringify(a) !== JSON.stringify(b)) {
+        drift.push(`${slug} weekday ${wk}: DB ${JSON.stringify(b)} vs config ${JSON.stringify(a)}`);
+      }
+    }
+    agreed.push(slug);
+  }
+  if (drift.length) throw new Error(drift.join(' | '));
+  return agreed.length ? `${agreed.join(' + ')} hours aligned` : 'no fallback barber is active (see notes)';
+});
+
+check('the 404 page forwards a barber link (/<slug>)', async () => {
+  const { status, body } = await readRoster();
+  if (status !== 200 || !body.length) throw new Error('no active barber to try');
+  const slug = body[0].slug;
+  const res = await fetch(`${SITE}/${slug}`, { headers: { 'cache-control': 'no-cache' } });
+  const html = await res.text();
+  if (res.status !== 404) throw new Error(`/${slug} answered HTTP ${res.status}, not the 404 page (a file or folder shadows the slug?)`);
+  if (!html.includes('resolvePrettyLink')) throw new Error('404.html has no barber-link check (stale deploy?)');
+  const lookup = await rest(`barbers?select=slug&is_active=eq.true&slug=eq.${slug}`);
+  if (lookup.status !== 200 || lookup.body?.[0]?.slug !== slug) throw new Error(`the 404 page's lookup for ${slug} failed: HTTP ${lookup.status}`);
+  return `/${slug} is the 404 page, and its lookup finds ${slug}`;
 });
 
 check('service prices + durations match config.js mirrors', async () => {
@@ -127,26 +201,6 @@ check('store hours match config.js STORE_HOURS', async () => {
   return 'all 7 weekdays agree (10–6, closed Tuesdays)';
 });
 
-check('barber schedules match config.js BARBERS[].schedule', async () => {
-  const { status, body } = await rest('barber_schedules?select=weekday,open_time,close_time,barber_id,barbers(slug)');
-  if (status !== 200) throw new Error(`HTTP ${status}`);
-  const db = {};
-  for (const r of body) {
-    const slug = r.barbers?.slug;
-    if (!slug) continue;
-    (db[slug] ||= {})[r.weekday] = { open: hmsToMin(r.open_time), close: hmsToMin(r.close_time) };
-  }
-  for (const [slug, cfg] of Object.entries(BARBERS)) {
-    for (const wk of [0, 1, 2, 3, 4, 5, 6]) {
-      const a = cfg.schedule[wk], b = db[slug]?.[wk];
-      if (JSON.stringify(a) !== JSON.stringify(b)) {
-        throw new Error(`${slug} weekday ${wk}: DB ${JSON.stringify(b)} vs config ${JSON.stringify(a)}`);
-      }
-    }
-  }
-  return 'hassan + larry schedules aligned';
-});
-
 check('availability view is readable (slot grid data source)', async () => {
   const { status, body } = await rest('v_slot_availability?select=barber_slug,booking_date,booking_time,status&limit=5');
   if (status !== 200) throw new Error(`HTTP ${status}`);
@@ -165,7 +219,8 @@ check('find_bookings_by_phone RPC is live (cancellation lookup)', async () => {
 
 check('book_slot RPC is live and validating (no row created)', async () => {
   // A 5-digit phone fails validation BEFORE any insert — proves the function
-  // is deployed and its guard rails run, without touching real data.
+  // is deployed and its guard rails run, without touching real data. The
+  // phone is checked before the barber, so this holds whoever is active.
   const { status, body } = await rpc('book_slot', {
     p_barber_slug: 'hassan', p_service_slug: 'hair-cut',
     p_date: '2030-01-01', p_time: '11:00:00',
@@ -193,6 +248,15 @@ check('anon cannot read the people view', async () => {
   return status === 200 ? 'returns zero rows to anon' : `denied with HTTP ${status}`;
 });
 
+check('anon cannot execute the barber app\'s manager RPCs', async () => {
+  const { status, body } = await rpc('manager_staff', {});
+  const msg = JSON.stringify(body);
+  if (status >= 200 && status < 300) throw new Error('anon executed manager_staff!');
+  if (status === 404 && msg.includes('PGRST202')) return 'migration 0022 not deployed yet';
+  if (msg.includes('"forbidden"')) throw new Error('manager_staff RAN for anon (grant regression; only its own check stopped it)');
+  return `denied with HTTP ${status}`;
+});
+
 check('anon cannot execute confirm_booking (owner-only RPC)', async () => {
   const { status, body } = await rpc('confirm_booking', {
     p_booking_id: '00000000-0000-0000-0000-000000000000',
@@ -218,5 +282,6 @@ for (const { name, fn } of checks) {
     console.error(`  ✗ ${name}\n      ${err.message}`);
   }
 }
+for (const note of notes) console.log(`  · note: ${note}`);
 console.log(`\n${checks.length - failed}/${checks.length} checks passed`);
 if (failed) process.exit(1);
