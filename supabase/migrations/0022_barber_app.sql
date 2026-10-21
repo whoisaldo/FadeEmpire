@@ -572,15 +572,43 @@ revoke all on function book_slot(text, text, date, time, text, text, text[], tex
 grant execute on function book_slot(text, text, date, time, text, text, text[], text, text, text, int, boolean, boolean)
   to anon, authenticated;
 
+-- How long an active booking holds its chair, given the weekday's slot_minutes.
+-- 0016 moved the shop from a 30- to a 45-minute grid and left the bookings already
+-- made where they were: a cut booked before it is 30 minutes long, and a two-slot
+-- service booked before it is a primary plus a continuation 30 minutes later. A
+-- row's era is its created_at. The repo does not record the moment 0016 ran in
+-- production, so the cutoff is 0016's commit (2026-08-20 20:53:08 PDT), the
+-- earliest it could have run: a row created before it can only be on the 30-minute
+-- grid. A half-hour row created between the commit and the push would be measured
+-- at 45, which can only refuse a booking, never double one. booking_date cannot
+-- tell the eras apart: a booking made the day before 0016 could be for 60 days
+-- after it.
+create or replace function booking_minutes(p_created_at timestamptz, p_step int)
+returns int
+language sql
+immutable
+security definer
+set search_path = public
+as $$
+  select case when p_created_at < timestamptz '2026-08-21 03:53:08+00' then 30 else p_step end
+$$;
+
+revoke execute on function booking_minutes(timestamptz, int) from public, anon, authenticated;
+
 -- No two active bookings (pending, confirmed, completed) on one chair overlap in
 -- time. 0001's unique index compares start times only: once manager_set_schedule
 -- moves a day's grid (open 10:00 → 10:15), a 10:15 slot passes it on top of a
 -- 10:00 booking. Each row holds one grid slot, [booking_time, booking_time +
--- slot_minutes), with that weekday's slot_minutes (45 without a schedule row).
+-- booking_minutes(created_at, slot_minutes)), with that weekday's slot_minutes (45
+-- without a schedule row). The rows of one appointment (a primary and the rows
+-- whose linked_to points to it) never conflict with each other, so undoing a
+-- no-show on any appointment that holds its chair today works on an empty chair.
 -- The check runs before every insert, and every update that makes a row active or
--- moves it, under a transaction lock on (chair, date): a second booking for that
--- chair and day waits until the first commits, then sees it (each statement in a
--- volatile function takes a new snapshot). It raises slot_taken as a
+-- moves it, under one shop-wide transaction lock: a second booking anywhere in the
+-- shop waits until the first commits, then sees it (each statement in a volatile
+-- function takes a new snapshot). One lock for the whole shop, not one per chair
+-- and day, so two transactions that book several chairs in opposite orders cannot
+-- deadlock; with two chairs the wait is negligible. It raises slot_taken as a
 -- unique_violation, which book_slot_at, 0020's book_slot_group and app_set_status
 -- already catch and raise as slot_taken, so every booking path has the rule.
 create or replace function tg_booking_no_overlap()
@@ -604,8 +632,7 @@ begin
     return new;   -- pending → confirmed → completed keeps the same chair time
   end if;
 
-  perform pg_advisory_xact_lock(
-    hashtextextended('fe.chair_day:' || new.barber_id::text || ':' || new.booking_date::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended('fe.bookings', 0));
 
   select s.slot_minutes into v_step
     from barber_schedules s
@@ -617,12 +644,14 @@ begin
     from bookings o
    where o.barber_id    = new.barber_id
      and o.booking_date = new.booking_date
-     and o.id          <> new.id
+     and coalesce(o.linked_to, o.id) <> coalesce(new.linked_to, new.id)
      and o.status in ('pending', 'confirmed', 'completed')
      and new.booking_date + o.booking_time
-           < new.booking_date + new.booking_time + make_interval(mins => v_step)
+           < new.booking_date + new.booking_time
+             + make_interval(mins => booking_minutes(new.created_at, v_step))
      and new.booking_date + new.booking_time
-           < new.booking_date + o.booking_time + make_interval(mins => v_step)
+           < new.booking_date + o.booking_time
+             + make_interval(mins => booking_minutes(o.created_at, v_step))
    limit 1;
   if found then
     raise exception 'slot_taken' using errcode = '23505',
@@ -1011,7 +1040,8 @@ begin
           and bk.booking_date = p_date
           and bk.status in ('pending', 'confirmed', 'completed')
           and p_date + bk.booking_time < g.t + make_interval(mins => v_sched.slot_minutes)
-          and g.t < p_date + bk.booking_time + make_interval(mins => v_sched.slot_minutes))
+          and g.t < p_date + bk.booking_time
+                    + make_interval(mins => booking_minutes(bk.created_at, v_sched.slot_minutes)))
    order by 1;
 end;
 $$;

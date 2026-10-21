@@ -99,6 +99,7 @@ FadeEmpire/
 │   ├── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
 │   ├── deploy-barber-app.sh      Deploys the barber app backend (see Barber app backend below)
 │   ├── local-stack.sh            Local Supabase stack for the barber app (own Colima VM)
+│   ├── booking-lock-check.sh     Two-session check of the booking overlap lock on the local stack
 │   └── local-stack-seed.sql      Its sample logins and week of bookings
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
@@ -274,6 +275,7 @@ tools/local-stack.sh start   # Colima profile fadeempire, project fadeempire-app
 tools/local-stack.sh test    # fresh database, db lint, every pgTAP suite, then seeds again
 tools/local-stack.sh env     # URL + anon key for the app's Debug-Local config
 tools/local-stack.sh reset | functions | stop
+tools/booking-lock-check.sh  # two sessions at once: no deadlock across chairs, one slot_taken per overlap
 ```
 
 It runs only on its own Colima VM (`DOCKER_HOST=unix://$HOME/.colima/fadeempire/docker.sock`) and ports 56320-56329; the default docker context and ports 5432x/5532x belong to other projects on this machine. Seeded logins (local only, password `fade-local-1`): `ali@local.test` (manager), `hassan@local.test`, `larry@local.test`, plus a week of bookings on both chairs with a group, a cancellation, a move and a no-show (`tools/local-stack-seed.sql`).

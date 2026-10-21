@@ -122,10 +122,11 @@ select p.oid, (p.proname::text collate "default") as proname, p.oid::regprocedur
   from pg_proc p
  where p.pronamespace = 'public'::regnamespace
    and (p.proname like 'app\_%' or p.proname like 'manager\_%' or p.proname like 'notify\_%'
-        or p.proname in ('book_slot_at', 'tg_booking_events', 'tg_booking_no_overlap', 'tg_notify_booking_event'));
+        or p.proname in ('book_slot_at', 'booking_minutes', 'tg_booking_events', 'tg_booking_no_overlap',
+                         'tg_notify_booking_event'));
 grant select on tap_new_functions to anon, authenticated;
 
-select is((select count(*)::int from tap_new_functions), 34, 'the migration adds 34 functions');
+select is((select count(*)::int from tap_new_functions), 35, 'the migration adds 35 functions');
 select is(
   (select count(*)::int from tap_new_functions where has_function_privilege('anon', oid, 'execute')),
   0, 'anon can execute none of the new functions'
@@ -145,7 +146,7 @@ select is(
 select results_eq(
   $$ select proname from tap_new_functions
       where not has_function_privilege('authenticated', oid, 'execute') order by 1 $$,
-  $$ values ('app_caller'), ('app_clear_actor'), ('app_set_actor'), ('book_slot_at'),
+  $$ values ('app_caller'), ('app_clear_actor'), ('app_set_actor'), ('book_slot_at'), ('booking_minutes'),
             ('notify_drop_device_tokens'), ('notify_event_payload'),
             ('tg_booking_events'), ('tg_booking_no_overlap'), ('tg_notify_booking_event') $$,
   'the internal functions are closed to authenticated too'
@@ -734,6 +735,89 @@ select results_eq(
 reset role;
 select tap_claims('00000000-0000-4000-a000-000000000001');
 select is(tap_book_every_free_slot('tap-shift', tap_next_dow(4)), 0, 'book_slot accepts every one of them');
+
+-- ======================= Bookings made before 0016 (30-minute grid) =======================
+-- Rows as 0015's book_slot made them: a 60-minute service as a primary at 10:00 and
+-- a continuation at 10:30, and single cuts at 10:00 and 10:30, created before 0016.
+-- They hold 30 minutes each, and an appointment's own rows never conflict.
+reset role;
+insert into bookings (id, barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                      total_price_cents, status, hold_expires_at, linked_to, created_at)
+select v.id, tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), v.d, v.t,
+       'Legacy Client', v.phone, v.price, 'confirmed', null, v.link, timestamptz '2026-08-01 12:00-04'
+  from (values
+    ('00000000-0000-4000-c000-000000000001'::uuid, tap_next_dow(5) + 21, time '10:00', '5557772001', 4500, null::uuid),
+    ('00000000-0000-4000-c000-000000000002'::uuid, tap_next_dow(5) + 21, time '10:30', '5557772001', 0,
+     '00000000-0000-4000-c000-000000000001'::uuid),
+    ('00000000-0000-4000-c000-000000000003'::uuid, tap_next_dow(5) + 28, time '10:00', '5557772002', 3000, null),
+    ('00000000-0000-4000-c000-000000000004'::uuid, tap_next_dow(5) + 28, time '10:30', '5557772003', 3000, null)
+  ) as v(id, d, t, phone, price, link);
+select is((select count(*)::int from bookings where customer_phone like '555777200_' and status = 'confirmed'), 4,
+          'the pre-0016 rows insert under the trigger: 30 minutes each, a continuation beside its own primary');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000001', 'no_show') $$, 'a pre-0016 two-slot appointment is marked a no-show');
+select is((select string_agg(status::text, ',' order by booking_time) from bookings where customer_phone = '5557772001'),
+          'no_show,no_show', 'both of its rows');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000001', 'confirmed') $$, 'and undone on its empty day: its own continuation is no conflict');
+select is((select string_agg(status::text, ',' order by booking_time) from bookings where customer_phone = '5557772001'),
+          'confirmed,confirmed', 'both rows are back');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000003', 'no_show') $$, 'a pre-0016 10:00 is marked a no-show');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000003', 'confirmed') $$, 'and undone beside the pre-0016 10:30: 10:00-10:30 and 10:30-11:00 touch');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000004', 'no_show') $$, 'the pre-0016 10:30 is marked a no-show');
+select lives_ok($$ select app_set_status('00000000-0000-4000-c000-000000000004', 'confirmed') $$, 'and undone beside the 10:00');
+reset role;
+select throws_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 28, '10:45',
+             'Modern Over Legacy', '5557772004', 3000, 'confirmed', null) $$,
+  '23505', 'slot_taken', 'a new booking at 10:45 overlaps the pre-0016 10:30-11:00'
+);
+select throws_ok(
+  $$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '10:45', 'Over The Continuation', '5557772005') $$,
+  '23505', 'slot_taken', 'nor can the site book 10:45 over the pre-0016 continuation'
+);
+select lives_ok($$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '11:30', 'Modern One', '5557772006') $$, '11:30 books after it');
+select throws_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 21, '12:00',
+             'Modern Two', '5557772007', 3000, 'confirmed', null) $$,
+  '23505', 'slot_taken', 'two bookings made today still hold 45 minutes: 12:00 overlaps 11:30'
+);
+select lives_ok($$ select * from book_slot('tap-shift', 'hair-cut', tap_next_dow(5) + 21, '12:15', 'Modern Three', '5557772008') $$, '12:15 books');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select lives_ok($$ select app_set_status(tap_booking('5557772008'), 'no_show') $$, 'a booking made today is a no-show');
+reset role;
+select lives_ok(
+  $$ insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                           total_price_cents, status, hold_expires_at)
+     values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(5) + 21, '12:30',
+             'In The Gap', '5557772009', 3000, 'confirmed', null) $$,
+  '12:30 takes its time'
+);
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select throws_ok($$ select app_set_status(tap_booking('5557772008'), 'confirmed') $$, '23505', 'slot_taken', 'so its undo is refused');
+reset role;
+
+-- app_free_slots measures them the same way: on the 10:15 grid, a pre-0016 10:30
+-- (to 11:00) blocks 10:15, not 11:00.
+insert into bookings (barber_id, service_id, booking_date, booking_time, customer_name, customer_phone,
+                      total_price_cents, status, hold_expires_at, created_at)
+values (tap_barber('tap-shift'), (select id from services where slug = 'hair-cut'), tap_next_dow(3) + 21, '10:30',
+        'Legacy Wednesday', '5557772010', 3000, 'confirmed', null, timestamptz '2026-08-01 12:00-04');
+select tap_claims('00000000-0000-4000-a000-000000000001');
+set local role authenticated;
+select results_eq(
+  $$ select slot_time::text from app_free_slots(tap_barber('tap-shift'), tap_next_dow(3) + 21) where slot_time < '12:00' $$,
+  $$ values ('11:00:00'::text), ('11:45:00') $$,
+  'wednesday lists 11:00 and 11:45, not 10:15'
+);
+select lives_ok($$ select app_book(tap_barber('tap-shift'), 'hair-cut', tap_next_dow(3) + 21, '11:00', 'Right After', '5557772011') $$, 'and 11:00 books');
+reset role;
 
 -- ======================= Days off =======================
 select tap_claims('00000000-0000-4000-a000-000000000002');
