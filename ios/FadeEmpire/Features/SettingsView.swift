@@ -53,6 +53,7 @@ struct SettingsView: View {
             .listStyle(.insetGrouped)
             .inkBackground()
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $changingPassword) { NewPasswordView(forced: false) }
             .confirmationDialog("Sign out?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { Task { await app.signOut() } }

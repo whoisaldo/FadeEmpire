@@ -107,6 +107,7 @@ final class ScreenshotTests: MockUITestCase {
         back()
         tap("add-barber")
         type("barber-name", "Marco Silva")
+        app.keyboards.buttons["return"].tap()
         shot("barber-new")
         app.swipeUp()
         shot("barber-new-hours")

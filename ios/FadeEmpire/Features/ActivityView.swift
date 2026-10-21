@@ -29,6 +29,7 @@ struct ActivityView: View {
             .listStyle(.insetGrouped)
             .inkBackground()
             .navigationTitle("Activity")
+            .navigationBarTitleDisplayMode(.inline)
             .autoRefresh { await load() }
         }
     }

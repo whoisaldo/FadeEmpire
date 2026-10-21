@@ -29,7 +29,7 @@ extension Font {
 }
 
 enum Theme {
-    /// Bars and lists drawn on ink, with Fraunces for large navigation titles.
+    /// Bars drawn on ink. Every screen uses inline titles; Fraunces is for headings in the content.
     static func applyAppearance() {
         let bone = UIColor(Color.bone)
         let nav = UINavigationBarAppearance()
@@ -37,10 +37,6 @@ enum Theme {
         nav.backgroundColor = UIColor(Color.ink)
         nav.shadowColor = UIColor(Color.rule)
         nav.titleTextAttributes = [.foregroundColor: bone]
-        if let fraunces = UIFont(name: "Fraunces72pt-SemiBold", size: 34) {
-            nav.largeTitleTextAttributes = [.foregroundColor: bone,
-                                            .font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: fraunces)]
-        }
         UINavigationBar.appearance().standardAppearance = nav
         UINavigationBar.appearance().scrollEdgeAppearance = nav
         UINavigationBar.appearance().compactAppearance = nav

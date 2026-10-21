@@ -57,6 +57,7 @@ struct LinksView: View {
             .listStyle(.insetGrouped)
             .inkBackground()
             .navigationTitle("Links")
+            .navigationBarTitleDisplayMode(.inline)
             .autoRefresh { await load() }
             .onChange(of: chairId) { _, _ in Task { await load() } }
             .sheet(isPresented: $adding) {

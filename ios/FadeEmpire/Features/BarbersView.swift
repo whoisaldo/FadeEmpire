@@ -42,6 +42,7 @@ private struct BarbersList: View {
             .listStyle(.insetGrouped)
             .inkBackground()
             .navigationTitle("Barbers")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { adding = true } label: { Label("Add barber", systemImage: "plus") }
