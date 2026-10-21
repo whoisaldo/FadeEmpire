@@ -81,6 +81,9 @@ private struct ScheduleContent: View {
             if let chair = model.chair { DaysOffView(chair: chair) }
         }
         .autoRefresh { await model.load() }
+        .onChange(of: model.app.requestedDay, initial: true) { _, day in
+            if day != nil { Task { await model.showRequestedDay() } }
+        }
     }
 }
 
@@ -98,9 +101,11 @@ private struct ChairSwitcher: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(chair.displayName).font(.headline)
-                            Text(chair.canManage ? (chair.isActive ? "Your chair" : "Inactive") : "View only")
-                                .font(.caption)
-                                .foregroundStyle(selected ? Color.ink.opacity(0.75) : Color.boneSoft)
+                            if let note = note(for: chair) {
+                                Text(note)
+                                    .font(.caption)
+                                    .foregroundStyle(selected ? Color.ink.opacity(0.75) : Color.boneSoft)
+                            }
                         }
                         .padding(.horizontal, 14)
                         .frame(minWidth: 96, minHeight: 52, alignment: .leading)
@@ -117,6 +122,13 @@ private struct ChairSwitcher: View {
             .padding(.horizontal, 16)
         }
         .padding(.top, 8)
+    }
+
+    /// The manager manages every chair but owns none, so their chips carry no "Your chair".
+    private func note(for chair: Chair) -> String? {
+        if !chair.isActive { return "Inactive" }
+        if !chair.canManage { return "View only" }
+        return chair.id == model.app.me?.barberId ? "Your chair" : nil
     }
 }
 

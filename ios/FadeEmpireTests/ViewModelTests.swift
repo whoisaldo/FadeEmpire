@@ -80,7 +80,7 @@ final class ViewModelTests: XCTestCase {
     }
 
     func testForcedPasswordPhase() async throws {
-        let app = AppModel(backend: mock(), clock: .fixed(pinnedNow))
+        let app = AppModel(backend: mock(mustChangePassword: ["hassan@local.test"]), clock: .fixed(pinnedNow))
         await app.start()
         XCTAssertEqual(app.phase, .signedOut)
         try await app.signIn(email: "hassan@local.test", password: MockSeed.password)
@@ -90,6 +90,72 @@ final class ViewModelTests: XCTestCase {
         await app.signOut()
         XCTAssertEqual(app.phase, .signedOut)
         XCTAssertNil(app.me)
+    }
+
+    func testNoAccessSignsOutAndSaysSo() async throws {
+        let backend = mock(as: "ali@local.test")
+        _ = try await backend.setActive(barberId: MockSeed.hassanId, active: false)
+        try await backend.signOut()
+        let app = AppModel(backend: backend, clock: .fixed(pinnedNow))
+        await app.start()
+        do {
+            try await app.signIn(email: "hassan@local.test", password: MockSeed.password)
+            XCTFail("an inactive chair's login has no access")
+        } catch {
+            XCTAssertEqual(error as? BackendError, .noAccess)
+        }
+        XCTAssertEqual(app.phase, .signedOut)
+        XCTAssertNil(app.me)
+        XCTAssertEqual(app.signInNotice, BackendError.noAccess.message)
+        let session = await backend.restoreSession()
+        XCTAssertFalse(session, "the session is dropped, not left half signed in")
+        try await app.signIn(email: "larry@local.test", password: MockSeed.password)
+        XCTAssertEqual(app.phase, .ready)
+        XCTAssertNil(app.signInNotice)
+    }
+
+    func testPushPayloadOpensThatDayOnThatChair() async {
+        let payload: [AnyHashable: Any] = [
+            "aps": ["alert": ["title": "New booking", "body": "Marcus · Fri Oct 23, 10:45 AM · Line Up · Larry's chair"],
+                    "thread-id": MockSeed.larryId.uuidString.lowercased()],
+            "event_id": 42, "kind": "moved", "booking_id": UUID().uuidString.lowercased(),
+            "barber_id": MockSeed.larryId.uuidString.lowercased(), "booking_date": "2026-10-23",
+        ]
+        let route = PushRoute(userInfo: payload)
+        XCTAssertEqual(route, PushRoute(barberId: MockSeed.larryId, date: ShopDay(iso: "2026-10-23")!))
+        XCTAssertNil(PushRoute(userInfo: ["kind": "booked"]))
+
+        let app = await signedIn("hassan@local.test")
+        let schedule = ScheduleModel(app: app)
+        await schedule.load()
+        app.tab = .activity
+        app.open(route!)
+        XCTAssertEqual(app.tab, .schedule)
+        XCTAssertEqual(app.selectedChairId, MockSeed.larryId)
+        await schedule.showRequestedDay()
+        XCTAssertNil(app.requestedDay)
+        XCTAssertEqual(schedule.selectedDay, ShopDay(iso: "2026-10-23"))
+        XCTAssertTrue(schedule.isViewOnly)
+        XCTAssertTrue(schedule.bookings.allSatisfy { $0.barberSlug == "larry" })
+        XCTAssertTrue(schedule.bookings(on: schedule.selectedDay).contains { $0.customerName == "Ray Thompson" })
+    }
+
+    func testPushTappedBeforeSignInWaits() async throws {
+        let app = AppModel(backend: mock(), clock: .fixed(pinnedNow))
+        await app.start()
+        app.open(PushRoute(barberId: MockSeed.larryId, date: ShopDay(iso: "2026-10-24")!))
+        XCTAssertNil(app.requestedDay)
+        try await app.signIn(email: "hassan@local.test", password: MockSeed.password)
+        XCTAssertEqual(app.selectedChairId, MockSeed.larryId)
+        XCTAssertEqual(app.requestedDay, ShopDay(iso: "2026-10-24"))
+    }
+
+    func testOutsideHoursNotice() {
+        XCTAssertNil(BarbersModel.outsideHoursNotice(name: "Larry", count: 0))
+        XCTAssertEqual(BarbersModel.outsideHoursNotice(name: "Larry", count: 1),
+                       "1 upcoming appointment no longer fits Larry's hours. It's still booked: contact that customer.")
+        XCTAssertEqual(BarbersModel.outsideHoursNotice(name: "Larry", count: 3),
+                       "3 upcoming appointments no longer fit Larry's hours. They're still booked: contact those customers.")
     }
 
     func testLostSessionReturnsToSignIn() async {

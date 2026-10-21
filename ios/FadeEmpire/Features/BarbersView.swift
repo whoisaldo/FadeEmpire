@@ -52,7 +52,7 @@ private struct BarbersList: View {
             .navigationDestination(for: UUID.self) { BarberDetailView(model: model, barberId: $0) }
             .autoRefresh { await model.load() }
             .sheet(isPresented: $adding) {
-                BarberEditorView(model: model, barber: nil, hours: .storeDefault) { id in path = [id] }
+                BarberEditorView(model: model, barber: nil, hours: .storeDefault) { id, _ in path = [id] }
             }
         }
     }
@@ -155,12 +155,16 @@ struct BarberDetailView: View {
                             Text("\(other.displayName)'s chair" + (other.isActive ? "" : " (inactive)"))
                         }
                         .frame(minHeight: 44)
+                        .disabled(!model.grantsLoaded)
                         .accessibilityIdentifier("grant-\(other.slug)")
                     }
                 } header: {
                     Text("Can also view")
                 } footer: {
-                    Text("Read-only: \(b.displayName) sees those appointments but can't change them.")
+                    Text(model.grantsLoaded
+                         ? "Read-only: \(b.displayName) sees those appointments but can't change them."
+                         : "Can't load who can view which chair, so these can't be changed right now.")
+                        .accessibilityIdentifier("grants-footer")
                 }
                 .listRowBackground(Color.ink2)
             }
@@ -185,7 +189,9 @@ struct BarberDetailView: View {
         .navigationTitle(b.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editing) {
-            BarberEditorView(model: model, barber: b, hours: HoursDraft(hours)) { _ in }
+            BarberEditorView(model: model, barber: b, hours: HoursDraft(hours)) { id, outside in
+                notice = BarbersModel.outsideHoursNotice(name: model.barber(id)?.displayName ?? b.displayName, count: outside)
+            }
         }
         .sheet(isPresented: $creatingLogin) {
             CreateLoginView(model: model, barber: b) { tempPassword = $0 }
@@ -363,7 +369,7 @@ private struct DeactivateView: View {
                     ForEach(upcoming) { b in
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(ShopFormat.slot(b.date, b.time)) · \(b.customerName)").foregroundStyle(Color.bone)
-                            Text("\(b.serviceName) · \(Phone.display(b.customerPhone))").font(.subheadline).foregroundStyle(Color.boneSoft)
+                            Text(([b.serviceName] + [b.customerPhone.map(Phone.display)].compactMap { $0 }).joined(separator: " · ")).font(.subheadline).foregroundStyle(Color.boneSoft)
                         }
                         .accessibilityElement(children: .combine)
                     }
@@ -393,7 +399,8 @@ private struct DeactivateView: View {
 struct BarberEditorView: View {
     let model: BarbersModel
     let barber: Barber?
-    let onSaved: (UUID) -> Void
+    /// The barber's id and how many upcoming bookings the saved hours leave out.
+    let onSaved: (UUID, Int) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var slug: String
@@ -406,7 +413,7 @@ struct BarberEditorView: View {
     @State private var error: String?
     @State private var busy = false
 
-    init(model: BarbersModel, barber: Barber?, hours: HoursDraft, onSaved: @escaping (UUID) -> Void) {
+    init(model: BarbersModel, barber: Barber?, hours: HoursDraft, onSaved: @escaping (UUID, Int) -> Void) {
         self.model = model
         self.barber = barber
         self.onSaved = onSaved
@@ -537,9 +544,9 @@ struct BarberEditorView: View {
                                 title: title, bio: bio, photoUrl: barber?.photoUrl)
         Task {
             do {
-                let id = try await model.save(draft, hours: hours, photo: photo)
+                let saved = try await model.save(draft, hours: hours, photo: photo)
                 dismiss()
-                onSaved(id)
+                onSaved(saved.id, saved.outsideHours)
             } catch {
                 self.error = model.app.handle(error)
             }

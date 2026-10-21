@@ -39,24 +39,27 @@ struct AppointmentDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                HStack(spacing: 10) {
-                    Button { if let url = Phone.call(b.customerPhone) { openURL(url) } } label: {
-                        Label("Call", systemImage: "phone")
+                // A view-only chair has no phone (app_bookings leaves it out), so no Call or Text.
+                if b.canManage, let phone = b.customerPhone {
+                    HStack(spacing: 10) {
+                        Button { if let url = Phone.call(phone) { openURL(url) } } label: {
+                            Label("Call", systemImage: "phone")
+                        }
+                        .buttonStyle(OutlineButtonStyle())
+                        .accessibilityLabel("Call \(b.customerName), \(Phone.display(phone))")
+                        Button { if let url = Phone.text(phone) { openURL(url) } } label: {
+                            Label("Text", systemImage: "message")
+                        }
+                        .buttonStyle(OutlineButtonStyle())
+                        .accessibilityLabel("Text \(b.customerName)")
                     }
-                    .buttonStyle(OutlineButtonStyle())
-                    .accessibilityLabel("Call \(b.customerName), \(Phone.display(b.customerPhone))")
-                    Button { if let url = Phone.text(b.customerPhone) { openURL(url) } } label: {
-                        Label("Text", systemImage: "message")
-                    }
-                    .buttonStyle(OutlineButtonStyle())
-                    .accessibilityLabel("Text \(b.customerName)")
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .listRowBackground(Color.ink2)
 
             Section {
-                row("Phone", Phone.display(b.customerPhone))
+                if b.canManage, let phone = b.customerPhone { row("Phone", Phone.display(phone)) }
                 row("Service", "\(b.serviceName) · \(b.durationMinutes) min")
                 if !b.addons.isEmpty { row("Add-ons", b.addons.joined(separator: ", ")) }
                 if let r = b.customRequest, !r.isEmpty { row("Request", r) }

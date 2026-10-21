@@ -21,8 +21,10 @@ final class SupabaseBackend: Backend {
         try await call { try await client.rpc(fn, params: params).execute().value }
     }
 
-    private func rpcRow<T: Decodable>(_ fn: String, _ params: [String: AnyJSON] = [:]) async throws -> T {
-        try await call { try await client.rpc(fn, params: params).single().execute().value }
+    /// A set-returning function that answers one row, or none.
+    private func rpcRow<T: Decodable>(_ fn: String, _ params: [String: AnyJSON] = [:]) async throws -> T? {
+        let rows: [T] = try await rpc(fn, params)
+        return rows.first
     }
 
     private func rpcVoid(_ fn: String, _ params: [String: AnyJSON] = [:]) async throws {
@@ -34,24 +36,34 @@ final class SupabaseBackend: Backend {
 
     // MARK: - Errors
 
-    /// Postgres raises the contract's codes as the exception text (`raise exception 'slot_taken'`);
-    /// Auth sends an error code; staff-admin answers `{"error": "<code>"}` with a non-2xx status.
+    /// Postgres raises the contract's codes as the exception text, so PostgREST sends
+    /// `{"code": "42501", "message": "forbidden"}` and the message is what matches. Table
+    /// writes fail with a bare SQLSTATE instead: RLS (42501), the label check (23514), the
+    /// service foreign key (23503). Auth sends an error code; staff-admin answers
+    /// `{"error": "<code>"}` with a non-2xx status.
     static func mapError(_ error: Error) -> BackendError {
         switch error {
         case let e as BackendError:
             return e
         case let e as PostgrestError:
             let mapped = BackendError.from(code: e.message)
-            if case .server = mapped {
-                if e.code == "42501" { return .forbidden }
-                if e.code == "PGRST301" || e.code == "PGRST303" { return .notSignedIn }
+            guard case .server = mapped else { return mapped }
+            switch e.code {
+            case "42501": return .forbidden
+            case "23505": return .slotTaken
+            case "23514": return .invalidLabel
+            case "23503": return .serviceNotFound
+            case "PGRST301", "PGRST303": return .notSignedIn
+            default: return mapped
             }
-            return mapped
         case let e as AuthError:
             switch e {
             case .sessionMissing: return .notSignedIn
             case .weakPassword: return .weakPassword
-            default: return BackendError.from(code: e.errorCode.rawValue)
+            default:
+                // Older Auth servers answer a bad password with `invalid_grant`.
+                if e.errorCode.rawValue == "invalid_grant" { return .invalidCredentials }
+                return BackendError.from(code: e.errorCode.rawValue)
             }
         case let e as FunctionsError:
             guard case let .httpError(status, data) = e else { return .network }
@@ -96,7 +108,10 @@ final class SupabaseBackend: Backend {
 
     // MARK: - App RPCs
 
-    func me() async throws -> Me { try await rpcRow("app_me") }
+    func me() async throws -> Me {
+        guard let me: Me = try await rpcRow("app_me") else { throw BackendError.noAccess }
+        return me
+    }
 
     func bookings(barberId: UUID, from: ShopDay, to: ShopDay) async throws -> [Booking] {
         try await rpc("app_bookings", ["p_barber_id": Self.id(barberId), "p_from": .string(from.iso), "p_to": .string(to.iso)])
@@ -122,7 +137,10 @@ final class SupabaseBackend: Backend {
     }
 
     func cancelBooking(id: UUID) async throws -> CancelledBooking {
-        try await rpcRow("app_cancel_booking", ["p_booking_id": Self.id(id)])
+        guard let row: CancelledBooking = try await rpcRow("app_cancel_booking", ["p_booking_id": Self.id(id)]) else {
+            throw BackendError.bookingNotFound
+        }
+        return row
     }
 
     func setStatus(bookingId: UUID, status: BookingStatus) async throws {
@@ -202,14 +220,18 @@ final class SupabaseBackend: Backend {
     func staff() async throws -> [StaffMember] { try await rpc("manager_staff") }
 
     func saveBarber(_ d: BarberDraft) async throws -> UUID {
-        try await rpc("manager_save_barber", [
-            "p_id": d.id.map(Self.id) ?? .null,
-            "p_slug": .string(d.slug),
-            "p_display_name": .string(d.displayName),
-            "p_title": .string(d.title),
-            "p_bio": .string(d.bio),
-            "p_photo_url": Self.text(d.photoUrl),
-        ])
+        do {
+            return try await rpc("manager_save_barber", [
+                "p_id": d.id.map(Self.id) ?? .null,
+                "p_slug": .string(d.slug),
+                "p_display_name": .string(d.displayName),
+                "p_title": .string(d.title),
+                "p_bio": .string(d.bio),
+                "p_photo_url": Self.text(d.photoUrl),
+            ])
+        } catch BackendError.invalidName {
+            throw BackendError.invalidBarberName   // the barber's name here, not a customer's
+        }
     }
 
     func uploadBarberPhoto(_ jpeg: Data, slug: String) async throws -> String {
@@ -225,9 +247,14 @@ final class SupabaseBackend: Backend {
         try await rpc("manager_barber_schedule", ["p_barber_id": Self.id(barberId)])
     }
 
-    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws {
+    /// `affected_bookings int`. A backend from before that change answers 204 with no body: 0.
+    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws -> Int {
         let json: [AnyJSON] = days.map { .object(["weekday": .integer($0.weekday), "open": .string($0.open.hhmm), "close": .string($0.close.hhmm)]) }
-        try await rpcVoid("manager_set_schedule", ["p_barber_id": Self.id(barberId), "p_days": .array(json)])
+        let response = try await call {
+            try await client.rpc("manager_set_schedule", params: ["p_barber_id": Self.id(barberId), "p_days": .array(json)]).execute()
+        }
+        guard !response.data.isEmpty else { return 0 }
+        return (try? JSONDecoder().decode(Int.self, from: response.data)) ?? 0
     }
 
     func setActive(barberId: UUID, active: Bool) async throws -> Int {

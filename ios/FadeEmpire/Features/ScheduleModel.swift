@@ -92,6 +92,20 @@ final class ScheduleModel {
         await load()
     }
 
+    /// The day a tapped push asked for (its chair is already selected), or today when
+    /// that day is outside the strip.
+    func showRequestedDay() async {
+        guard let day = app.requestedDay else { return }
+        app.requestedDay = nil
+        selectedDay = days.contains(day) ? day : today
+        if bookings.contains(where: { $0.barberId != chair?.id }) {   // the push was for another chair
+            bookings = []
+            daysOff = [:]
+            hours = [:]
+        }
+        await load()
+    }
+
     func load() async {
         guard let chair else { return }
         if !days.contains(selectedDay) { selectedDay = today }

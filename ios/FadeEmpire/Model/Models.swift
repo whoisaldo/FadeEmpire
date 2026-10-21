@@ -87,7 +87,8 @@ struct Booking: Codable, Hashable, Identifiable, Sendable {
     let customRequest: String?
     let customerNotes: String?
     let customerName: String
-    let customerPhone: String
+    /// Null on a chair the caller only views.
+    var customerPhone: String?
     let totalPriceCents: Int
     var status: BookingStatus
     let source: String
@@ -212,6 +213,10 @@ struct BarberDraft: Hashable, Sendable {
     static func isValidSlug(_ s: String) -> Bool {
         s.range(of: "^[a-z0-9-]{2,30}$", options: .regularExpression) != nil
     }
+
+    /// The website's own top-level paths; a barber's link can't take one (`slug_reserved`).
+    static let reservedSlugs: Set<String> = ["assets", "docs", "ios", "scripts", "styles", "supabase", "tests", "tools",
+                                             "index", "robots", "sitemap", "manifest", "sw"]
 }
 
 /// One weekday of a barber's hours. 0 = Sunday.

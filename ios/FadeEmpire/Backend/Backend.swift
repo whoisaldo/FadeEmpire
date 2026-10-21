@@ -13,6 +13,7 @@ protocol Backend: AnyObject, Sendable {
     func currentEmail() async -> String?
 
     // App RPCs
+    /// Throws `noAccess` when `app_me()` returns no row.
     func me() async throws -> Me
     func bookings(barberId: UUID, from: ShopDay, to: ShopDay) async throws -> [Booking]
     func freeSlots(barberId: UUID, date: ShopDay) async throws -> [ShopTime]
@@ -43,7 +44,8 @@ protocol Backend: AnyObject, Sendable {
     func saveBarber(_ draft: BarberDraft) async throws -> UUID
     func uploadBarberPhoto(_ jpeg: Data, slug: String) async throws -> String
     func barberSchedule(barberId: UUID) async throws -> [ScheduleDay]
-    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws
+    /// Returns how many upcoming bookings the new week leaves outside the hours or off the grid.
+    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws -> Int
     /// Returns the barber's upcoming bookings count.
     func setActive(barberId: UUID, active: Bool) async throws -> Int
     func viewGrants() async throws -> [ViewGrant]
@@ -59,6 +61,8 @@ protocol Backend: AnyObject, Sendable {
 enum BackendError: Error, Equatable, LocalizedError {
     case forbidden
     case notSignedIn
+    /// `app_me()` returned no row: no staff row, a disabled login, or an inactive chair.
+    case noAccess
     case invalidCredentials
     case weakPassword
     case network
@@ -68,53 +72,68 @@ enum BackendError: Error, Equatable, LocalizedError {
     case storeClosed
     case barberClosed
     case dateOutOfRange
+    case invalidRange
     case invalidSlot
     case invalidPhone
     case invalidName
+    case invalidBarberName
     case serviceNotFound
     case barberNotFound
+    case bookingNotFound
     case tooManyActiveBookings
     case bookingNotActive
-    case dayOffExists
     case invalidSlug
+    case slugReserved
     case slugTaken
     case slugLocked
     case invalidLabel
+    case invalidSchedule
+    case invalidGrant
     case emailTaken
     case invalidEmail
-    case loginExists
+    case invalidDisplayName
+    case barberHasLogin
+    case cannotDisableSelf
+    case userNotFound
     case server(String)
 
-    /// Maps the code a Postgres `raise exception '<code>'`, an Auth error, or the
-    /// staff-admin function returns.
+    /// Maps the code a Postgres `raise exception '<code>'` sends as its message, an Auth
+    /// error code, or the `error` the staff-admin function returns (CONTRACT.md lists them).
     static func from(code raw: String) -> BackendError {
         let code = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         switch code {
-        case "forbidden", "42501", "not_manager": return .forbidden
-        case "not_signed_in", "not_authenticated", "session_missing", "jwt expired", "pgrst301": return .notSignedIn
-        case "invalid_credentials", "invalid_grant", "user_banned": return .invalidCredentials
+        case "forbidden", "42501": return .forbidden
+        case "not_signed_in", "unauthorized", "session_missing", "jwt expired", "pgrst301", "pgrst303": return .notSignedIn
+        case "invalid_credentials", "user_banned": return .invalidCredentials
         case "weak_password", "same_password": return .weakPassword
-        case "slot_taken": return .slotTaken
+        case "slot_taken", "23505": return .slotTaken
         case "outside_store_hours": return .outsideStoreHours
         case "outside_working_hours": return .outsideWorkingHours
         case "store_closed": return .storeClosed
         case "barber_closed": return .barberClosed
         case "date_out_of_range": return .dateOutOfRange
-        case "invalid_slot_alignment", "invalid_slot": return .invalidSlot
+        case "invalid_range": return .invalidRange
+        case "invalid_slot_alignment": return .invalidSlot
         case "invalid_phone": return .invalidPhone
         case "invalid_name": return .invalidName
         case "service_not_found": return .serviceNotFound
         case "barber_not_found": return .barberNotFound
+        case "booking_not_found": return .bookingNotFound
         case "too_many_active_bookings": return .tooManyActiveBookings
-        case "booking_not_active", "cannot_cancel", "booking_not_found": return .bookingNotActive
-        case "day_off_exists": return .dayOffExists
+        case "cannot_cancel", "invalid_status_change", "not_primary": return .bookingNotActive
         case "invalid_slug": return .invalidSlug
+        case "slug_reserved": return .slugReserved
         case "slug_taken": return .slugTaken
         case "slug_locked": return .slugLocked
         case "invalid_label": return .invalidLabel
+        case "invalid_schedule": return .invalidSchedule
+        case "invalid_grant": return .invalidGrant
         case "email_taken", "email_exists", "user_already_exists": return .emailTaken
         case "invalid_email", "email_address_invalid": return .invalidEmail
-        case "login_exists": return .loginExists
+        case "invalid_display_name": return .invalidDisplayName
+        case "barber_has_login": return .barberHasLogin
+        case "cannot_disable_self": return .cannotDisableSelf
+        case "user_not_found": return .userNotFound
         default: return .server(raw)
         }
     }
@@ -125,6 +144,7 @@ enum BackendError: Error, Equatable, LocalizedError {
         switch self {
         case .forbidden: return "You can't change this chair."
         case .notSignedIn: return "You've been signed out. Sign in again."
+        case .noAccess: return "This login has no access to the app. Ask Ali to check it."
         case .invalidCredentials: return "That email and password don't match, or this login is turned off."
         case .weakPassword: return "Pick a different password: at least 8 characters, not your temporary one."
         case .network: return "Can't reach the shop's system. Check your connection and pull to refresh."
@@ -133,22 +153,30 @@ enum BackendError: Error, Equatable, LocalizedError {
         case .outsideWorkingHours: return "The barber isn't working at that time."
         case .storeClosed: return "The shop is closed at that time."
         case .barberClosed: return "That day is a day off for this chair."
-        case .dateOutOfRange: return "That date is too far out. Bookings go up to 60 days ahead."
+        case .dateOutOfRange: return "Pick a date from today to 60 days ahead."
+        case .invalidRange: return "That date range is too long. Pick a shorter one."
         case .invalidSlot: return "That time isn't on the 45-minute grid. Pick a listed time."
         case .invalidPhone: return "Enter a 10-digit phone number."
         case .invalidName: return "Enter the customer's name (at least 2 characters)."
+        case .invalidBarberName: return "Enter the barber's name (1–40 characters)."
         case .serviceNotFound: return "That service isn't offered any more. Pick another."
         case .barberNotFound: return "This barber isn't taking bookings (inactive)."
+        case .bookingNotFound: return "That appointment no longer exists. Pull to refresh."
         case .tooManyActiveBookings: return "That phone number already has the most upcoming bookings allowed."
         case .bookingNotActive: return "That appointment was already cancelled or changed. Pull to refresh."
-        case .dayOffExists: return "That day is already a day off."
         case .invalidSlug: return "Link name: 2–30 lowercase letters, numbers or dashes."
+        case .slugReserved: return "That link name is one of the website's own pages. Pick another."
         case .slugTaken: return "Another barber already uses that link name."
         case .slugLocked: return "The link name can't change once the barber has bookings."
         case .invalidLabel: return "Give the link a name of 1–60 characters."
+        case .invalidSchedule: return "Each working day needs a start time before its end time."
+        case .invalidGrant: return "A barber always sees their own chair."
         case .emailTaken: return "That email already has a login."
         case .invalidEmail: return "Enter a valid email address."
-        case .loginExists: return "This barber already has a login."
+        case .invalidDisplayName: return "The login's name must be 1–60 characters."
+        case .barberHasLogin: return "This barber already has a login."
+        case .cannotDisableSelf: return "You can't turn off your own login."
+        case .userNotFound: return "That login no longer exists. Pull to refresh."
         case .server(let code): return "The shop's system refused that (\(code)). Try again."
         }
     }

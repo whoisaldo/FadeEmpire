@@ -10,9 +10,9 @@ class MockUITestCase: XCTestCase {
     }
 
     @discardableResult
-    func launch(as email: String? = nil) -> XCUIApplication {
+    func launch(as email: String? = nil, extra: [String] = []) -> XCUIApplication {
         app = XCUIApplication()
-        app.launchArguments = ["-mock-backend", "-mock-now", "2026-10-22T13:00", "-disable-animations"]
+        app.launchArguments = ["-mock-backend", "-mock-now", "2026-10-22T13:00", "-disable-animations"] + extra
         if let email { app.launchArguments += ["-mock-session", email] }
         app.launch()
         return app

@@ -4,7 +4,8 @@ import UserNotifications
 
 /// Launch arguments for previews, UI tests and screenshots:
 /// `-mock-backend` uses `MockBackend`; with it, `-mock-now 2026-10-22T13:00` pins the clock
-/// (shop time) and `-mock-session hassan@local.test` starts signed in.
+/// (shop time), `-mock-session hassan@local.test` starts signed in, and
+/// `-mock-must-change hassan@local.test` makes that login pick a new password (as after a reset).
 enum LaunchOptions {
     static let arguments = ProcessInfo.processInfo.arguments
 
@@ -33,7 +34,9 @@ enum LaunchOptions {
                 clock = .system
             }
             if arguments.contains("-disable-animations") { UIView.setAnimationsEnabled(false) }
-            return AppModel(backend: MockBackend(clock: clock, signedInAs: value("-mock-session")), clock: clock)
+            let backend = MockBackend(clock: clock, signedInAs: value("-mock-session"),
+                                      mustChangePassword: Set([value("-mock-must-change")].compactMap { $0 }))
+            return AppModel(backend: backend, clock: clock)
         }
         let info = Bundle.main.infoDictionary ?? [:]
         let url = URL(string: info["FESupabaseURL"] as? String ?? "")!
@@ -46,6 +49,7 @@ enum LaunchOptions {
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var onToken: ((Data) -> Void)?
     var onPush: (() -> Void)?
+    var onOpen: ((PushRoute) -> Void)?
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -64,6 +68,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         -> UNNotificationPresentationOptions {
         await MainActor.run { onPush?() }
         return [.banner, .sound, .list]
+    }
+
+    /// Tapping a push opens that booking's day on that chair.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard let route = PushRoute(userInfo: response.notification.request.content.userInfo) else { return }
+        await MainActor.run { onOpen?(route) }
     }
 
     static func registerForPush() {
@@ -91,6 +101,7 @@ struct FadeEmpireApp: App {
                 .task {
                     delegate.onToken = { token in Task { await model.deviceTokenReceived(token) } }
                     delegate.onPush = { Task { await model.refresh() } }
+                    delegate.onOpen = { route in Task { @MainActor in model.open(route) } }
                     await model.start()
                 }
                 .onChange(of: model.phase) { _, phase in

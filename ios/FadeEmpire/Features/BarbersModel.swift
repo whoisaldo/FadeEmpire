@@ -44,6 +44,8 @@ final class BarbersModel {
     private(set) var barbers: [Barber] = []
     private(set) var staff: [StaffMember] = []
     private(set) var grants: Set<ViewGrant> = []
+    /// False when `manager_view_grants` failed: the switches can't show the current state.
+    private(set) var grantsLoaded = false
     private(set) var schedules: [UUID: [ScheduleDay]] = [:]
     var error: String?
 
@@ -70,11 +72,16 @@ final class BarbersModel {
         do {
             async let b = backend.barbers()
             async let s = backend.staff()
-            async let g = backend.viewGrants()
-            let (rows, people, grantRows) = try await (b, s, g)
+            let (rows, people) = try await (b, s)
             barbers = rows
             staff = people
-            grants = Set(grantRows)
+            // Loaded on its own, so the rest of the tab works without it.
+            if let grantRows = try? await backend.viewGrants() {
+                grants = Set(grantRows)
+                grantsLoaded = true
+            } else {
+                grantsLoaded = false
+            }
             var hours: [UUID: [ScheduleDay]] = [:]
             for row in rows { hours[row.id] = try await backend.barberSchedule(barberId: row.id) }
             schedules = hours
@@ -84,21 +91,31 @@ final class BarbersModel {
         }
     }
 
-    /// Saves the profile (uploading a new photo first), then the week's hours.
-    func save(_ draft: BarberDraft, hours: HoursDraft, photo: Data?) async throws -> UUID {
+    /// Saves the profile (uploading a new photo first), then the week's hours. Also returns
+    /// how many upcoming bookings the new hours leave out (they stay booked).
+    func save(_ draft: BarberDraft, hours: HoursDraft, photo: Data?) async throws -> (id: UUID, outsideHours: Int) {
         var d = draft
         if let photo { d.photoUrl = try await backend.uploadBarberPhoto(photo, slug: d.slug) }
         let id = try await backend.saveBarber(d)
-        try await backend.setSchedule(barberId: id, days: hours.schedule)
+        let outside = try await backend.setSchedule(barberId: id, days: hours.schedule)
         await load()
         await app.refresh()
-        return id
+        return (id, outside)
     }
 
+    /// After saving hours that leave bookings outside them, so the manager contacts those customers.
+    nonisolated static func outsideHoursNotice(name: String, count: Int) -> String? {
+        guard count > 0 else { return nil }
+        return count == 1
+            ? "1 upcoming appointment no longer fits \(name)'s hours. It's still booked: contact that customer."
+            : "\(count) upcoming appointments no longer fit \(name)'s hours. They're still booked: contact those customers."
+    }
+
+    /// Pending or confirmed bookings that have not started, as `manager_set_active` counts them.
     func upcomingBookings(_ barberId: UUID) async throws -> [Booking] {
-        let today = app.clock.today
+        let today = app.clock.today, now = app.clock.timeOfDay
         return try await backend.bookings(barberId: barberId, from: today, to: today.adding(days: 60))
-            .filter(\.status.isActive)
+            .filter { ($0.status == .pending || $0.status == .confirmed) && ($0.date > today || $0.time >= now) }
     }
 
     func setActive(_ barberId: UUID, _ active: Bool) async throws -> Int {

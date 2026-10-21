@@ -26,7 +26,7 @@ final class ScreenshotTests: MockUITestCase {
 
     func testCaptureBarberScreens() {
         index = 0
-        launch()
+        launch(extra: ["-mock-must-change", "hassan@local.test"])
         shot("sign-in")
         type("signin-email", "hassan@local.test")
         type("signin-password", "fade-local-1")

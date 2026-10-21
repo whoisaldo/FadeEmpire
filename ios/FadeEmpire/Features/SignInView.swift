@@ -50,7 +50,7 @@ struct SignInView: View {
                         .fieldStyle()
                         .accessibilityIdentifier("signin-password")
                 }
-                ErrorText(message: error)
+                ErrorText(message: error ?? app.signInNotice)
                 Button(action: submit) {
                     if busy { ProgressView().tint(Color.ink) } else { Text("Sign in") }
                 }

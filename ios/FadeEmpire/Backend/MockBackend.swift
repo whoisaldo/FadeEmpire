@@ -48,7 +48,8 @@ actor MockBackend: Backend {
     var devices: [String: UUID] = [:]
     var signedIn: UUID?
 
-    init(clock: ShopClock, signedInAs email: String? = nil) {
+    /// `mustChangePassword` lists logins that start as if the manager had just reset them.
+    init(clock: ShopClock, signedInAs email: String? = nil, mustChangePassword: Set<String> = []) {
         self.clock = clock
         let seed = MockSeed(clock: clock)
         accounts = seed.accounts
@@ -59,34 +60,40 @@ actor MockBackend: Backend {
         events = seed.events
         closures = seed.closures
         linkRows = seed.links
+        for i in accounts.indices where mustChangePassword.contains(accounts[i].email) {
+            accounts[i].mustChangePassword = true
+        }
         if let email, let i = accounts.firstIndex(where: { $0.email == email }) {
-            accounts[i].mustChangePassword = false
             signedIn = accounts[i].userId
         }
     }
 
-    // MARK: - Permission rules (app_is_manager, app_my_barber_id, app_can_view, app_can_manage)
+    // MARK: - Permission rules (app_caller, app_is_manager, app_my_barber_id, app_can_view, app_can_manage)
 
+    /// The signed-in login. A disabled login keeps its session but counts as no login
+    /// (app_caller), so every rule below answers no for it.
     private func caller() throws -> Account {
         guard let id = signedIn, let a = accounts.first(where: { $0.userId == id }) else { throw BackendError.notSignedIn }
-        guard !a.isDisabled else { throw BackendError.notSignedIn }
         return a
     }
 
+    private func isManager(_ a: Account) -> Bool { a.role == .manager && !a.isDisabled }
+
     private func myBarberId(_ a: Account) -> UUID? {
-        guard let id = a.barberId, barberRows.first(where: { $0.id == id })?.isActive == true else { return nil }
+        guard !a.isDisabled, let id = a.barberId, barberRows.first(where: { $0.id == id })?.isActive == true else { return nil }
         return id
     }
 
     func canView(_ a: Account, _ barberId: UUID) -> Bool {
-        if a.role == .manager { return true }
+        if isManager(a) { return true }
         guard let mine = myBarberId(a) else { return false }
-        return mine == barberId || grants.contains(ViewGrant(viewerBarberId: mine, barberId: barberId))
+        return mine == barberId
+            || (grants.contains(ViewGrant(viewerBarberId: mine, barberId: barberId))
+                && barberRows.first { $0.id == barberId }?.isActive == true)
     }
 
     func canManage(_ a: Account, _ barberId: UUID) -> Bool {
-        if a.role == .manager { return true }
-        return myBarberId(a) == barberId
+        isManager(a) || myBarberId(a) == barberId
     }
 
     private func requireView(_ barberId: UUID) throws -> Account {
@@ -103,11 +110,19 @@ actor MockBackend: Backend {
 
     private func requireManager() throws -> Account {
         let a = try caller()
-        guard a.role == .manager else { throw BackendError.forbidden }
+        guard isManager(a) else { throw BackendError.forbidden }
         return a
     }
 
-    private func actorName(_ a: Account) -> String { a.role == .manager ? "manager" : "barber" }
+    /// `manager` when a manager acts on a chair that is not their own (app_set_actor).
+    private func actorName(_ a: Account, on barberId: UUID) -> String {
+        isManager(a) && a.barberId != barberId ? "manager" : "barber"
+    }
+
+    /// Upcoming: the slot has not started yet.
+    private func isUpcoming(_ b: Booking) -> Bool {
+        b.date > clock.today || (b.date == clock.today && b.time >= clock.timeOfDay)
+    }
 
     private func barber(_ id: UUID) throws -> Barber {
         guard let b = barberRows.first(where: { $0.id == id }) else { throw BackendError.barberNotFound }
@@ -140,11 +155,13 @@ actor MockBackend: Backend {
 
     // MARK: - App RPCs
 
+    /// No row (`noAccess`) for a disabled login or a barber whose chair is inactive.
     func me() async throws -> Me {
         let a = try caller()
         let mine = myBarberId(a)
+        guard !a.isDisabled, a.role == .manager || mine != nil else { throw BackendError.noAccess }
         let visible = barberRows
-            .filter { a.role == .manager || canView(a, $0.id) }
+            .filter { canView(a, $0.id) }
             .sorted { lhs, rhs in
                 if lhs.id == mine { return true }
                 if rhs.id == mine { return false }
@@ -163,14 +180,16 @@ actor MockBackend: Backend {
 
     func bookings(barberId: UUID, from: ShopDay, to: ShopDay) async throws -> [Booking] {
         let a = try requireView(barberId)
+        guard from <= to, from.days(until: to) <= 62 else { throw BackendError.invalidRange }
         let manage = canManage(a, barberId)
         return storedBookings
             .map(\.row)
-            .filter { $0.barberId == barberId && $0.date >= from && $0.date <= to }
+            .filter { $0.barberId == barberId && $0.date >= from && $0.date <= to && $0.status != .expired }
             .sorted { ($0.date, $0.time) < ($1.date, $1.time) }
             .map { b in
                 var b = b
                 b.canManage = manage
+                if !manage { b.customerPhone = nil }   // a view-only chair gets no phones
                 return b
             }
     }
@@ -229,7 +248,7 @@ actor MockBackend: Backend {
             status: .confirmed, source: "app", isGuest: false, partyId: UUID(), partySize: 1,
             createdAt: Instant(clock.now()), cancelledAt: nil, cancelledBy: nil, canManage: true)
         storedBookings.append(StoredBooking(row: row, createdBy: a.userId))
-        record(.booked, actor: actorName(a), booking: row.id, by: a.userId)
+        record(.booked, actor: actorName(a, on: b.id), booking: row.id, by: a.userId)
         return row.id
     }
 
@@ -239,34 +258,43 @@ actor MockBackend: Backend {
     }
 
     private func bookingIndex(_ id: UUID) throws -> Int {
-        guard let i = storedBookings.firstIndex(where: { $0.row.id == id }) else { throw BackendError.bookingNotActive }
+        guard let i = storedBookings.firstIndex(where: { $0.row.id == id }) else { throw BackendError.bookingNotFound }
         return i
     }
 
     func cancelBooking(id: UUID) async throws -> CancelledBooking {
         let i = try bookingIndex(id)
-        let a = try requireManage(storedBookings[i].row.barberId)
-        guard storedBookings[i].row.status.isActive else { throw BackendError.bookingNotActive }
+        let barberId = storedBookings[i].row.barberId
+        let a = try requireManage(barberId)
+        // cannot_cancel unless pending or confirmed
+        guard [.pending, .confirmed].contains(storedBookings[i].row.status) else { throw BackendError.bookingNotActive }
         storedBookings[i].row.status = .cancelled
         storedBookings[i].row.cancelledAt = Instant(clock.now())
-        storedBookings[i].row.cancelledBy = actorName(a)
-        record(.cancelled, actor: actorName(a), booking: id, by: a.userId)
+        storedBookings[i].row.cancelledBy = actorName(a, on: barberId)
+        record(.cancelled, actor: actorName(a, on: barberId), booking: id, by: a.userId)
         let r = storedBookings[i].row
-        return CancelledBooking(bookingId: id, customerName: r.customerName, customerPhone: r.customerPhone,
+        return CancelledBooking(bookingId: id, customerName: r.customerName, customerPhone: r.customerPhone ?? "",
                                 date: r.date, time: r.time)
     }
 
     func setStatus(bookingId: UUID, status: BookingStatus) async throws {
         let i = try bookingIndex(bookingId)
-        let a = try requireManage(storedBookings[i].row.barberId)
+        let row = storedBookings[i].row
+        let a = try requireManage(row.barberId)
         switch status {
         case .noShow:
-            guard storedBookings[i].row.status.isActive else { throw BackendError.bookingNotActive }
+            guard row.status.isActive else { throw BackendError.bookingNotActive }   // invalid_status_change
             storedBookings[i].row.status = .noShow
-            record(.noShow, actor: actorName(a), booking: bookingId, by: a.userId)
+            record(.noShow, actor: actorName(a, on: row.barberId), booking: bookingId, by: a.userId)
         case .confirmed:
-            guard storedBookings[i].row.status == .noShow else { throw BackendError.bookingNotActive }
+            guard row.status == .noShow else { throw BackendError.bookingNotActive }   // invalid_status_change
+            let rebooked = storedBookings.contains {
+                $0.row.id != bookingId && $0.row.barberId == row.barberId && $0.row.date == row.date
+                    && $0.row.time == row.time && $0.row.status.isActive
+            }
+            guard !rebooked else { throw BackendError.slotTaken }
             storedBookings[i].row.status = .confirmed
+            events.removeAll { $0.bookingId == bookingId && $0.kind == .noShow }   // undo deletes the no_show event
         default:
             throw BackendError.server("invalid_status")
         }
@@ -306,14 +334,17 @@ actor MockBackend: Backend {
                          bookingsThatDay: activeCount(barberId, on: $0.key)) }
     }
 
+    /// Pending or confirmed bookings that day (bookings_that_day).
     private func activeCount(_ barberId: UUID, on day: ShopDay) -> Int {
-        storedBookings.filter { $0.row.barberId == barberId && $0.row.date == day && $0.row.status.isActive }.count
+        storedBookings.filter {
+            $0.row.barberId == barberId && $0.row.date == day && [.pending, .confirmed].contains($0.row.status)
+        }.count
     }
 
+    /// Adding a day that is already off updates its reason.
     func addDayOff(barberId: UUID, date: ShopDay, reason: String?) async throws -> Int {
         _ = try requireManage(barberId)
         guard date >= clock.today else { throw BackendError.dateOutOfRange }
-        guard closures[barberId]?[date] == nil else { throw BackendError.dayOffExists }
         closures[barberId, default: [:]][date] = reason?.trimmingCharacters(in: .whitespaces) ?? ""
         return activeCount(barberId, on: date)
     }
@@ -332,10 +363,17 @@ actor MockBackend: Backend {
     }
 
     func registerDevice(token: String, environment: String) async throws {
-        devices[token] = try caller().userId
+        let a = try caller()
+        guard !a.isDisabled else { throw BackendError.forbidden }
+        guard ["sandbox", "production"].contains(environment) else { throw BackendError.server("invalid_environment") }
+        devices[token] = a.userId
     }
 
-    func unregisterDevice(token: String) async throws { devices[token] = nil }
+    /// Only removes the caller's own token.
+    func unregisterDevice(token: String) async throws {
+        let a = try caller()
+        if devices[token] == a.userId { devices[token] = nil }
+    }
 
     func weeklyHours(barberId: UUID) async throws -> [ScheduleDay] {
         (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
@@ -343,8 +381,10 @@ actor MockBackend: Backend {
 
     // MARK: - booking_links
 
+    /// RLS: a chair the caller cannot manage reads as no links.
     func links(barberId: UUID) async throws -> [BookingLink] {
-        _ = try requireManage(barberId)
+        let a = try caller()
+        guard canManage(a, barberId) else { return [] }
         return linkRows.filter { $0.barberId == barberId }.sorted { $0.createdAt < $1.createdAt }
     }
 
@@ -359,9 +399,10 @@ actor MockBackend: Backend {
         return link
     }
 
+    /// RLS: deleting another chair's link deletes nothing, without an error.
     func deleteLink(id: UUID) async throws {
-        guard let link = linkRows.first(where: { $0.id == id }) else { return }
-        _ = try requireManage(link.barberId)
+        let a = try caller()
+        guard let link = linkRows.first(where: { $0.id == id }), canManage(a, link.barberId) else { return }
         linkRows.removeAll { $0.id == id }
     }
 
@@ -382,10 +423,11 @@ actor MockBackend: Backend {
 
     func saveBarber(_ d: BarberDraft) async throws -> UUID {
         _ = try requireManager()
-        let slug = d.slug.trimmingCharacters(in: .whitespaces)
+        let slug = d.slug.trimmingCharacters(in: .whitespaces).lowercased()
         guard BarberDraft.isValidSlug(slug) else { throw BackendError.invalidSlug }
+        guard !BarberDraft.reservedSlugs.contains(slug) else { throw BackendError.slugReserved }
         let name = d.displayName.trimmingCharacters(in: .whitespaces)
-        guard name.count >= 2 else { throw BackendError.invalidName }
+        guard (1...40).contains(name.count) else { throw BackendError.invalidBarberName }
         if barberRows.contains(where: { $0.slug == slug && $0.id != d.id }) { throw BackendError.slugTaken }
         let title = d.title.trimmingCharacters(in: .whitespaces)
         let bio = d.bio.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -403,7 +445,7 @@ actor MockBackend: Backend {
         }
         let b = Barber(id: UUID(), slug: slug, displayName: name, title: title.isEmpty ? nil : title,
                        bio: bio.isEmpty ? nil : bio, photoUrl: d.photoUrl, isActive: true,
-                       sortOrder: (barberRows.map(\.sortOrder).max() ?? 0) + 1)
+                       sortOrder: (barberRows.map(\.sortOrder).max() ?? 0) + 10)
         barberRows.append(b)
         return b.id
     }
@@ -418,22 +460,32 @@ actor MockBackend: Backend {
         return (schedules[barberId] ?? []).sorted { $0.weekday < $1.weekday }
     }
 
-    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws {
+    /// Replaces the week; returns the upcoming active bookings it leaves on a day off, outside
+    /// the hours, or off the 45-minute grid from open. They stay booked.
+    func setSchedule(barberId: UUID, days: [ScheduleDay]) async throws -> Int {
         _ = try requireManager()
         _ = try barber(barberId)
+        guard Set(days.map(\.weekday)).count == days.count,
+              days.allSatisfy({ (0...6).contains($0.weekday) && $0.open < $0.close }) else { throw BackendError.invalidSchedule }
         for d in days {
-            guard let store = Catalog.storeHours[d.weekday], d.open >= store.open, d.close <= store.close,
-                  d.open < d.close else { throw BackendError.outsideStoreHours }
+            guard let store = Catalog.storeHours[d.weekday], d.open >= store.open, d.close <= store.close
+            else { throw BackendError.outsideStoreHours }
         }
         schedules[barberId] = days
+        return storedBookings.map(\.row).filter { b in
+            guard b.barberId == barberId, b.status.isActive, isUpcoming(b) else { return false }
+            guard let day = days.first(where: { $0.weekday == b.date.weekday }) else { return true }
+            return b.time < day.open || b.time >= day.close || (b.time.minutes - day.open.minutes) % Shop.slotMinutes != 0
+        }.count
     }
 
     func setActive(barberId: UUID, active: Bool) async throws -> Int {
         _ = try requireManager()
         guard let i = barberRows.firstIndex(where: { $0.id == barberId }) else { throw BackendError.barberNotFound }
         barberRows[i].isActive = active
-        let today = clock.today
-        return storedBookings.filter { $0.row.barberId == barberId && $0.row.date >= today && $0.row.status.isActive }.count
+        return storedBookings.map(\.row).filter {
+            $0.barberId == barberId && [.pending, .confirmed].contains($0.status) && isUpcoming($0)
+        }.count
     }
 
     func viewGrants() async throws -> [ViewGrant] {
@@ -443,7 +495,9 @@ actor MockBackend: Backend {
 
     func setViewGrant(viewer: UUID, barber: UUID, granted: Bool) async throws {
         _ = try requireManager()
-        guard viewer != barber else { throw BackendError.forbidden }
+        guard viewer != barber else { throw BackendError.invalidGrant }
+        _ = try self.barber(viewer)
+        _ = try self.barber(barber)
         let g = ViewGrant(viewerBarberId: viewer, barberId: barber)
         if granted { grants.insert(g) } else { grants.remove(g) }
     }
@@ -462,22 +516,24 @@ actor MockBackend: Backend {
         _ = try requireManager()
         let e = email.trimmingCharacters(in: .whitespaces).lowercased()
         guard e.range(of: #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#, options: .regularExpression) != nil else { throw BackendError.invalidEmail }
-        guard !accounts.contains(where: { $0.email == e }) else { throw BackendError.emailTaken }
-        if role == .barber {
-            guard let barberId else { throw BackendError.barberNotFound }
-            guard !accounts.contains(where: { $0.barberId == barberId }) else { throw BackendError.loginExists }
+        let name = displayName.trimmingCharacters(in: .whitespaces)
+        guard (1...60).contains(name.count) else { throw BackendError.invalidDisplayName }
+        if role == .barber && barberId == nil { throw BackendError.server("barber_required") }
+        if let barberId {
+            _ = try barber(barberId)
+            guard !accounts.contains(where: { $0.barberId == barberId }) else { throw BackendError.barberHasLogin }
         }
+        guard !accounts.contains(where: { $0.email == e }) else { throw BackendError.emailTaken }
         let password = Self.temporaryPassword()
-        let account = Account(userId: UUID(), email: e, password: password, role: role, displayName: displayName,
-                              barberId: role == .barber ? barberId : nil, mustChangePassword: true,
-                              activitySeenAt: clock.now())
+        let account = Account(userId: UUID(), email: e, password: password, role: role, displayName: name,
+                              barberId: barberId, mustChangePassword: true, activitySeenAt: clock.now())
         accounts.append(account)
         return CreatedLogin(userId: account.userId, temporaryPassword: password)
     }
 
     func resetPassword(userId: UUID) async throws -> String {
         _ = try requireManager()
-        guard let i = accounts.firstIndex(where: { $0.userId == userId }) else { throw BackendError.server("user_not_found") }
+        guard let i = accounts.firstIndex(where: { $0.userId == userId }) else { throw BackendError.userNotFound }
         let password = Self.temporaryPassword()
         accounts[i].password = password
         accounts[i].mustChangePassword = true
@@ -485,8 +541,9 @@ actor MockBackend: Backend {
     }
 
     func setLoginDisabled(userId: UUID, disabled: Bool) async throws {
-        _ = try requireManager()
-        guard let i = accounts.firstIndex(where: { $0.userId == userId }) else { throw BackendError.server("user_not_found") }
+        let me = try requireManager()
+        if disabled && userId == me.userId { throw BackendError.cannotDisableSelf }
+        guard let i = accounts.firstIndex(where: { $0.userId == userId }) else { throw BackendError.userNotFound }
         accounts[i].isDisabled = disabled
         if disabled { devices = devices.filter { $0.value != userId } }
     }

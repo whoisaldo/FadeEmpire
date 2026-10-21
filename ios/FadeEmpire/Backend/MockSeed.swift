@@ -2,7 +2,8 @@ import Foundation
 
 /// The mock's starting data, laid out around the clock's "today": Hassan and Larry with a
 /// week of bookings (a group, a cancellation, a no-show), retired Javier, Hassan's
-/// read-only grant on Larry's chair, and the three local logins (password `fade-local-1`).
+/// read-only grant on Larry's chair, and the three local logins (password `fade-local-1`, no
+/// forced change, as on the local stack).
 struct MockSeed {
     static let password = "fade-local-1"
     static let hassanId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a1")!
@@ -44,7 +45,7 @@ struct MockSeed {
                   barberId: nil, mustChangePassword: false, notifyViewedChairs: true, activitySeenAt: seenAt,
                   lastSignInAt: now.addingTimeInterval(-86_400)),
             .init(userId: hassan, email: "hassan@local.test", password: Self.password, role: .barber, displayName: "Hassan",
-                  barberId: Self.hassanId, mustChangePassword: true, activitySeenAt: seenAt,
+                  barberId: Self.hassanId, mustChangePassword: false, activitySeenAt: seenAt,
                   lastSignInAt: now.addingTimeInterval(-7_200)),
             .init(userId: larry, email: "larry@local.test", password: Self.password, role: .barber, displayName: "Larry",
                   barberId: Self.larryId, mustChangePassword: false, activitySeenAt: seenAt,
@@ -137,6 +138,8 @@ struct MockSeed {
         setStatus(cancelled, .cancelled, by: "customer", at: cancelAt)
         events.append(.init(id: Int64(events.count + 1), kind: .cancelled, actor: "customer", occurredAt: cancelAt,
                             bookingId: cancelled.id, causedBy: nil))
+        // A move records `moved` instead of `booked`.
+        events.removeAll { $0.bookingId == moved.id && $0.kind == .booked }
         events.append(.init(id: Int64(events.count + 1), kind: .moved, actor: "customer",
                             occurredAt: now.addingTimeInterval(-26 * 3_600), bookingId: moved.id, causedBy: nil))
         events.sort { $0.occurredAt < $1.occurredAt }

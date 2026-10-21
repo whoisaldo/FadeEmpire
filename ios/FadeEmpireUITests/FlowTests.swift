@@ -3,7 +3,7 @@ import XCTest
 /// End-to-end flows on the MockBackend.
 final class FlowTests: MockUITestCase {
     func testSignInWithForcedNewPassword() {
-        launch()
+        launch(extra: ["-mock-must-change", "hassan@local.test"])
         type("signin-email", "hassan@local.test")
         type("signin-password", "fade-local-1")
         tap("signin-submit")
@@ -33,7 +33,10 @@ final class FlowTests: MockUITestCase {
         tap("booking-Andre Mitchell")
         XCTAssertTrue(app.staticTexts["Andre Mitchell"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["View only"].exists)
-        XCTAssertTrue(app.buttons["Call Andre Mitchell, (413) 555-0169"].exists, "calling still works")
+        // No phone on a view-only chair: no Call, no Text, no number.
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Call'")).firstMatch.exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Text'")).firstMatch.exists)
+        XCTAssertFalse(element(containing: "(413) 555-").exists)
         XCTAssertFalse(el("cancel-appointment").exists)
         XCTAssertFalse(el("mark-no-show").exists)
         XCTAssertFalse(el("undo-no-show").exists)
@@ -138,6 +141,23 @@ final class FlowTests: MockUITestCase {
         XCTAssertTrue(el("reset-password").exists)
     }
 
+    func testManagerToldWhenNewHoursLeaveBookingsOut() {
+        launch(as: "ali@local.test")
+        tab("Barbers")
+        tap("barber-larry")
+        tap("edit-barber")
+        // Friday off: the switch sits at the row's trailing edge.
+        let friday = reveal("hours-5")
+        friday.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertEqual(friday.value as? String, "0")
+        tap("barber-save")
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.label.contains("2 upcoming appointments no longer fit Larry's hours"), alert.label)
+        alert.buttons["OK"].tap()
+        XCTAssertFalse(el("barber-hours").label.contains("Fri"), el("barber-hours").label)
+    }
+
     func testManagerDeactivatesAfterSeeingBookings() {
         launch(as: "ali@local.test")
         tab("Barbers")
@@ -145,13 +165,13 @@ final class FlowTests: MockUITestCase {
         tap("deactivate")
         let count = el("deactivate-count")
         XCTAssertTrue(count.waitForExistence(timeout: 5))
-        XCTAssertEqual(count.label, "Upcoming bookings (8)")
+        XCTAssertEqual(count.label, "Upcoming bookings (6)")
         XCTAssertTrue(element(containing: "Malik Johnson").exists, "the affected customers are listed")
         tap("confirm-deactivate")
         let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         XCTAssertTrue(alert.label.contains("Larry is inactive"), alert.label)
-        XCTAssertTrue(alert.label.contains("8 upcoming bookings are still booked"), alert.label)
+        XCTAssertTrue(alert.label.contains("6 upcoming bookings are still booked"), alert.label)
         alert.buttons["OK"].tap()
         XCTAssertTrue(el("reactivate").waitForExistence(timeout: 5))
     }
