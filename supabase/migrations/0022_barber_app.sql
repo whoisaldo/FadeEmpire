@@ -53,7 +53,8 @@
 -- new table revokes everything from anon and authenticated, then grants exactly
 -- what the app needs. bookings gains a select grant for authenticated, limited by
 -- the RLS policy to the chairs the caller can manage. A view-only chair is read
--- through app_bookings, without customer phones.
+-- through app_bookings, without customer phones. confirm_booking (0001) is closed
+-- to authenticated: service_role only.
 --
 -- Errors are raised as messages the app matches on, with the same SQLSTATEs as the
 -- booking RPCs: forbidden (42501), barber_not_found / booking_not_found (P0002),
@@ -310,6 +311,13 @@ create policy "staff add own links" on booking_links
   for insert to authenticated with check (app_can_manage(barber_id));
 create policy "staff delete own links" on booking_links
   for delete to authenticated using (app_can_manage(barber_id));
+
+-- confirm_booking (0001) flips a pending booking to confirmed. 0010 left it granted
+-- to authenticated for owner tooling, but nothing calls it as authenticated (owner
+-- tooling uses the service role key), and with the app every login is
+-- authenticated, staff row or not.
+revoke execute on function confirm_booking(uuid) from public, anon, authenticated;
+grant  execute on function confirm_booking(uuid) to service_role;
 
 -- =============================================================================
 -- 5. book_slot_at — 0020's book_slot body, by barber id, with the phone limit

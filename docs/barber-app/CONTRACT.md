@@ -23,6 +23,8 @@ has to differ, change this file in the same commit and say so in the report.
 
 Rule from 0010: every new function gets explicit `revoke execute ... from public, anon` (and from
 `authenticated` where it is not meant for the app). Every SECURITY DEFINER function sets `search_path = public`.
+0022 also revokes `confirm_booking` (0001) from `authenticated`: it is `service_role` only, so no app login can
+confirm a pending booking.
 
 ### Tables
 

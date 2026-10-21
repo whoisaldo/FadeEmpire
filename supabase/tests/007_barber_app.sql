@@ -199,6 +199,7 @@ select throws_ok($$ select * from app_bookings(tap_barber('larry'), tap_next_dow
 select throws_ok($$ select app_book(tap_barber('larry'), 'hair-cut', tap_next_dow(3), '11:30', 'Sneaky Booker', '5557770099') $$, '42501', 'forbidden', 'a login with no staff row cannot book');
 select throws_ok($$ select * from manager_staff() $$, '42501', 'forbidden', 'a login with no staff row is not a manager');
 select throws_ok($$ select app_register_device('tok-stranger', 'sandbox') $$, '42501', 'forbidden', 'a login with no staff row cannot register a device');
+select throws_ok($$ select confirm_booking(tap_booking('5557770002')) $$, '42501', null, 'a login with no staff row cannot confirm bookings');
 select is(app_can_view(tap_barber('larry')), false, 'app_can_view is false for a stranger');
 reset role;
 

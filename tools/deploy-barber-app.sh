@@ -449,7 +449,7 @@ cat <<EOF
 # Checklist (dashboard only, $PROJECT_REF):
 #   [ ] Authentication -> Sign In / Providers -> turn OFF "Allow new users to sign up".
 #       The app has no sign-up; logins are made by the manager. A self-made login has no staff row and
-#       sees nothing, but it is still 'authenticated', and confirm_booking (0001) is granted to that role.
+#       sees nothing, but it is still 'authenticated' and can call whatever that role may.
 #   [ ] Authentication -> Email: leave email confirmation on; staff-admin confirms its own users.
 #   [ ] Edge Functions: staff-admin and notify-booking-event show as deployed.
 #   [ ] APNs: Apple Developer -> Keys -> an APNs key for team 9X79V37Q89; set APNS_KEY_ID, APNS_TEAM_ID,

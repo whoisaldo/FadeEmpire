@@ -182,7 +182,7 @@ Cancelled / expired / no-show rows don't occupy the index, so a freed slot is im
 - `SELECT` / `INSERT` / `UPDATE` / `DELETE` on `bookings` directly (RLS denies all)
 - `SELECT` on `booking_errors` (Hassan-only via Supabase Studio)
 - `SELECT` on `v_people` (one row per person who has booked; service role / Studio only)
-- `EXECUTE` `confirm_booking` (authenticated only)
+- `EXECUTE` `confirm_booking` (service_role only; signed-in app users cannot either, since 0022)
 
 ### Messaging fallback
 
