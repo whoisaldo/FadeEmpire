@@ -102,7 +102,7 @@ final class FlowTests: MockUITestCase {
         tap("add-link")
         type("link-label", "Fade Friday")
         tap("link-service")
-        app.buttons["Hair Cut"].firstMatch.tap()
+        tapWhenPresent(app.buttons["Hair Cut"].firstMatch, "Hair Cut in the service menu")
         XCTAssertEqual(el("link-preview").label, "https://chicopeefadeempire.com/?barber=hassan&service=hair-cut#book")
         tap("link-save")
         let url = el("link-url-Fade Friday")
@@ -117,7 +117,7 @@ final class FlowTests: MockUITestCase {
         tab("Barbers")
         tap("add-barber")
         type("barber-name", "Marco Silva")
-        app.keyboards.buttons["return"].tap()
+        tapWhenPresent(app.keyboards.buttons["return"], "the keyboard's return key")
         XCTAssertEqual(el("barber-slug").value as? String, "marco-silva")
         // Sunday off; the switch sits at the row's trailing edge.
         let sunday = reveal("hours-0")

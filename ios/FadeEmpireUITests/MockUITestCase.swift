@@ -40,11 +40,43 @@ class MockUITestCase: XCTestCase {
     }
 
     func type(_ id: String, _ text: String) {
-        tap(id)
-        el(id).typeText(text)
+        focus(id).typeText(text)
     }
 
-    func tab(_ name: String) { app.tabBars.buttons[name].firstMatch.tap() }
+    /// Taps the field until it has keyboard focus. The tap can land before the field takes focus
+    /// on a loaded machine, or on the keyboard's toolbar when the field sits under it (the
+    /// previous field keeps focus); then the keyboard goes away and it taps again.
+    @discardableResult
+    func focus(_ id: String, attempts: Int = 3, timeout: TimeInterval = 10) -> XCUIElement {
+        let field = reveal(id)
+        let focused = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND hasKeyboardFocus == true", id)).firstMatch
+        for _ in 0..<attempts {
+            field.tap()
+            if focused.waitForExistence(timeout: timeout) { return field }
+            dismissKeyboard()
+            if !field.isHittable { app.swipeUp() }
+        }
+        XCTFail("\(id) never got keyboard focus after \(attempts) taps")
+        return field
+    }
+
+    /// The keyboard toolbar's Done (the phone pad has no return key), else the return key.
+    func dismissKeyboard() {
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.exists else { return }
+        let done = el("keyboard-done"), ret = keyboard.buttons["return"]
+        if done.exists { done.tap() } else if ret.exists { ret.tap() }
+        _ = keyboard.waitForNonExistence(timeout: 5)
+    }
+
+    /// Taps an element found by something other than its identifier once it is there.
+    func tapWhenPresent(_ e: XCUIElement, _ what: String, timeout: TimeInterval = 5) {
+        XCTAssertTrue(e.waitForExistence(timeout: timeout), "missing \(what)")
+        e.tap()
+    }
+
+    func tab(_ name: String) { tapWhenPresent(app.tabBars.buttons[name].firstMatch, "tab \(name)", timeout: 10) }
 
     /// The button in a confirmation dialog or alert. Its label repeats the button that opened
     /// it, so prefer the dialog's identifier and fall back to the last match.
