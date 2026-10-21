@@ -16,7 +16,9 @@ vi.mock('../scripts/supabase.js', () => {
 
 const { fetchAvailability, fetchNextAvailable, fetchBarbers, bookSlot, bookSlotGroup, BookingError } = await import('../scripts/booking-rpc.js');
 const { sb } = await import('../scripts/supabase.js');
-const { ROSTER_SELECT, setRoster, resetRoster } = await import('../scripts/roster.js');
+const { ROSTER_SELECT, setRoster, resetRoster, safePhotoUrl } = await import('../scripts/roster.js');
+const { SUPABASE_URL } = await import('../scripts/config.js');
+const BUCKET = `${SUPABASE_URL}/storage/v1/object/public/barber-photos/`;
 
 beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -141,7 +143,7 @@ describe('fetchBarbers: the roster the site offers', () => {
     result = { data: [
       { slug: 'hassan', display_name: 'Hassan', title: 'Master Barber', bio: null, photo_url: null, sort_order: 0,
         barber_schedules: week('10:00:00', '18:00:00'), barber_closures: [{ closure_date: '2026-07-09' }] },
-      { slug: 'marcus', display_name: 'Marcus', title: null, bio: 'Tapers.', photo_url: 'https://x.test/m.jpg', sort_order: 20,
+      { slug: 'marcus', display_name: 'Marcus', title: null, bio: 'Tapers.', photo_url: `${BUCKET}m.jpg`, sort_order: 20,
         barber_schedules: week('12:00:00', '18:00:00', [3, 4, 5, 6]), barber_closures: [] },
     ], error: null };
     const roster = await fetchBarbers();
@@ -156,7 +158,7 @@ describe('fetchBarbers: the roster the site offers', () => {
     expect(roster[0].schedule[1]).toEqual({ open: 600, close: 1080 });
     expect(roster[0].schedule[2]).toBeUndefined();
     expect([...roster[0].closures]).toEqual(['2026-07-09']);
-    expect(roster[1]).toMatchObject({ name: 'Marcus', title: '', bio: 'Tapers.', photoUrl: 'https://x.test/m.jpg' });
+    expect(roster[1]).toMatchObject({ name: 'Marcus', title: '', bio: 'Tapers.', photoUrl: `${BUCKET}m.jpg` });
     expect(Object.keys(roster[1].schedule)).toEqual(['3', '4', '5', '6']);
   });
 
@@ -166,6 +168,25 @@ describe('fetchBarbers: the roster the site offers', () => {
       { slug: 'newbie', display_name: 'Newbie', barber_schedules: [], barber_closures: [] },
     ], error: null };
     expect((await fetchBarbers()).map(b => b.slug)).toEqual(['hassan']);
+  });
+
+  it('leaves out a row whose slug breaks the slug rule (it goes into attributes and selectors)', async () => {
+    const row = (slug) => ({ slug, display_name: 'X', barber_schedules: week('10:00:00', '18:00:00'), barber_closures: [] });
+    result = { data: [row('hassan'), row('a"]<b>'), row('UPPER'), row('x'), row(null), row('larry-2')], error: null };
+    expect((await fetchBarbers()).map(b => b.slug)).toEqual(['hassan', 'larry-2']);
+  });
+
+  it('a photo is the project\'s own bucket over https, or none', () => {
+    expect(safePhotoUrl(`${BUCKET}marcus.jpg`)).toBe(`${BUCKET}marcus.jpg`);
+    for (const bad of [
+      null, '', 'marcus.jpg', 'javascript:alert(1)', 'data:image/png;base64,AAAA',
+      BUCKET.replace('https:', 'http:') + 'm.jpg',                              // not https
+      'https://evil.test/storage/v1/object/public/barber-photos/m.jpg',        // another host
+      `https://evil.test/?u=${BUCKET}m.jpg`,
+      `${SUPABASE_URL}.evil.test/storage/v1/object/public/barber-photos/m.jpg`,
+      `${SUPABASE_URL}/storage/v1/object/public/other-bucket/m.jpg`,           // another bucket
+      `${SUPABASE_URL}/rest/v1/barbers`,
+    ]) expect(safePhotoUrl(bad), String(bad)).toBe('');
   });
 
   it('a failed read throws, so the caller keeps config.js\'s barbers', async () => {
@@ -191,6 +212,14 @@ describe('fetchNextAvailable follows the roster', () => {
     const next = await fetchNextAvailable();
     expect(next).toMatchObject({ date: '2026-07-06', time: '10:45:00', barberSlug: 'marcus', barberName: 'Marcus' });
     expect(next.label).toBe('MON, JUL 6 · 10:45 AM · MARCUS');
+  });
+
+  it('a slot overlapped by an off-grid booking is not offered', async () => {
+    // Hassan's day starts at 10:15 now; a booking from the old grid sits at 10:30.
+    setRoster([barber('hassan', 'Hassan', daily(615, 1080))]);
+    result = { data: [{ barber_slug: 'hassan', booking_date: '2026-07-06', booking_time: '10:30:00' }], error: null };
+    // 10:15 and 11:00 both overlap [10:30, 11:15); 11:45 is the first free.
+    expect(await fetchNextAvailable()).toMatchObject({ date: '2026-07-06', time: '11:45:00' });
   });
 
   it('a day off and a deactivated barber are never offered', async () => {

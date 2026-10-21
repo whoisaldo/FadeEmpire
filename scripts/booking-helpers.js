@@ -150,6 +150,24 @@ export function slotsForWeekday(weekday, barberSlug = DEFAULT_BARBER_SLUG) {
   return out;
 }
 
+/**
+ * Whether a slot is taken, from v_slot_availability rows: a booking holds its
+ * chair for [start, start + 45 min), so a slot is taken when any booking on
+ * that chair overlaps it, not only one that starts with it. (After a barber's
+ * hours change, an older booking can sit off the new grid; the database
+ * refuses a booking that overlaps it.) Returns (barberSlug, iso, minutes) => bool.
+ */
+export function takenSlots(rows) {
+  const starts = new Map();   // 'barber|YYYY-MM-DD' → booked start minutes
+  for (const r of rows) {
+    const key = `${r.barber_slug}|${r.booking_date}`;
+    if (!starts.has(key)) starts.set(key, []);
+    starts.get(key).push(hmsToMinutes(r.booking_time));
+  }
+  return (barberSlug, iso, m) => (starts.get(`${barberSlug}|${iso}`) || [])
+    .some(b => b < m + SLOT_MINUTES && m < b + SLOT_MINUTES);
+}
+
 /** A barber's slots on one calendar date: the weekly slots for that weekday,
  *  none on a day off (`barber_closures`). */
 export function slotsForDate(iso, barberSlug = DEFAULT_BARBER_SLUG) {

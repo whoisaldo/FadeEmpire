@@ -12,6 +12,13 @@
   box-shadow: var(--shadow-plate);
 }
 
+/* No barber takes online bookings (booking-grid.js): the line with the
+   shop's phone and "Cancel a booking" are all that stay. */
+#book[data-no-barbers] .section__head > :not(.t-eyebrow),
+#book[data-no-barbers] .booking > :not(.booking-offline):not([data-booking-form]):not(.cancel),
+#book[data-no-barbers] [data-booking-form] > :not(.booking__fine) { display: none; }
+#book[data-no-barbers] .booking-offline { margin: 0; }
+
 /* --- Numbered step heads --- */
 .booking__step-head {
   display: flex;

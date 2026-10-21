@@ -9,12 +9,22 @@
 //   * the barbers section: a deactivated barber's spread hidden, a plain
 //     spread for any other active barber, the heading
 //   * booking links: ?barber=&service= picks both; bad values change nothing
+//   * what the app sends is text: hostile values in every field make no markup
+//   * an answer with no barber offers nobody online; barbers that land while
+//     a confirmation shows are taken on "Book another"; a late answer that
+//     closes the picked day or time clears it and says so
+//   * a slot overlapped by an off-grid booking is taken
+//   * the hero line names the barbers and counts the chairs
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { rosterFromRows } from '../scripts/roster.js';
+import { SUPABASE_URL } from '../scripts/config.js';
+
+/** Where the app's photos live: public objects in the project's bucket. */
+const PHOTO = (name) => `${SUPABASE_URL}/storage/v1/object/public/barber-photos/${name}`;
 
 vi.mock('../scripts/booking-rpc.js', () => {
   class BookingError extends Error {
@@ -70,9 +80,26 @@ function database(rows, { delayMs = 0 } = {}) {
     rows instanceof Error ? reject(rows) : resolve(rosterFromRows(rows))), delayMs)));
 }
 
+/** The answer is held until release(rows) (or release(new Error(...))). */
+function heldDatabase() {
+  let release;
+  const answer = new Promise((resolve, reject) => {
+    release = (rows) => (rows instanceof Error ? reject(rows) : resolve(rosterFromRows(rows)));
+  });
+  rpc.fetchBarbers.mockImplementation(() => answer);
+  return release;
+}
+
+/** Availability held until release(rows). */
+function heldAvailability() {
+  let release;
+  rpc.fetchAvailability.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+  return (rows = []) => release(rows);
+}
+
 /** main.js's order, with the barbers' wait shortened for the slow-read tests. */
 async function boot({ search = '', waitMs = 200 } = {}) {
-  document.body.innerHTML = section('barbers') + section('book');
+  document.body.innerHTML = section('hero') + section('barbers') + section('book');
   const spreads = await import('../scripts/barbers-section.js');
   grid = await import('../scripts/booking-grid.js');
   const submit = await import('../scripts/booking-submit.js');
@@ -143,10 +170,10 @@ describe('the picker follows the database', () => {
   });
 
   it('a photo from the app shows in the picker button', async () => {
-    database([HASSAN, { ...MARCUS, photo_url: 'https://cdn.test/barber-photos/marcus.jpg' }]);
+    database([HASSAN, { ...MARCUS, photo_url: PHOTO('marcus.jpg') }]);
     await boot();
     const img = $('[data-barber-option="marcus"] img.booking__barber-photo');
-    expect(img.getAttribute('src')).toBe('https://cdn.test/barber-photos/marcus.jpg');
+    expect(img.getAttribute('src')).toBe(PHOTO('marcus.jpg'));
     expect(img.getAttribute('alt')).toBe('');
     expect(img.getAttribute('width')).toBe('52');
   });
@@ -237,10 +264,38 @@ describe('the picker follows the database', () => {
     expect(checked()).toBe('larry');
   });
 
-  it('an answer with no bookable barber keeps config.js\'s too', async () => {
+  it('an answer with no bookable barber is the shop\'s: nobody is offered online, and the section says how to reach the shop', async () => {
     database([{ ...MARCUS, barber_schedules: [] }]);
     await boot();
+    expect(pickerSlugs()).toEqual([]);
+    expect($('#book').hasAttribute('data-no-barbers')).toBe(true);
+    const note = $('[data-no-barbers-note]');
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toBe("Online booking isn't available right now. Call 413·885·4440 or walk in.");
+    expect(note.querySelector('a').getAttribute('href')).toBe('tel:+14138854440');
+    expect(rpc.fetchAvailability).not.toHaveBeenCalled();
+    expect($('[data-form-date]').value).toBe('');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-cancel-open]')).not.toBeNull();             // an existing booking can still be cancelled
+    // The barbers section offers nobody either.
+    expect(visibleSpreads()).toEqual([]);
+    expect($('#barbers').hidden).toBe(true);
+    expect($('[data-book-barber]:not([hidden])')?.closest('[data-barber-spread]:not([hidden])') ?? null).toBeNull();
+  });
+
+  it('an empty answer that lands late takes the form down, picks and all', async () => {
+    database([], { delayMs: 150 });
+    await boot({ waitMs: 20 });
     expect(pickerSlugs()).toEqual(['hassan', 'larry']);
+    $('[data-slot-grid] .booking__slot:not([disabled])').click();
+    expect($('[data-form-time]').value).toBe('10:45:00');
+
+    await vi.waitFor(() => expect($('#book').hasAttribute('data-no-barbers')).toBe(true));
+    expect(pickerSlugs()).toEqual([]);
+    expect($('[data-no-barbers-note]').hidden).toBe(false);
+    expect(grid.getSelection()).toMatchObject({ date: null, time: null });
+    expect($('[data-form-time]').value).toBe('');
+    expect($('#barbers').hidden).toBe(true);
   });
 
   it('a slow read: the form starts on config.js\'s barbers, then follows the database when it lands', async () => {
@@ -300,11 +355,11 @@ describe('the barbers section follows the database', () => {
   });
 
   it('a photo from the app fills the portrait, and the plain spread takes the flip in turn', async () => {
-    database([HASSAN, { ...MARCUS, photo_url: 'https://cdn.test/m.jpg', title: null, bio: null }]);
+    database([HASSAN, { ...MARCUS, photo_url: PHOTO('m.jpg'), title: null, bio: null }]);
     await boot();
     const spread = $('[data-barber-spread="marcus"]');
     const img = spread.querySelector('figure.feature__portrait img');
-    expect(img.getAttribute('src')).toBe('https://cdn.test/m.jpg');
+    expect(img.getAttribute('src')).toBe(PHOTO('m.jpg'));
     expect(img.getAttribute('alt')).toBe('Marcus');
     expect(spread.classList.contains('feature--flip')).toBe(true);   // second visible spread
     expect(spread.querySelector('.feature__title')).toBeNull();      // no title, no empty line
@@ -409,5 +464,239 @@ describe('booking links (?barber=&service=)', () => {
     expect(readBookingLink('?barber=Larry&service=vip-haircut')).toEqual({ barber: 'larry', service: 'vip-haircut' });
     expect(readBookingLink('')).toEqual({ barber: null, service: null });
     expect(readBookingLink('?barber=%20')).toEqual({ barber: null, service: null });
+  });
+});
+
+/* ================= What the app sends is text ================= */
+
+/** Every attribute on the page that a hostile value could have made. */
+function hostileTraces() {
+  const found = [];
+  for (const node of document.querySelectorAll('*')) {
+    if (['SCRIPT', 'B', 'IFRAME'].includes(node.tagName)) found.push(node.tagName);
+    for (const a of node.attributes) {
+      if (a.name.startsWith('on') || /javascript:|evil\.test|xss/i.test(a.value)) found.push(`${node.tagName} ${a.name}=${a.value}`);
+    }
+  }
+  return found;
+}
+
+const HOSTILE_NAME = '<img src=x onerror=window.xss=1>';
+const HOSTILE = {
+  ...HASSAN,
+  display_name: HOSTILE_NAME,
+  title:        '<script>window.xss=2</script>',
+  bio:          '<b onmouseover=window.xss=3>bio</b>',
+  photo_url:    'javascript:window.xss=4',
+  barber_closures: [{ closure_date: '2026-07-08' }, { closure_date: '"><img src=x onerror=window.xss=5>' }],
+};
+
+describe('what the app sends reaches the page as text', () => {
+  it('hostile values in every field make no element and no attribute', async () => {
+    database([
+      HOSTILE,
+      { ...MARCUS, slug: 'marc"><img src=x onerror=window.xss=6>', display_name: 'Bad slug' },
+      { ...MARCUS, slug: 'other', display_name: '<svg onload=window.xss=7>', photo_url: 'https://evil.test/storage/v1/object/public/barber-photos/o.jpg' },
+      { ...MARCUS, slug: 'plain', display_name: 'Plain', photo_url: PHOTO('p.jpg').replace('https:', 'http:') },
+      { ...MARCUS, slug: 'quote', display_name: 'Quote', photo_url: `${PHOTO('q.jpg')}" onerror="alert(8)` },
+    ]);
+    await boot();
+
+    expect(pickerSlugs()).toEqual(['hassan', 'other', 'plain', 'quote']);   // the bad slug is not offered
+    expect(hostileTraces()).toEqual([]);
+    expect($('[data-barber-option="other"] .booking__barber-name').textContent).toBe('<svg onload=window.xss=7>');
+    // No photo from anywhere but the project's bucket, over https.
+    for (const slug of ['other', 'plain']) {
+      expect($(`[data-barber-option="${slug}"] img`)).toBeNull();
+      expect($(`[data-barber-spread="${slug}"] img`)).toBeNull();
+    }
+    // A quote in the project's own URL stays inside the one attribute, escaped.
+    expect($('[data-barber-spread="quote"] img').getAttribute('src')).toBe(`${PHOTO('q.jpg')}%22%20onerror=%22alert(8)`);
+
+    // The built spread for Hassan is the shipped one; the others are text.
+    const other = $('[data-barber-spread="other"]');
+    expect(other.querySelector('.feature__name').textContent).toBe('<svg onload=window.xss=7>');
+    expect(other.querySelector('svg')).toBeNull();
+    expect($('[data-barbers-head]').textContent).toBe(`${HOSTILE_NAME}, <svg onload=window.xss=7>, Plain and Quote.`);
+    expect($('[data-hero-dek]').querySelector('*')).toBeNull();
+
+    // The day label, the selection pill and the slot grid's messages.
+    $('[data-slot-grid] .booking__slot:not([disabled])').click();
+    expect($('[data-selected-text]').textContent).toBe(`Mon, Jul 6 · 10:45 AM · ${HOSTILE_NAME}`);
+    expect($('[data-slots-day-label]').textContent).toBe(`Monday, Jul 6 · ${HOSTILE_NAME}`);
+    expect(hostileTraces()).toEqual([]);
+  });
+
+  it('a barber\'s name in "is off this day" is text (a shortcut onto a day off)', async () => {
+    database([HOSTILE, LARRY]);
+    await boot();
+    document.dispatchEvent(new CustomEvent('booking:pick', { detail: { date: '2026-07-08', time: '10:00:00', barberSlug: 'hassan' } }));
+    await vi.waitFor(() => expect($('[data-slot-grid]').textContent).toBe(`${HOSTILE_NAME} is off this day.`));
+    expect($('[data-slot-grid] img')).toBeNull();
+    expect(hostileTraces()).toEqual([]);
+  });
+
+  it('the reviewer\'s race: a late roster that closes every day, then late availability, makes no markup', async () => {
+    const releaseRoster = heldDatabase();
+    const releaseAvailability = heldAvailability();
+    const booting = boot({ waitMs: 20 });
+    await vi.waitFor(() => expect(rpc.fetchAvailability).toHaveBeenCalled());   // the grid is up, reading
+    const everyDay = Array.from({ length: 18 }, (_, i) => ({ closure_date: `2026-07-${String(5 + i).padStart(2, '0')}` }));
+    releaseRoster([{ ...HASSAN, display_name: HOSTILE_NAME, barber_closures: everyDay }]);
+    await vi.waitFor(() => expect($$('[data-day-row] .booking__day:not([disabled])')).toHaveLength(0));
+    releaseAvailability([]);
+    await booting;
+    await vi.waitFor(() => expect($('[data-slot-grid]').hasAttribute('aria-busy')).toBe(false));
+    expect($('[data-slot-grid]').textContent).toBe(`${HOSTILE_NAME} has no open days in the next two weeks.`);
+    expect(hostileTraces()).toEqual([]);
+  });
+});
+
+/* ================= Late barbers: checked again, said plainly ================= */
+
+describe('a late roster checks the customer\'s picks again', () => {
+  it('days off for every day: nothing stays selected or offered, and the grid says so', async () => {
+    database([{ ...HASSAN, barber_closures: Array.from({ length: 14 }, (_, i) => ({ closure_date: `2026-07-${String(6 + i).padStart(2, '0')}` })) }, LARRY],
+      { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+    expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: '10:45:00' });
+
+    await vi.waitFor(() => expect($$('[data-day-row] .booking__day:not([disabled])')).toHaveLength(0));
+    expect(grid.getSelection()).toMatchObject({ date: null, time: null, barberSlug: 'hassan' });
+    expect($$('[data-slot-grid] .booking__slot')).toHaveLength(0);
+    expect($('[data-slot-grid]').textContent).toBe('Hassan has no open days in the next two weeks.');
+    expect($('[data-slots-day-label]').textContent).toBe('Time');
+    expect($('[data-form-date]').value).toBe('');
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-selected-pill]').hidden).toBe(true);
+    expect($('[data-slots-note]').textContent).toBe('Mon, Jul 6 at 10:45 AM is no longer open.');
+    // Larry still books.
+    $('[data-barber-option="larry"]').click();
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot:not([disabled])')).not.toBeNull());
+  });
+
+  it('new hours that leave the picked time off the grid drop it and say so; the day stays', async () => {
+    database([{ ...HASSAN, barber_schedules: days('12:00:00', '18:00:00', OPEN_DAYS) }, LARRY], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+
+    await vi.waitFor(() => expect($('[data-barber-option="hassan"] .booking__barber-hours').textContent).toBe('12 to 6 · Closed Tue'));
+    expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: null });
+    expect(pills()[0]).toBe('12:00:00');
+    expect($('[data-slot-grid] .booking__slot.is-selected')).toBeNull();
+    expect($('[data-form-time]').value).toBe('');
+    expect($('[data-slots-note]').textContent).toBe('Mon, Jul 6 at 10:45 AM is no longer open. Pick another time.');
+  });
+
+  it('new hours that keep the picked time keep it, and say nothing', async () => {
+    database([{ ...HASSAN, barber_schedules: days('10:45:00', '18:00:00', OPEN_DAYS) }, LARRY], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    $('[data-slot-grid] .booking__slot[data-time="11:30:00"]').click();
+    await vi.waitFor(() => expect(pills()[0]).toBe('10:45:00'));
+    expect(grid.getSelection()).toMatchObject({ date: '2026-07-06', time: '11:30:00' });
+    expect($('[data-slot-grid] .booking__slot.is-selected').dataset.time).toBe('11:30:00');
+    expect($('[data-slots-note]').textContent).toBe('');
+  });
+
+  it('a barber taken off the site gives way to the first one, and the form says who is gone', async () => {
+    database([HASSAN], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    $('[data-barber-option="larry"]').click();
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    $('[data-slot-grid] .booking__slot:not([disabled])').click();
+    await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan']));
+    expect(checked()).toBe('hassan');
+    expect(grid.getSelection().time).toBeNull();
+    expect($('[data-slots-note]').textContent).toBe("Larry isn't taking online bookings right now.");
+  });
+});
+
+describe('barbers that land while a confirmation shows', () => {
+  it('are taken on "Book another": the picker is the database\'s and its buttons work', async () => {
+    const release = heldDatabase();
+    await boot({ waitMs: 20 });
+    rpc.bookSlot.mockResolvedValue([{ booking_id: 'b1', slot_index: 0, booking_time: '10:45:00', total_price_cents: 3000 }]);
+    $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+    fill('input[name="name"]', 'Test Customer');
+    fill('input[name="phone"]', '4135550123');
+    fill('[data-service-select]', 'hair-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+
+    release([MARCUS]);
+    await vi.waitFor(() => expect(visibleSpreads()).toEqual(['marcus']));
+    expect(pickerSlugs()).toEqual(['hassan', 'larry']);          // nothing changes under the confirmation
+    expect($('[data-success-text]').textContent).toBe('Monday, July 6 · Hassan');
+
+    $('[data-book-another]').click();
+    expect(pickerSlugs()).toEqual(['marcus']);
+    expect(checked()).toBe('marcus');
+    expect($('[data-slots-note]').textContent).toBe("Hassan isn't taking online bookings right now.");
+    expect(rpc.fetchAvailability).toHaveBeenLastCalledWith(expect.objectContaining({ barberSlug: 'marcus' }));
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    expect(chip('2026-07-08').getAttribute('aria-selected')).toBe('true');   // Marcus's first day
+    $('[data-slot-grid] .booking__slot[data-time="12:45:00"]').click();
+    expect(grid.getSelection()).toMatchObject({ barberSlug: 'marcus', date: '2026-07-08', time: '12:45:00' });
+  });
+});
+
+/* ================= Off-grid bookings ================= */
+
+describe('a booking off the barber\'s grid', () => {
+  it('takes every slot it overlaps (a booking holds the chair for 45 minutes)', async () => {
+    // Hassan's day now starts at 10:15; a booking made on the old grid sits at 11:30 Wednesday.
+    database([{ ...HASSAN, barber_schedules: days('10:15:00', '18:00:00', OPEN_DAYS) }, LARRY]);
+    rpc.fetchAvailability.mockResolvedValue([
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '11:30:00', status: 'confirmed' },
+    ]);
+    await boot();
+    chip('2026-07-08').click();
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    const pill = (t) => $(`[data-slot-grid] .booking__slot[data-time="${t}"]`);
+    expect(pills().slice(0, 4)).toEqual(['10:15:00', '11:00:00', '11:45:00', '12:30:00']);
+    for (const t of ['11:00:00', '11:45:00']) {
+      expect(pill(t).classList.contains('is-taken')).toBe(true);
+      expect(pill(t).disabled).toBe(true);
+    }
+    for (const t of ['10:15:00', '12:30:00']) expect(pill(t).disabled).toBe(false);
+  });
+});
+
+/* ================= The hero line ================= */
+
+describe('the hero line follows the barbers', () => {
+  it('ships naming Hassan and Larry, the same line the roster of the two makes', async () => {
+    const { heroLine } = await import('../scripts/barbers-section.js');
+    document.body.innerHTML = section('hero');
+    expect($('[data-hero-dek]').textContent.trim().replace(/\s+/g, ' ')).toBe(heroLine(['Hassan', 'Larry']));
+  });
+
+  it('names the barbers on offer and counts their chairs', async () => {
+    database([HASSAN, LARRY, MARCUS]);
+    await boot();
+    expect($('[data-hero-dek]').textContent)
+      .toBe('Three chairs on Memorial Drive. Fades, beards, and line-ups by Hassan, Larry and Marcus, 10 to 6, six days a week.');
+  });
+
+  it('one barber, one chair; and Larry\'s line about Hassan goes with Hassan', async () => {
+    database([LARRY]);
+    await boot();
+    expect($('[data-hero-dek]').textContent)
+      .toBe('One chair on Memorial Drive. Fades, beards, and line-ups by Larry, 10 to 6, six days a week.');
+    expect($('#larry [data-needs-barber="hassan"]').hidden).toBe(true);
+  });
+
+  it('nobody online: the line names no one', async () => {
+    database([]);
+    await boot();
+    expect($('[data-hero-dek]').textContent).toBe('Fades, beards, and line-ups on Memorial Drive, 10 to 6, six days a week.');
+  });
+
+  it('a failed read leaves the shipped line', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    database(new Error('offline'));
+    await boot();
+    expect($('[data-hero-dek]').textContent.trim()).toMatch(/^Two chairs on Memorial Drive\. Fades, beards, and line-ups by Hassan and Larry,/);
   });
 });

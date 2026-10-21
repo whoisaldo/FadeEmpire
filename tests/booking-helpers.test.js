@@ -7,7 +7,7 @@ import {
   weekdayFromIso, dateLabelFromIso, addDaysIso,
   effectiveHours, slotsForWeekday, slotsForDate, barberHoursLabel, serviceDurationMin, serviceSlotCount,
   totalCents, includedAddons, paidAddons, formatPrice, formatPhoneDisplay, cleanPhone,
-  mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES,
+  mapBookingErrorCode, FALLBACK_CODES, ERROR_MESSAGES, takenSlots,
 } from '../scripts/booking-helpers.js';
 import { STORE_HOURS, BARBERS } from '../scripts/config.js';
 import { setRoster, resetRoster, rosterFromRows } from '../scripts/roster.js';
@@ -172,6 +172,32 @@ describe('any barber from the database (roster.js)', () => {
     expect(barberHoursLabel('dre')).toBe('Closed Tue');
     expect(barberHoursLabel('sam', { long: true })).toBe('10:30 AM to 5:15 PM · Closed Tuesdays');
     expect(barberHoursLabel('nobody')).toBe('Off Sun, Mon, Tue, Wed, Thu, Fri, Sat');
+  });
+});
+
+describe('taken slots (a booking holds its chair for 45 minutes)', () => {
+  const row = (barber_slug, booking_date, booking_time) => ({ barber_slug, booking_date, booking_time, status: 'confirmed' });
+
+  it('a booking on the grid takes its own slot only', () => {
+    const taken = takenSlots([row('hassan', '2026-07-08', '10:45:00')]);
+    expect(taken('hassan', '2026-07-08', 645)).toBe(true);
+    expect(taken('hassan', '2026-07-08', 600)).toBe(false);    // 10:00 ends as it starts
+    expect(taken('hassan', '2026-07-08', 690)).toBe(false);    // 11:30 starts as it ends
+  });
+
+  it('a booking off the grid takes both slots it overlaps', () => {
+    const taken = takenSlots([row('hassan', '2026-07-08', '11:30:00')]);
+    expect(taken('hassan', '2026-07-08', 615)).toBe(false);    // 10:15 to 11:00
+    expect(taken('hassan', '2026-07-08', 660)).toBe(true);     // 11:00 to 11:45
+    expect(taken('hassan', '2026-07-08', 705)).toBe(true);     // 11:45 to 12:30
+    expect(taken('hassan', '2026-07-08', 750)).toBe(false);    // 12:30
+  });
+
+  it('only on that chair, that day', () => {
+    const taken = takenSlots([row('hassan', '2026-07-08', '11:30:00')]);
+    expect(taken('larry', '2026-07-08', 660)).toBe(false);
+    expect(taken('hassan', '2026-07-09', 660)).toBe(false);
+    expect(takenSlots([])('hassan', '2026-07-08', 660)).toBe(false);
   });
 });
 

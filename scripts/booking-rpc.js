@@ -5,7 +5,7 @@ import { DEFAULT_BARBER_SLUG } from './config.js';
 import { ROSTER_SELECT, rosterFromRows, barberList } from './roster.js';
 import {
   mapBookingErrorCode, isoDate, slotsForDate, minutesToHms, minutesToLabel,
-  nowMinutesInShopTz, addDaysIso, dateLabelFromIso,
+  nowMinutesInShopTz, addDaysIso, dateLabelFromIso, takenSlots,
 } from './booking-helpers.js';
 
 export class BookingError extends Error {
@@ -206,9 +206,7 @@ export async function fetchNextAvailable() {
   const toDate   = addDaysIso(fromDate, 14);
   const taken    = await fetchAvailability({ fromDate, toDate, barberSlug: null });
 
-  const takenSet = new Set(
-    taken.map(r => `${r.barber_slug}|${r.booking_date}|${r.booking_time.slice(0, 5)}`)
-  );
+  const isTaken  = takenSlots(taken);
 
   const todayIso = fromDate;
   const nowMin   = nowMinutesInShopTz();
@@ -222,7 +220,7 @@ export async function fetchNextAvailable() {
     for (const barber of barbers) {
       for (const m of slotsForDate(iso, barber.slug)) {
         if (iso === todayIso && m <= nowMin) continue;               // past slot today
-        if (takenSet.has(`${barber.slug}|${iso}|${minutesToHms(m).slice(0, 5)}`)) continue;
+        if (isTaken(barber.slug, iso, m)) continue;
         if (!best || m < best.minutes) best = { minutes: m, barber };
         break;                                                       // first free = earliest for this barber
       }

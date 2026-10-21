@@ -5,8 +5,10 @@
 // spread whose barber is no longer active is hidden, each hours line follows
 // the barber's week, and every other active barber gets a plain spread built
 // here: photo (when there is one), name, title, bio, and a Book button. The
-// heading names the barbers on offer. Without the read, the page stays as
-// shipped. Needs nothing from the database client itself.
+// heading and the hero line name the barbers on offer, and the hero line
+// counts their chairs. With no barber on offer the section and its nav link
+// are hidden. Without the read, the page stays as shipped. Needs nothing from
+// the database client itself.
 
 import { barberList, getBarber } from './roster.js';
 import { barberHoursLabel } from './booking-helpers.js';
@@ -18,10 +20,26 @@ function el(tag, className, text) {
   return node;
 }
 
+/** "Hassan", "Hassan and Larry", "Hassan, Larry and Marcus". */
+function nameList(names) {
+  if (names.length < 2) return names[0] || '';
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
 /** "Hassan.", "Hassan and Larry.", "Hassan, Larry and Marcus." */
 export function barbersHeading(names) {
-  if (names.length < 2) return `${names[0] || ''}.`;
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}.`;
+  return `${nameList(names)}.`;
+}
+
+const CHAIRS = ['', 'One chair', 'Two chairs', 'Three chairs', 'Four chairs', 'Five chairs', 'Six chairs'];
+
+/** The hero line for the barbers on offer; index.html ships it for Hassan
+ *  and Larry. The hours are the shop's (STORE_HOURS). */
+export function heroLine(names) {
+  const hours = '10 to 6, six days a week.';
+  if (!names.length) return `Fades, beards, and line-ups on Memorial Drive, ${hours}`;
+  const chairs = CHAIRS[names.length] || `${names.length} chairs`;
+  return `${chairs} on Memorial Drive. Fades, beards, and line-ups by ${nameList(names)}, ${hours}`;
 }
 
 function barbersDek(count) {
@@ -86,8 +104,16 @@ export function renderBarberSpreads() {
     const hours = spread.querySelector('.feature__hours');
     if (hours) hours.textContent = barberHoursLabel(spread.dataset.barberSpread, { long: true });
   });
+  // A line that sends the customer to another barber goes with that barber.
+  container.querySelectorAll('[data-needs-barber]').forEach(line => {
+    line.hidden = !getBarber(line.dataset.needsBarber);
+  });
 
   const names = barberList().map(b => b.name);
+  section.hidden = !names.length;
+  document.querySelectorAll('a[href="#barbers"]').forEach(a => { a.hidden = !names.length; });
+  const hero = document.querySelector('[data-hero-dek]');
+  if (hero) hero.textContent = heroLine(names);
   const head = section.querySelector('[data-barbers-head]');
   if (head) head.textContent = barbersHeading(names);
   const dek = section.querySelector('[data-barbers-dek]');

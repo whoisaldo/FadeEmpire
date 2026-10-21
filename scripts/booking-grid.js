@@ -9,13 +9,15 @@
 // The barbers themselves come from the database (loadBarbers, roster.js):
 // the picker starts as index.html's two buttons and is rebuilt from the
 // active barbers once they are read, or stays config.js's if the read fails.
+// Their names, titles and bios are the app's text: they reach the page as
+// text only, never as markup.
 
 import { fetchAvailability, fetchBarbers } from './booking-rpc.js';
 import {
   isoDate, slotsForDate, minutesToHms, minutesToLabel, barberHoursLabel,
-  nowMinutesInShopTz, weekdayFromIso, dateLabelFromIso, addDaysIso,
+  nowMinutesInShopTz, weekdayFromIso, dateLabelFromIso, addDaysIso, takenSlots, hmsToMinutes,
 } from './booking-helpers.js';
-import { DEFAULT_BARBER_SLUG, STORE_HOURS } from './config.js';
+import { DEFAULT_BARBER_SLUG, STORE_HOURS, SHOP_PHONE } from './config.js';
 import { barberList, getBarber, setRoster } from './roster.js';
 
 const DAYS_AHEAD = 14;          // how many days the picker shows
@@ -24,9 +26,9 @@ let state = {
   barberSlug:   DEFAULT_BARBER_SLUG,
   selectedDate: null,      // 'YYYY-MM-DD'
   selectedTime: null,      // 'HH:MM:SS'
-  takenSet:     new Set(), // 'YYYY-MM-DD|HH:MM' keys for the CURRENT barber's taken slots
+  isTaken:      () => false, // (barber, date, minutes) => whether a booking on the CURRENT barber's chair overlaps
   // Availability read for the current barber: 'loading' (nothing read yet),
-  // 'ok' (takenSet is real, possibly empty), or 'error' (the read failed, so
+  // 'ok' (isTaken is real, possibly never true), or 'error' (the read failed, so
   // no slot is offered until a retry succeeds).
   availability: 'loading',
 };
@@ -44,14 +46,22 @@ function cancelPick() { pickSeq++; }
 // After a booking the picker must not change under the confirmation: its
 // parts go inert (no taps, no focus) and every way in is refused, including
 // the shortcuts from elsewhere on the page and the background refresh.
-// "Book another" unlocks, and the day row catches up on what it skipped.
+// "Book another" unlocks, and the day row and the picker catch up on what
+// they skipped.
 let locked = false;
+let rosterWaiting = null;  // barbers read while locked: { before } for rosterChanged on unlock
 const LOCKED_PARTS = ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]'];
 
 export function setLocked(on) {
   locked = on;
   LOCKED_PARTS.forEach(sel => document.querySelectorAll(sel).forEach(el => el.toggleAttribute('inert', on)));
-  if (!on) maybeRolloverDay();
+  if (on) return;
+  if (rosterWaiting) {
+    const { before } = rosterWaiting;
+    rosterWaiting = null;
+    rosterChanged(before);
+  }
+  maybeRolloverDay();
 }
 
 /* ---------- Barber picker ---------- */
@@ -71,7 +81,7 @@ function selectBarber(slug, { keepDate = false } = {}) {
     // A different barber has different days off, hours, and taken slots.
     state.selectedTime = null;
     if (!keepDate) state.selectedDate = null;
-    state.takenSet = new Set();
+    state.isTaken = () => false;
     state.availability = 'loading';
     renderDayRow();
     syncForm();
@@ -178,12 +188,14 @@ export const ROSTER_WAIT_MS = 2500;
 /** Read the active barbers into roster.js. Resolves once they are in, or
  *  after `waitMs` (or a failed read) with config.js's still on offer; never
  *  rejects. A read that lands after the wait is taken then: the picker and
- *  the day row follow it, and `booking:barbers` tells the barbers section. */
+ *  the day row follow it, and `booking:barbers` tells the barbers section.
+ *  A read that finds no bookable barber is the shop's answer, not a failure:
+ *  nobody is offered online. */
 export function loadBarbers({ waitMs = ROSTER_WAIT_MS } = {}) {
   const read = fetchBarbers().then((roster) => {
-    if (!roster.length) return;        // no barber with hours: keep the two the page was built with
+    const before = getBarber(state.barberSlug);
     setRoster(roster);
-    if (booted) rosterChanged();
+    if (booted) rosterChanged(before);
     document.dispatchEvent(new CustomEvent('booking:barbers'));
   }, (err) => {
     console.warn('[booking] barbers not read; offering config.js\'s', err);
@@ -192,18 +204,57 @@ export function loadBarbers({ waitMs = ROSTER_WAIT_MS } = {}) {
 }
 
 /** The barbers changed after the grid started: rebuild the picker, and the
- *  day row for the barber's (maybe new) hours and days off. A barber no
- *  longer on offer gives way to the first one. */
-function rosterChanged() {
-  if (locked) return;
-  const current = getBarber(state.barberSlug);
-  if (!current) {
-    renderPicker();
-    selectBarber(barberList()[0].slug);
+ *  day row for the barber's (maybe new) hours and days off. Whatever the
+ *  customer had picked is checked again: a barber no longer on offer gives
+ *  way to the first one, and a day or time no longer open is dropped, with a
+ *  line saying so. `before` is the barber selected before the read. While
+ *  a confirmation shows nothing changes; it is all done on unlock. */
+function rosterChanged(before) {
+  if (locked) {
+    rosterWaiting ??= { before };
     return;
   }
+  const was = { date: state.selectedDate, time: state.selectedTime };
   renderPicker();
+  showNoBarbers(!barberList().length);
+  if (!barberList().length) {
+    state.barberSlug = null;
+    state.selectedDate = state.selectedTime = null;
+    syncForm();
+    return;
+  }
+  if (!getBarber(state.barberSlug)) {
+    selectBarber(barberList()[0].slug);
+    if (before) setSlotsNote(`${before.name} isn't taking online bookings right now.`);
+    return;
+  }
   renderDayRow();
+  if (was.time && (state.selectedDate !== was.date || state.selectedTime !== was.time)) {
+    const when = `${dateLabelFromIso(was.date, { weekday: 'short', month: 'short', day: 'numeric' })} at ${minutesToLabel(hmsToMinutes(was.time))}`;
+    setSlotsNote(`${when} is no longer open.${state.selectedDate ? ' Pick another time.' : ''}`);
+  }
+}
+
+/** No barber takes online bookings: the booking steps give way to a line
+ *  with the shop's phone (index.html's CSS hides them on [data-no-barbers]).
+ *  "Cancel a booking" stays. */
+function showNoBarbers(on) {
+  const book = document.getElementById('book');
+  if (!book) return;
+  book.toggleAttribute('data-no-barbers', on);
+  let note = book.querySelector('[data-no-barbers-note]');
+  if (on && !note) {
+    note = document.createElement('p');
+    note.className = 'booking-offline';
+    note.dataset.noBarbersNote = '';
+    note.setAttribute('role', 'status');
+    const call = document.createElement('a');
+    call.href = `tel:+${SHOP_PHONE}`;
+    call.textContent = '413·885·4440';
+    note.append("Online booking isn't available right now. Call ", call, ' or walk in.');
+    book.querySelector('.booking')?.prepend(note);
+  }
+  if (note) note.hidden = !on;
 }
 
 /* ---------- Day row ---------- */
@@ -255,23 +306,32 @@ function renderDayRow() {
   // Keep the previously-selected day if this barber also works it;
   // otherwise pre-select the first day with a slot left (closed days and a
   // finished today are skipped).
+  // With no open day at all, nothing stays selected.
   const keep = state.selectedDate &&
     row.querySelector(`.booking__day[data-date="${state.selectedDate}"]:not(.is-closed)`);
   const firstOpen = keep || row.querySelector('.booking__day:not(.is-closed)');
-  const time = keep ? state.selectedTime : null;
-  if (firstOpen) selectDate(firstOpen.dataset.date);
   // A rebuild that keeps the day keeps the customer's time too, if still open.
-  if (time && document.querySelector(`[data-slot-grid] .booking__slot[data-time="${time}"]:not([disabled])`)) {
-    selectTime(time);
-  }
+  if (firstOpen) selectDate(firstOpen.dataset.date, { time: keep ? state.selectedTime : null });
+  else clearDay();
+}
+
+/** No day selected: the label goes back to "Time" and the grid says why. */
+function clearDay() {
+  state.selectedDate = state.selectedTime = null;
+  const dayLabel = document.querySelector('[data-slots-day-label]');
+  if (dayLabel) dayLabel.textContent = 'Time';
+  renderSlots();
+  syncForm();
 }
 
 /* ---------- Slot column ---------- */
 
-function selectDate(iso) {
+/** Select a day. `time` keeps a time already picked, if it is open that day
+ *  (renderSlots drops it otherwise). */
+function selectDate(iso, { time = null } = {}) {
   if (locked) return;
   state.selectedDate = iso;
-  state.selectedTime = null;
+  state.selectedTime = time;
   setSlotsNote('');
 
   // Update day-row aria-selected
@@ -299,18 +359,19 @@ function renderSlots() {
   wrap.innerHTML = '';
 
   const iso = state.selectedDate;
+  const barber = getBarber(state.barberSlug);
   if (!iso) {
-    wrap.innerHTML = '<p class="booking__slots-empty t-italic">Pick a day above to see open slots.</p>';
+    const anyOpen = document.querySelector('[data-day-row] .booking__day:not(.is-closed)');
+    wrap.append(slotsEmpty(anyOpen || !barber
+      ? 'Pick a day above to see open slots.'
+      : `${barber.name} has no open days in the next two weeks.`));
     return;
   }
 
   const slots = slotsForDate(iso, state.barberSlug);
 
   if (slots.length === 0) {
-    const barber = getBarber(state.barberSlug);
-    wrap.innerHTML = `<p class="booking__slots-empty t-italic">${
-      barber ? `${barber.name} is off this day.` : 'Closed this day.'
-    }</p>`;
+    wrap.append(slotsEmpty(barber ? `${barber.name} is off this day.` : 'Closed this day.'));
     return;
   }
 
@@ -333,9 +394,7 @@ function renderSlots() {
 
   for (const m of slots) {
     const hms  = minutesToHms(m);
-    const hhmm = hms.slice(0, 5);
-    const key  = `${iso}|${hhmm}`;
-    const isTaken = state.takenSet.has(key);
+    const isTaken = state.isTaken(state.barberSlug, iso, m);
     const isPast  = iso === todayIso && m <= nowMin;
 
     const btn = document.createElement('button');
@@ -384,6 +443,14 @@ function renderSlots() {
     state.selectedTime = null;
     syncForm();
   }
+}
+
+/** The grid's one-line message (a barber's name in it is text). */
+function slotsEmpty(text) {
+  const p = document.createElement('p');
+  p.className = 'booking__slots-empty t-italic';
+  p.textContent = text;
+  return p;
 }
 
 /** Retry re-renders the grid, which takes the focused button with it: focus
@@ -463,6 +530,7 @@ function syncForm() {
 let lastLoad = Promise.resolve();
 function loadAvailability() {
   if (locked) return lastLoad;         // "Book another" refreshes
+  if (!getBarber(state.barberSlug)) return lastLoad;   // no barber offered online
   lastLoad = readAvailability();
   return lastLoad;
 }
@@ -496,7 +564,7 @@ async function readInto(seq) {
     return;
   }
   if (seq !== loadSeq || barberSlug !== state.barberSlug) return;   // superseded mid-flight
-  state.takenSet = new Set(rows.map(r => `${r.booking_date}|${r.booking_time.slice(0,5)}`));
+  state.isTaken = takenSlots(rows);
   state.availability = 'ok';
   renderSlots();
 }
@@ -549,7 +617,7 @@ function hasOpenSlot(iso) {
   const todayIso = isoDate(new Date());
   const nowMin   = nowMinutesInShopTz();
   return slotsForDate(iso, state.barberSlug).some(m =>
-    !(iso === todayIso && m <= nowMin) && !state.takenSet.has(`${iso}|${minutesToHms(m).slice(0, 5)}`));
+    !(iso === todayIso && m <= nowMin) && !state.isTaken(state.barberSlug, iso, m));
 }
 
 /** After a Move: the booking's day is selected at once if this barber works
@@ -613,9 +681,10 @@ export async function initBookingGrid() {
   if (!document.querySelector('[data-day-row]')) return;
   booted = true;
   // A barber the database no longer offers (deactivated) gives way to the first.
-  if (!getBarber(state.barberSlug)) state.barberSlug = barberList()[0]?.slug;
+  if (!getBarber(state.barberSlug)) state.barberSlug = barberList()[0]?.slug ?? null;
   bindBarberPicker();
   renderPicker();                   // the barbers on offer, initial aria-checked state
+  showNoBarbers(!barberList().length);
   renderDayRow();
   bindExternalPick();
   initAutoRefresh();

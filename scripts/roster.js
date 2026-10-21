@@ -7,7 +7,7 @@
 // deactivated one is gone. Nothing here reaches the database: page.js and
 // the helpers import it statically.
 
-import { BARBERS } from './config.js';
+import { BARBERS, SUPABASE_URL } from './config.js';
 
 /** The columns the site reads, with each barber's week and upcoming days off.
  *  tests/ci/live-health.mjs runs the same select against production. */
@@ -42,10 +42,24 @@ export function resetRoster() {
 
 const toMin = (hms) => { const [h, m] = hms.split(':').map(Number); return h * 60 + m; };
 
+/** The slug rule manager_save_barber enforces. A slug goes into attributes
+ *  and selectors, so a row without one is not offered. */
+const SLUG = /^[a-z0-9-]{2,30}$/;
+
+/** The app's photos are public objects in the project's `barber-photos`
+ *  bucket. Any other URL (another host, plain http, javascript:) is no photo. */
+export function safePhotoUrl(value) {
+  let url;
+  try { url = new URL(value); } catch (_) { return ''; }
+  return url.protocol === 'https:' && url.host === new URL(SUPABASE_URL).host
+    && url.pathname.startsWith('/storage/v1/object/public/barber-photos/') ? url.href : '';
+}
+
 /** `barbers` rows (ROSTER_SELECT, active only, in sort_order) to the roster.
- *  A barber with no weekly hours yet has nothing to book, so is left out. */
+ *  A barber with no weekly hours yet has nothing to book, so is left out.
+ *  Every value is text from the app: it reaches the page only as text. */
 export function rosterFromRows(rows) {
-  return rows.map(r => {
+  return rows.filter(r => typeof r.slug === 'string' && SLUG.test(r.slug)).map(r => {
     const schedule = {};
     for (const s of r.barber_schedules || []) {
       schedule[s.weekday] = { open: toMin(s.open_time), close: toMin(s.close_time) };
@@ -55,7 +69,7 @@ export function rosterFromRows(rows) {
       name:     r.display_name,
       title:    r.title || '',
       bio:      r.bio || '',
-      photoUrl: r.photo_url || '',
+      photoUrl: safePhotoUrl(r.photo_url),
       schedule,
       closures: new Set((r.barber_closures || []).map(c => c.closure_date)),
     };
