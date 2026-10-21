@@ -96,7 +96,10 @@ FadeEmpire/
 │   ├── build-video.sh            Source clips → assets/video/*.mp4 + poster frames
 │   ├── screenshot.py             Playwright captures at phone/tablet/desktop sizes + overflow check
 │   ├── export-appointments.sh    Owner tooling (see tools/README.md)
-│   └── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
+│   ├── deploy-reminders.sh       Deploys the SMS reminders (see Reminders below)
+│   ├── deploy-barber-app.sh      Deploys the barber app backend (see Barber app backend below)
+│   ├── local-stack.sh            Local Supabase stack for the barber app (own Colima VM)
+│   └── local-stack-seed.sql      Its sample logins and week of bookings
 ├── tests/                        vitest suite (see below) + tests/ci/live-health.mjs
 ├── supabase/
 │   ├── migrations/
@@ -120,8 +123,11 @@ FadeEmpire/
 │   │   ├── 0018_vip_45_minutes.sql         VIP is 45 minutes — one slot like everything else
 │   │   ├── 0019_people_tracking.sql        Party, guest and per-person columns + owner-only v_people view
 │   │   ├── 0020_sms_reminders.sql          SMS consent columns + reminder/rebook queries for send-reminders
-│   │   └── 0021_beard_addon_15.sql         Beard add-on $10 → $15
+│   │   ├── 0021_beard_addon_15.sql         Beard add-on $10 → $15
+│   │   └── 0022_barber_app.sql             Barber app: logins, view grants, booking events, app + manager RPCs
 │   ├── functions/send-reminders/ Edge Function that sends the reminder texts (Deno)
+│   ├── functions/staff-admin/    Edge Function: the manager creates, resets, disables app logins
+│   ├── functions/notify-booking-event/  Edge Function: APNs pushes for booking events
 │   └── tests/                    pgTAP suites
 └── assets/
     ├── img/                      Everything the page serves (generated, committed)
@@ -251,6 +257,38 @@ To keep the schedule but stop sending, remove the Twilio secrets (`supabase secr
 - **Sent but not marked.** If Twilio accepts a message but the mark fails, the function logs an error with the booking ids. Mark them by hand, or they are texted again once the claim expires: `select mark_reminder_sent(array['<id>']::uuid[], 'reminder');`
 - **Tests.** `deno test --no-lock supabase/functions/send-reminders/` for the function; `supabase/tests/006_reminders.sql` for the queries.
 
+### Barber app backend
+
+The database API, access rules and Edge Functions behind the iOS barber app (`docs/barber-app/CONTRACT.md` is the full contract). Migration 0022 adds:
+
+- **Logins and access.** `staff` (one row per app login: `manager` or `barber`, keyed by `auth.users`), `barber_view_grants` (Hassan views Larry's chair read-only), and `barbers.title`. A barber sees their own chair plus granted chairs; the manager sees and changes everything. A deactivated barber, or a login the manager disabled, sees nothing at once. The app reads `bookings` through RLS (`app_can_view`) and changes them only through RPCs: `app_*` for barbers, `manager_*` for the manager. anon can execute none of them.
+- **Bookings from the app.** `app_book` and `book_slot` share one body (`book_slot_at`), so the store hours, barber schedule, closures, 45-minute grid, `slot_taken` race safety and server-side prices are the same. Staff skip the anon per-phone limit, and app bookings get no SMS reminder (no consent box). `app_free_slots` uses the site's slot rule, so every slot it lists books.
+- **Activity and pushes.** Triggers on `bookings` write `booking_events` (`booked`, `cancelled`, `no_show`, and `moved` for a rebooking within 30 minutes of the same customer's own cancellation, which is what the site's "Move it" does). A trigger on `booking_events` posts each event to the `notify-booking-event` function through pg_net, with the URL and key in Vault; without those secrets it does nothing. The function sends APNs alerts by each login's settings, and runs dry (logs, sends nothing) without the `APNS_*` secrets.
+- **Logins.** The `staff-admin` function (manager JWT only) creates logins with a temporary password, resets passwords, and disables or enables logins. No email or SMS goes out.
+- **Photos.** Storage bucket `barber-photos`: public read, manager writes.
+
+#### Local stack
+
+```bash
+tools/local-stack.sh start   # Colima profile fadeempire, project fadeempire-app, API http://127.0.0.1:56321, seeded
+tools/local-stack.sh test    # fresh database, db lint, every pgTAP suite, then seeds again
+tools/local-stack.sh env     # URL + anon key for the app's Debug-Local config
+tools/local-stack.sh reset | functions | stop
+```
+
+It runs only on its own Colima VM (`DOCKER_HOST=unix://$HOME/.colima/fadeempire/docker.sock`) and ports 56320-56329; the default docker context and ports 5432x/5532x belong to other projects on this machine. Seeded logins (local only, password `fade-local-1`): `ali@local.test` (manager), `hassan@local.test`, `larry@local.test`, plus a week of bookings on both chairs with a group, a cancellation, a move and a no-show (`tools/local-stack-seed.sql`).
+
+#### Deploy
+
+```bash
+tools/deploy-barber-app.sh --dry-run
+SUPABASE_SERVICE_ROLE_KEY=eyJ... MANAGER_EMAIL=you@example.com \
+APNS_KEY_ID=... APNS_TEAM_ID=9X79V37Q89 APNS_KEY_FILE=~/AuthKey_XXXXXXXXXX.p8 \
+CONFIRM_PROD=1 tools/deploy-barber-app.sh   # db push, two functions, APNs secrets, Vault, manager login
+```
+
+Same safeguards as `deploy-reminders.sh` (two confirmations, a terminal, secrets only through mode-600 temp files). It prints the manager's temporary password once. Then, in the dashboard, turn off **Allow new users to sign up**: the app has no sign-up. The APNs variables can come later; until then pushes run dry.
+
 ---
 
 ## Local development
@@ -294,8 +332,9 @@ npm run test:watch # watch mode while developing
 (the same `supabase/postgres` image the hosted project uses) with all
 migrations applied from scratch: schema + seeds + hours, the booking RPC
 (store/barber hours enforcement, double-booking races, VIP multi-slot,
-server-side pricing, rate limits), group bookings, the cancellation flow, and
-the anon security model (RLS + function grants). Needs Docker:
+server-side pricing, rate limits), group bookings, the cancellation flow,
+the anon security model (RLS + function grants), people tracking, reminders,
+and the barber app (007). Needs Docker:
 
 ```bash
 npm run test:db    # supabase db start && supabase test db
@@ -305,7 +344,7 @@ npm run test:db    # supabase db start && supabase test db
 
 - **`.github/workflows/ci.yml`** — on every push/PR: the vitest suite, the
   full DB suite above (fresh Postgres, all migrations, `db lint`, pgTAP), and
-  the send-reminders Deno tests. The Supabase CLI (2.109.0) and Deno (2.9.7)
+  the Deno tests for send-reminders, staff-admin and notify-booking-event. The Supabase CLI (2.109.0) and Deno (2.9.7)
   versions are pinned. Make all three jobs required checks on `main` so
   nothing broken can deploy.
 - **`.github/workflows/live-health.yml`** — daily at 7 am ET, after every push

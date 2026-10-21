@@ -8,9 +8,11 @@
 #                   supabase/migrations from scratch, then runs the pgTAP suites
 #                   in supabase/tests/: schema + seeds, booking RPC
 #                   (hours/races/pricing), group + cancellation flow, the anon
-#                   security model, people tracking (0019), and the SMS
-#                   reminder queries (0020).
-#   function-tests  deno test for the send-reminders Edge Function (fetch stubbed).
+#                   security model, people tracking (0019), the SMS
+#                   reminder queries (0020), and the barber app's access
+#                   rules, RPCs and booking events (0022).
+#   function-tests  deno test for the send-reminders, staff-admin and
+#                   notify-booking-event Edge Functions (fetch stubbed).
 #
 # Suggested repo setting: make all three jobs required checks on main
 # (Settings → Branches → protection rule), so nothing broken can deploy —
@@ -67,7 +69,7 @@ jobs:
       - name: Lint database functions (plpgsql_check)
         run: supabase db lint --fail-on error
 
-      - name: Run pgTAP suites (schema, booking, cancellation, security, people, reminders)
+      - name: Run pgTAP suites (schema, booking, cancellation, security, people, reminders, barber app)
         run: supabase test db
 
   function-tests:
@@ -83,3 +85,9 @@ jobs:
 
       - name: Run send-reminders tests
         run: deno test --no-lock supabase/functions/send-reminders/
+
+      - name: Run staff-admin tests
+        run: deno test --no-lock supabase/functions/staff-admin/
+
+      - name: Run notify-booking-event tests
+        run: deno test --no-lock supabase/functions/notify-booking-event/
