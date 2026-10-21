@@ -60,8 +60,9 @@
 -- booking RPCs: forbidden (42501), barber_not_found / booking_not_found (P0002),
 -- and 22023 for invalid input (invalid_range, invalid_status, invalid_status_change,
 -- not_primary, cannot_cancel, date_out_of_range, invalid_slug, slug_reserved,
--- slug_taken, slug_locked, invalid_name, invalid_schedule, outside_store_hours,
--- invalid_grant, invalid_environment, invalid_token), plus every book_slot code.
+-- slug_taken, slug_locked, invalid_name, invalid_text, invalid_photo_url,
+-- invalid_schedule, outside_store_hours, invalid_grant, invalid_environment,
+-- invalid_token), plus every book_slot code.
 --
 -- Apply with `supabase db push --linked` (tools/deploy-barber-app.sh) for project
 -- mjehfaonibgobimfiijk. Idempotent.
@@ -1427,6 +1428,21 @@ $$;
 
 -- Slugs are the site's plain booking links (/<slug>), so they cannot be one of
 -- the site's own top-level paths.
+--
+-- Name, title and bio reach the site's HTML. The site renders them as text, but a
+-- barber name once got through to it as markup, so the database refuses < and >
+-- and control characters in all three (a bio keeps its line breaks): invalid_text.
+--
+-- A photo is the public URL of an object in the barber-photos bucket, which is
+-- what the app's upload returns. The database cannot know its own API host (the
+-- hosted project and the local stack differ, and nothing in the database names
+-- either), so it checks the path and leaves the host to the site, which shows a
+-- photo only from its own project host: https on any host, or http on 127.0.0.1 /
+-- localhost for the local stack, then exactly /storage/v1/object/public/barber-photos/
+-- and an object name of [A-Za-z0-9._-] segments that do not start with a dot. No
+-- query, fragment or login part. Anything else is invalid_photo_url. A photo the
+-- call leaves as it was is not checked: 0013's ./assets paths for Hassan and Larry
+-- stay valid until someone picks a new photo.
 create or replace function manager_save_barber(
   p_id            uuid,
   p_slug          text,
@@ -1441,10 +1457,13 @@ security definer
 set search_path = public
 as $$
 declare
-  v_slug text := lower(trim(coalesce(p_slug, '')));
-  v_name text := trim(coalesce(p_display_name, ''));
-  v_old  barbers%rowtype;
-  v_id   uuid;
+  v_slug  text := lower(trim(coalesce(p_slug, '')));
+  v_name  text := trim(coalesce(p_display_name, ''));
+  v_title text := nullif(trim(coalesce(p_title, '')), '');
+  v_bio   text := nullif(trim(coalesce(p_bio, '')), '');
+  v_photo text := nullif(trim(coalesce(p_photo_url, '')), '');
+  v_old   barbers%rowtype;
+  v_id    uuid;
 begin
   if not app_is_manager() then
     raise exception 'forbidden' using errcode = '42501';
@@ -1459,30 +1478,41 @@ begin
   if length(v_name) not between 1 and 40 then
     raise exception 'invalid_name' using errcode = '22023';
   end if;
+  if v_name ~ '[<>\x01-\x1f\x7f-\x9f]'
+     or v_title ~ '[<>\x01-\x1f\x7f-\x9f]'
+     or v_bio ~ '[<>\x01-\x09\x0b\x0c\x0e-\x1f\x7f-\x9f]' then
+    raise exception 'invalid_text' using errcode = '22023';
+  end if;
+
+  if p_id is not null then
+    select * into v_old from barbers b where b.id = p_id;
+    if not found then
+      raise exception 'barber_not_found' using errcode = 'P0002';
+    end if;
+  end if;
+  if v_photo is distinct from v_old.photo_url
+     and v_photo !~ ('^(https://[A-Za-z0-9.-]+|http://(127\.0\.0\.1|localhost))(:[0-9]{1,5})?'
+                     '/storage/v1/object/public/barber-photos/'
+                     '[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$') then
+    raise exception 'invalid_photo_url' using errcode = '22023';
+  end if;
 
   begin
     if p_id is null then
       insert into barbers (slug, display_name, title, bio, photo_url, sort_order)
-      values (v_slug, v_name,
-              nullif(trim(coalesce(p_title, '')), ''),
-              nullif(trim(coalesce(p_bio, '')), ''),
-              nullif(trim(coalesce(p_photo_url, '')), ''),
+      values (v_slug, v_name, v_title, v_bio, v_photo,
               (select coalesce(max(b.sort_order), 0) + 10 from barbers b))
       returning id into v_id;
     else
-      select * into v_old from barbers b where b.id = p_id;
-      if not found then
-        raise exception 'barber_not_found' using errcode = 'P0002';
-      end if;
       if v_old.slug <> v_slug and exists (select 1 from bookings bk where bk.barber_id = p_id) then
         raise exception 'slug_locked' using errcode = '22023';
       end if;
       update barbers b
          set slug         = v_slug,
              display_name = v_name,
-             title        = nullif(trim(coalesce(p_title, '')), ''),
-             bio          = nullif(trim(coalesce(p_bio, '')), ''),
-             photo_url    = nullif(trim(coalesce(p_photo_url, '')), '')
+             title        = v_title,
+             bio          = v_bio,
+             photo_url    = v_photo
        where b.id = p_id;
       v_id := p_id;
     end if;

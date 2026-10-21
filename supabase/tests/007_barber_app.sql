@@ -67,6 +67,16 @@ begin
 end;
 $$;
 
+-- True when manager_save_barber refuses p_url as invalid_photo_url.
+create function tap_photo_refused(p_id uuid, p_url text) returns boolean language plpgsql as $$
+begin
+  perform manager_save_barber(p_id, (select slug from barbers where id = p_id), 'Marco', 'Barber', null, p_url);
+  return false;
+exception when others then
+  return sqlerrm = 'invalid_photo_url';
+end;
+$$;
+
 -- Transaction-local two-slot service, to check continuation rows write no events.
 insert into services (slug, display_name, base_price_cents, duration_minutes, sort_order)
 values ('tap-long', 'pgTAP Two-Slot Service', 9000, 90, 999);
@@ -379,9 +389,84 @@ select throws_ok($$ select manager_save_barber(null, 'a', 'Al', null, null, null
 select throws_ok($$ select manager_save_barber(null, 'bad slug', 'Al', null, null, null) $$, '22023', 'invalid_slug', 'slugs are [a-z0-9-]');
 select throws_ok($$ select manager_save_barber(null, 'assets', 'Al', null, null, null) $$, '22023', 'slug_reserved', 'a slug cannot be one of the site''s own paths');
 select throws_ok($$ select manager_save_barber(tap_barber('larry'), 'lawrence', 'Larry', 'Barber', null, null) $$, '22023', 'slug_locked', 'a slug with bookings cannot change');
+-- 0013's relative photo path for larry (hassan has none) stays valid while untouched.
+select results_eq(
+  $$ select slug, photo_url from barbers where slug in ('hassan', 'larry') order by slug $$,
+  $$ values ('hassan', null::text), ('larry', './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'the shop''s two barbers as 0013 left them'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Barber', 'Second chair.',
+       './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'saving larry with his ./assets photo unchanged works, with the bio edited'
+);
+select results_eq(
+  $$ select bio, photo_url from barbers where slug = 'larry' $$,
+  $$ values ('Second chair.', './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg') $$,
+  'the bio changed, the photo is kept'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('hassan'), 'hassan', 'Hassan', 'Master Barber',
+       'Master barber. Licensed. Originally from Lebanon, cutting in Chicopee since 2018.', null) $$,
+  'saving hassan as he is works'
+);
+select throws_ok(
+  $$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Barber', 'Second chair.',
+       './assets/Barbers/Javier/optimized/JavierBarber_tablet.jpg') $$,
+  '22023', 'invalid_photo_url', 'a different ./assets path is a new photo, and refused'
+);
 select lives_ok($$ select manager_save_barber(tap_barber('larry'), 'larry', 'Larry', 'Senior Barber', 'Bio.', null) $$, 'the rest of a barber with bookings can change');
 select is((select title from barbers where slug = 'larry'), 'Senior Barber', 'the title changed');
 select lives_ok($$ select manager_save_barber(tap_barber('marco'), 'marco-b', 'Marco', 'Barber', null, null) $$, 'a slug without bookings can change');
+
+-- Text reaches the site's HTML: no angle brackets or control characters.
+select throws_ok($$ select manager_save_barber(null, 'xss', '<img src=x onerror=alert(1)>', null, null, null) $$, '22023', 'invalid_text', 'a name with markup is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', 'Barber</h3><script>', null, null) $$, '22023', 'invalid_text', 'a title with markup is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, 'Fades > tapers', null) $$, '22023', 'invalid_text', 'a bio with > is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Mar\tco', null, null, null) $$, '22023', 'invalid_text', 'a tab in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', e'Marco\nBold', null, null, null) $$, '22023', 'invalid_text', 'a line break in a name is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', e'Bar\u0085ber', null, null) $$, '22023', 'invalid_text', 'a C1 control in a title is refused');
+select throws_ok($$ select manager_save_barber(null, 'xss', 'Marco', null, e'One\u0007two', null) $$, '22023', 'invalid_text', 'a control character in a bio is refused');
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', null) $$, 'a bio keeps its line breaks, & and dashes');
+select is((select bio from barbers where slug = 'marco-b'), e'Fades.\nTapers.\r\nBeards & lineups — since 2019.', 'stored as typed');
+select is((select count(*)::int from barbers where slug = 'xss'), 0, 'nothing refused was saved');
+
+-- Photos: a public barber-photos object, https (or http on loopback, the local stack).
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null,
+       'https://abcdefghijklmnop.supabase.co/storage/v1/object/public/barber-photos/marco-b/5B1D0A52-7C1E-4F0B-9A43-0D8C1E2F3A4B.jpg') $$,
+  'a hosted barber-photos URL is accepted'
+);
+select lives_ok(
+  $$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null,
+       'http://127.0.0.1:56321/storage/v1/object/public/barber-photos/marco-b/1f2e3d4c-0000-4000-8000-000000000001.jpg') $$,
+  'the local stack''s http URL is accepted'
+);
+select is((select photo_url from barbers where slug = 'marco-b'),
+          'http://127.0.0.1:56321/storage/v1/object/public/barber-photos/marco-b/1f2e3d4c-0000-4000-8000-000000000001.jpg', 'and saved');
+select is(
+  (select count(*)::int from unnest(array[
+     'javascript:alert(1)',
+     'https://evil.example/x.jpg',
+     'http://evil.example/storage/v1/object/public/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/other-bucket/a.jpg',
+     'https://h.example/storage/v1/object/sign/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/',
+     'https://h.example/storage/v1/object/public/barber-photos/../avatars/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/.hidden',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg?download=1',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg#x',
+     'https://h.example/storage/v1/object/public/barber-photos/a.jpg" onerror="alert(1)',
+     'https://user@h.example/storage/v1/object/public/barber-photos/a.jpg',
+     'https://h.example/storage/v1/object/public/barber-photos/a b.jpg',
+     './assets/Barbers/Larry/optimized/LarryBarber_tablet.jpg'
+   ]) as u(url)
+    where tap_photo_refused(tap_barber('marco-b'), u.url)),
+  14, 'every other photo URL is invalid_photo_url, a relative ./assets path included'
+);
+select lives_ok($$ select manager_save_barber(tap_barber('marco-b'), 'marco-b', 'Marco', 'Barber', null, '  ') $$, 'an empty photo clears it');
+select is((select photo_url from barbers where slug = 'marco-b'), null, 'stored as null');
+
 
 -- ---------- manager_set_schedule ----------
 select throws_ok(
