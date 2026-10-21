@@ -219,8 +219,10 @@ psql_stack() {
   docker exec -i "$(db_container)" psql -v ON_ERROR_STOP=1 -q -U postgres -d postgres "$@"
 }
 
+# Values reach the admin API as JSON built by json.dumps and the database as psql
+# variables (:'name'); none is spliced into JSON or SQL text.
 seed() {
-  local api service email name status
+  local api service email name body status
   api="http://127.0.0.1:$PORT_API"
   service="$(env_value SERVICE_ROLE_KEY)"
   [[ -n "$service" ]] || die "could not read the local service role key from supabase status"
@@ -228,9 +230,12 @@ seed() {
   for entry in "${LOGINS[@]}"; do
     email="${entry%%:*}"
     name="${entry#*:}"
+    body="$(EMAIL="$email" NAME="$name" PASSWORD="$PASSWORD" python3 -c 'import json, os
+print(json.dumps({"email": os.environ["EMAIL"], "password": os.environ["PASSWORD"], "email_confirm": True,
+                  "user_metadata": {"display_name": os.environ["NAME"]}}))')"
     status="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$api/auth/v1/admin/users" \
       -H "apikey: $service" -H "Authorization: Bearer $service" -H 'Content-Type: application/json' \
-      -d "{\"email\":\"$email\",\"password\":\"$PASSWORD\",\"email_confirm\":true,\"user_metadata\":{\"display_name\":\"$name\"}}")"
+      --data-binary "$body")"
     case "$status" in
       200|201) say "login $email created" ;;
       422) say "login $email already exists" ;;
@@ -242,24 +247,15 @@ seed() {
 
   # Pushes: the notify trigger reaches the edge runtime through Kong on the
   # stack's docker network. Without APNS_* secrets the function logs and returns 200.
-  psql_stack <<SQL
-do \$vault\$
-declare
-  v_id uuid;
-begin
-  select id into v_id from vault.secrets where name = 'notify-booking-event-url';
-  if v_id is null then
-    perform vault.create_secret('http://supabase_kong_$PROJECT_ID:8000/functions/v1/notify-booking-event',
-                                'notify-booking-event-url', 'local stack');
-  end if;
-  select id into v_id from vault.secrets where name = 'notify-booking-event-key';
-  if v_id is null then
-    perform vault.create_secret('$service', 'notify-booking-event-key', 'local stack');
-  else
-    perform vault.update_secret(v_id, '$service');
-  end if;
-end
-\$vault\$;
+  psql_stack -v "fn_url=http://supabase_kong_$PROJECT_ID:8000/functions/v1/notify-booking-event" \
+             -v "service_key=$service" <<'SQL'
+\o /dev/null
+select vault.create_secret(:'fn_url', 'notify-booking-event-url', 'local stack')
+ where not exists (select 1 from vault.secrets where name = 'notify-booking-event-url');
+select vault.create_secret(:'service_key', 'notify-booking-event-key', 'local stack')
+ where not exists (select 1 from vault.secrets where name = 'notify-booking-event-key');
+select vault.update_secret(s.id, :'service_key')
+  from vault.secrets s where s.name = 'notify-booking-event-key';
 SQL
   say "seeded: 3 logins, a week of bookings for both chairs"
 }
