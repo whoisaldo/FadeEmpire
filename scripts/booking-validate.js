@@ -26,17 +26,21 @@ export function planParty(startMin, services) {
 
 /**
  * Check every occupied sub-slot of a planned party against the barber's
- * bookable slots for that date. Returns { ok, offenders } where `offenders`
- * is the set of person indexes whose chair time runs past closing (or lands
- * on a closed day).
+ * bookable slots for that date, and against the bookings already on the
+ * chair: `isTaken(barberSlug, date, minutes)` is the grid's overlap rule
+ * (takenSlots). Returns { ok, offenders, taken } where `offenders` is the set
+ * of person indexes whose chair time runs past closing (or lands on a closed
+ * day) and `taken` those whose time overlaps a booking.
  */
-export function partyFits({ date, barberSlug, startMin, services }) {
+export function partyFits({ date, barberSlug, startMin, services, isTaken = () => false }) {
   const validSlots = new Set(slotsForDate(date, barberSlug));
   const offenders  = [];
+  const taken      = [];
   planParty(startMin, services).forEach((person, idx) => {
     if (!person.slotMins.every(m => validSlots.has(m))) offenders.push(idx);
+    else if (person.slotMins.some(m => isTaken(barberSlug, date, m))) taken.push(idx);
   });
-  return { ok: offenders.length === 0, offenders };
+  return { ok: offenders.length === 0 && taken.length === 0, offenders, taken };
 }
 
 /**

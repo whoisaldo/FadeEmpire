@@ -13,10 +13,12 @@
 }
 
 /* No barber takes online bookings (booking-grid.js): the line with the
-   shop's phone and "Cancel a booking" are all that stay. */
+   shop's phone and "Cancel a booking" are all that stay, and a result card
+   already showing (a confirmation, or a request not yet reserved) stays with
+   them; [hidden] hides the cards that aren't. */
 #book[data-no-barbers] .section__head > :not(.t-eyebrow),
 #book[data-no-barbers] .booking > :not(.booking-offline):not([data-booking-form]):not(.cancel),
-#book[data-no-barbers] [data-booking-form] > :not(.booking__fine) { display: none; }
+#book[data-no-barbers] [data-booking-form] > :not(.booking__fine):not([data-form-success]):not([data-form-fallback]) { display: none; }
 #book[data-no-barbers] .booking-offline { margin: 0; }
 
 /* --- Numbered step heads --- */

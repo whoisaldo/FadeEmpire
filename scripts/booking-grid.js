@@ -47,7 +47,8 @@ function cancelPick() { pickSeq++; }
 // parts go inert (no taps, no focus) and every way in is refused, including
 // the shortcuts from elsewhere on the page and the background refresh.
 // "Book another" unlocks, and the day row and the picker catch up on what
-// they skipped.
+// they skipped. A booking request in flight locks it too (booking-submit.js),
+// so the barbers read meanwhile, none included, wait for the answer.
 let locked = false;
 let rosterWaiting = null;  // barbers read while locked: { before } for rosterChanged on unlock
 const LOCKED_PARTS = ['.booking__callout', '.booking__barbers', '[data-day-row]', '[data-slot-grid]'];
@@ -208,7 +209,8 @@ export function loadBarbers({ waitMs = ROSTER_WAIT_MS } = {}) {
  *  customer had picked is checked again: a barber no longer on offer gives
  *  way to the first one, and a day or time no longer open is dropped, with a
  *  line saying so. `before` is the barber selected before the read. While
- *  a confirmation shows nothing changes; it is all done on unlock. */
+ *  a confirmation shows, or a booking request is in flight, nothing changes;
+ *  it is all done on unlock. */
 function rosterChanged(before) {
   if (locked) {
     rosterWaiting ??= { before };
@@ -237,8 +239,12 @@ function rosterChanged(before) {
 
 /** No barber takes online bookings: the booking steps give way to a line
  *  with the shop's phone (index.html's CSS hides them on [data-no-barbers]).
- *  "Cancel a booking" stays. */
+ *  "Cancel a booking" stays. The sticky bar's gold button calls the shop
+ *  instead, and its call icon, which would repeat it, goes. */
 function showNoBarbers(on) {
+  document.querySelector('[data-mobile-cta-book]')?.toggleAttribute('hidden', on);
+  document.querySelector('[data-mobile-cta-call]')?.toggleAttribute('hidden', on);
+  document.querySelector('[data-mobile-cta-offline]')?.toggleAttribute('hidden', !on);
   const book = document.getElementById('book');
   if (!book) return;
   book.toggleAttribute('data-no-barbers', on);
@@ -567,6 +573,7 @@ async function readInto(seq) {
   state.isTaken = takenSlots(rows);
   state.availability = 'ok';
   renderSlots();
+  syncForm();          // a party's later times are checked against the new bookings too
 }
 
 /* ---------- External pickers (next-available, "Pick this" button) ---------- */
@@ -713,6 +720,12 @@ function settle(seq) {
   const ready = waiters;
   waiters = [];
   ready.forEach((resolve) => resolve());
+}
+
+/** Whether a booking on this barber's chair overlaps the slot at `minutes`
+ *  on `iso`: the rule the grid marks taken slots by (the current barber's read). */
+export function isSlotTaken(barberSlug, iso, minutes) {
+  return state.isTaken(barberSlug, iso, minutes);
 }
 
 export function getSelection() {

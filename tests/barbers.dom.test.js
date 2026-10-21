@@ -13,7 +13,11 @@
 //   * an answer with no barber offers nobody online; barbers that land while
 //     a confirmation shows are taken on "Book another"; a late answer that
 //     closes the picked day or time clears it and says so
-//   * a slot overlapped by an off-grid booking is taken
+//   * a slot overlapped by an off-grid booking is taken, and so is a party
+//     whose later guest lands on one
+//   * barbers read while Reserve is in flight wait for its answer
+//   * a late roster without a returning customer's barber stops naming him
+//   * nobody online: the sticky bar calls the shop
 //   * the hero line names the barbers and counts the chairs
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -53,6 +57,10 @@ function section(id) {
   const end = indexHtml.indexOf('</section>', open.index);
   return indexHtml.slice(open.index, end + '</section>'.length);
 }
+const mobileCta = () => {
+  const start = indexHtml.indexOf('<div class="mobile-cta"');
+  return indexHtml.slice(start, indexHtml.indexOf('</div>', start) + '</div>'.length);
+};
 
 // Monday 2026-07-06, 10:00 AM in Chicopee.
 const FIXED_NOW = new Date('2026-07-06T14:00:00Z');
@@ -99,7 +107,7 @@ function heldAvailability() {
 
 /** main.js's order, with the barbers' wait shortened for the slow-read tests. */
 async function boot({ search = '', waitMs = 200 } = {}) {
-  document.body.innerHTML = section('hero') + section('barbers') + section('book');
+  document.body.innerHTML = section('hero') + section('barbers') + section('book') + mobileCta();
   const spreads = await import('../scripts/barbers-section.js');
   grid = await import('../scripts/booking-grid.js');
   const submit = await import('../scripts/booking-submit.js');
@@ -641,6 +649,59 @@ describe('barbers that land while a confirmation shows', () => {
   });
 });
 
+describe('barbers that land while a Reserve request is in flight', () => {
+  /** The roster held past the wait, a time picked and Reserve pressed, the
+   *  request held: returns { release, answer, fail } for the two answers. */
+  async function reserveHeld() {
+    const release = heldDatabase();
+    await boot({ waitMs: 20 });
+    let answer, fail;
+    rpc.bookSlot.mockImplementation(() => new Promise((resolve, reject) => { answer = resolve; fail = reject; }));
+    $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+    fill('input[name="name"]', 'Test Customer');
+    fill('input[name="phone"]', '4135550123');
+    fill('[data-service-select]', 'hair-cut');
+    $('[data-submit]').click();
+    await vi.waitFor(() => expect(rpc.bookSlot).toHaveBeenCalled());
+    return { release, answer: (rows) => answer(rows), fail: (err) => fail(err) };
+  }
+
+  it('an empty answer waits: the confirmation that comes back shows, links and all, until "Book another"', async () => {
+    const { release, answer } = await reserveHeld();
+    release([]);
+    await vi.waitFor(() => expect($('#barbers').hidden).toBe(true));   // the read has landed
+    expect($('#book').hasAttribute('data-no-barbers')).toBe(false);
+    expect(pickerSlugs()).toEqual(['hassan', 'larry']);
+
+    answer([{ booking_id: 'b1', slot_index: 0, booking_time: '10:45:00', total_price_cents: 3000 }]);
+    await vi.waitFor(() => expect($('[data-form-success]').hidden).toBe(false));
+    expect($('#book').hasAttribute('data-no-barbers')).toBe(false);
+    expect($('[data-no-barbers-note]')).toBeNull();
+    expect($('[data-success-text]').textContent).toBe('Monday, July 6 · Hassan');
+    expect($('[data-form-success] [data-send-whatsapp]').getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect($('[data-add-calendar]').hidden).toBe(false);
+    expect($('[data-book-another]').hidden).toBe(false);
+
+    $('[data-book-another]').click();
+    expect($('#book').hasAttribute('data-no-barbers')).toBe(true);
+    expect($('[data-no-barbers-note]').hidden).toBe(false);
+    expect($('[data-form-success]').hidden).toBe(true);
+    expect(pickerSlugs()).toEqual([]);
+  });
+
+  it('a refused request takes the barbers read meanwhile as soon as its answer is in', async () => {
+    const { release, fail } = await reserveHeld();
+    release([LARRY]);
+    await vi.waitFor(() => expect(visibleSpreads()).toEqual(['larry']));
+    expect(pickerSlugs()).toEqual(['hassan', 'larry']);
+
+    fail(new rpc.BookingError('slot_taken'));
+    await vi.waitFor(() => expect(pickerSlugs()).toEqual(['larry']));
+    expect(checked()).toBe('larry');
+    expect($('[data-form-success]').hidden).toBe(true);
+  });
+});
+
 /* ================= Off-grid bookings ================= */
 
 describe('a booking off the barber\'s grid', () => {
@@ -660,6 +721,136 @@ describe('a booking off the barber\'s grid', () => {
       expect(pill(t).disabled).toBe(true);
     }
     for (const t of ['10:15:00', '12:30:00']) expect(pill(t).disabled).toBe(false);
+  });
+
+  /** Wednesday at 12:15 for Dana and a guest, Jay: Jay's time is 1:00. */
+  async function partyAtQuarterPastTwelve() {
+    chip('2026-07-08').click();
+    await vi.waitFor(() => expect($('[data-slot-grid] .booking__slot.is-loading')).toBeNull());
+    $('[data-slot-grid] .booking__slot[data-time="12:15:00"]').click();
+    fill('input[name="name"]', 'Dana Reyes');
+    fill('input[name="phone"]', '4135550123');
+    fill('[data-service-select]', 'hair-cut');
+    $('[data-add-guest]').click();
+    fill('[data-guest-list] [data-guest-name]', 'Jay');
+    fill('[data-guest-list] [data-guest-service]', 'hair-cut');
+  }
+  const JAY_BOOKED = 'Jay would start at 1:00 PM, which is already booked. Pick another start time.';
+
+  it('a party whose later guest lands on a time a booking overlaps keeps Reserve off, and says whose time it is', async () => {
+    database([HASSAN, LARRY]);
+    rpc.fetchAvailability.mockResolvedValue([
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '13:15:00', status: 'confirmed' },
+    ]);
+    await boot();
+    await partyAtQuarterPastTwelve();
+    expect($('[data-slot-grid] .booking__slot[data-time="13:00:00"]').classList.contains('is-taken')).toBe(true);
+    expect($('[data-submit]').disabled).toBe(true);
+    expect($('[data-overrun-note]').textContent).toBe(JAY_BOOKED);
+    expect($('[data-group-timeline]').textContent).toContain('Jay — 1:00 PM   ⚠ already booked');
+
+    // Enter in a field submits anyway: the database is not asked.
+    $('[data-booking-form]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect($('[data-form-error]').hidden).toBe(false));
+    expect($('[data-form-error-text]').textContent).toBe(JAY_BOOKED);
+    expect(rpc.bookSlotGroup).not.toHaveBeenCalled();
+
+    // An earlier start fits both: 10:45 and 11:30.
+    $('[data-slot-grid] .booking__slot[data-time="10:45:00"]').click();
+    expect($('[data-submit]').disabled).toBe(false);
+    expect($('[data-overrun-note]').textContent).toBe('');
+  });
+
+  it('a booking that lands on a guest\'s time in a background refresh turns Reserve off', async () => {
+    database([HASSAN, LARRY]);
+    await boot();
+    await partyAtQuarterPastTwelve();
+    expect($('[data-submit]').disabled).toBe(false);
+
+    rpc.fetchAvailability.mockResolvedValue([
+      { barber_slug: 'hassan', booking_date: '2026-07-08', booking_time: '13:15:00', status: 'confirmed' },
+    ]);
+    document.dispatchEvent(new Event('visibilitychange'));       // back to the tab: a fresh read
+    await vi.waitFor(() => expect($('[data-submit]').disabled).toBe(true));
+    expect($('[data-overrun-note]').textContent).toBe(JAY_BOOKED);
+    expect(grid.getSelection().time).toBe('12:15:00');           // the start itself is still open
+  });
+});
+
+/* ================= The returning customer ================= */
+
+describe('a returning customer whose barber a late roster drops', () => {
+  const HASSAN_RECORD = {
+    name: 'Dana Reyes', phone: '4135550123', barberSlug: 'hassan', serviceSlug: 'hair-cut',
+    addons: [], remindSms: true, rebookSms: false, savedAt: '2026-06-20T15:00:00.000Z',
+  };
+
+  it('the welcome card and the sticky bar stop naming him; the form keeps the rest', async () => {
+    localStorage.setItem('fe.lastBooking', JSON.stringify(HASSAN_RECORD));
+    database([LARRY], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hassan, Hair Cut. Pick a day.');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
+
+    await vi.waitFor(() => expect(checked()).toBe('larry'));
+    expect($('[data-rebook]').hidden).toBe(false);
+    expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hair Cut. Pick a day.');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Book a chair');
+    expect($('input[name="name"]').value).toBe('Dana Reyes');
+    expect($('[data-service-select]').value).toBe('hair-cut');
+
+    // Back in a later read, he isn't offered as the rebook again: the form stays on Larry.
+    database([HASSAN, LARRY]);
+    await grid.loadBarbers({ waitMs: 1000 });
+    expect(pickerSlugs()).toEqual(['hassan', 'larry']);
+    expect(checked()).toBe('larry');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Book a chair');
+    expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hair Cut. Pick a day.');
+    // The record keeps him for a visit when he is on offer from the start.
+    expect(JSON.parse(localStorage.getItem('fe.lastBooking')).barberSlug).toBe('hassan');
+  });
+
+  it('a late roster that keeps him changes nothing', async () => {
+    localStorage.setItem('fe.lastBooking', JSON.stringify(HASSAN_RECORD));
+    database([HASSAN, MARCUS], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    await vi.waitFor(() => expect(pickerSlugs()).toEqual(['hassan', 'marcus']));
+    expect(checked()).toBe('hassan');
+    expect($('[data-rebook-text]').textContent).toBe('Welcome back, Dana. Same as last time: Hassan, Hair Cut. Pick a day.');
+    expect($('[data-mobile-cta-label]').textContent).toBe('Rebook · Hassan');
+  });
+});
+
+/* ================= The sticky bar ================= */
+
+describe('the sticky bar with nobody online', () => {
+  const shown = () => ['[data-mobile-cta-book]', '[data-mobile-cta-call]', '[data-mobile-cta-offline]']
+    .filter(sel => !$(sel).hidden);
+
+  it('offers a chair while barbers book online', async () => {
+    database([HASSAN, LARRY]);
+    await boot();
+    expect(shown()).toEqual(['[data-mobile-cta-book]', '[data-mobile-cta-call]']);
+  });
+
+  it('calls the shop instead, and offers a chair again when barbers come back', async () => {
+    database([]);
+    await boot();
+    expect(shown()).toEqual(['[data-mobile-cta-offline]']);
+    const call = $('[data-mobile-cta-offline]');
+    expect(call.getAttribute('href')).toBe('tel:+14138854440');
+    expect(call.textContent.replace(/\s+/g, ' ').trim()).toBe('Call to book · 413·885·4440');
+
+    database([HASSAN]);
+    await grid.loadBarbers({ waitMs: 1000 });
+    expect(shown()).toEqual(['[data-mobile-cta-book]', '[data-mobile-cta-call]']);
+  });
+
+  it('an empty answer that lands late turns it into the call too', async () => {
+    database([], { delayMs: 150 });
+    await boot({ waitMs: 20 });
+    expect(shown()).toEqual(['[data-mobile-cta-book]', '[data-mobile-cta-call]']);
+    await vi.waitFor(() => expect(shown()).toEqual(['[data-mobile-cta-offline]']));
   });
 });
 

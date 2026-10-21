@@ -18,6 +18,7 @@
 import { bookSlot, bookSlotGroup, logBookingError, BookingError } from './booking-rpc.js';
 import {
   getSelection, refreshAvailability as gridRefresh, clearTime, whenAvailable, setLocked, chooseBarber, selectDayFrom,
+  isSlotTaken,
 } from './booking-grid.js';
 import {
   totalCents, formatTotal, formatPhoneDisplay, minutesToLabel,
@@ -107,18 +108,23 @@ function updateTotal(form) {
   form.querySelector('[data-total-display]').textContent = formatTotal(cents, isUnpricedService(primaryService));
 }
 
-/** Update the live timeline + return true if every person's chair time fits
- *  working hours. Duration-aware: a service that spans more than one slot
- *  pushes the next guest back by that many slots (none do today — the VIP is
- *  45 minutes — but the plan mirrors book_slot_group either way). */
-function updateTimelineAndCheckOverrun(form) {
+const PAST_CLOSING = 'The last person would start after closing. Pick an earlier time or fewer people.';
+
+/** Update the live timeline + return what keeps the party from fitting: ''
+ *  when every person's chair time is inside working hours and free, else the
+ *  line to show next to Reserve. A later person's time is free by the grid's
+ *  own rule (a booking off the grid can overlap it while the start is open).
+ *  Duration-aware: a service that spans more than one slot pushes the next
+ *  guest back by that many slots (none do today — the VIP is 45 minutes —
+ *  but the plan mirrors book_slot_group either way). */
+function updateTimelineAndCheck(form) {
   const timelineEl = form.querySelector('[data-group-timeline]');
-  if (!timelineEl) return true;
+  if (!timelineEl) return '';
 
   const guests = readGuestsRaw(form);
   if (guests.length === 0) {
     timelineEl.hidden = true;
-    return true;
+    return '';
   }
 
   const sel = getSelection();
@@ -126,7 +132,7 @@ function updateTimelineAndCheckOverrun(form) {
     timelineEl.hidden = false;
     timelineEl.removeAttribute('data-overrun');
     timelineEl.textContent = 'Pick a start time above to see the schedule.';
-    return true;
+    return '';
   }
 
   const startMin    = hmsToMinutes(sel.time);
@@ -136,27 +142,33 @@ function updateTimelineAndCheckOverrun(form) {
   const names       = [primaryName, ...guests.map((g, i) => g.name || `Guest ${i + 1}`)];
 
   const plan = planParty(startMin, services);
-  const { offenders } = partyFits({
-    date: sel.date, barberSlug: sel.barberSlug, startMin, services,
+  const { offenders, taken } = partyFits({
+    date: sel.date, barberSlug: sel.barberSlug, startMin, services, isTaken: isSlotTaken,
   });
   const offenderSet = new Set(offenders);
+  const takenSet    = new Set(taken);
 
   const lines = plan.map((p, i) =>
-    `${names[i]} — ${minutesToLabel(p.startMin)}${offenderSet.has(i) ? '   ⚠ past closing' : ''}`
+    `${names[i]} — ${minutesToLabel(p.startMin)}`
+      + (offenderSet.has(i) ? '   ⚠ past closing' : takenSet.has(i) ? '   ⚠ already booked' : '')
   );
   timelineEl.textContent = lines.join('   ·   ');
   timelineEl.hidden = false;
-  timelineEl.toggleAttribute('data-overrun', offenderSet.size > 0);
-  return offenderSet.size === 0;
+  timelineEl.toggleAttribute('data-overrun', offenderSet.size + takenSet.size > 0);
+  if (offenderSet.size) return PAST_CLOSING;
+  if (takenSet.size) {
+    const i = taken[0];
+    return `${names[i]} would start at ${minutesToLabel(plan[i].startMin)}, which is already booked. Pick another start time.`;
+  }
+  return '';
 }
 
 /** Side-effect-y wrapper that also turns Reserve off while the party
- *  overruns, and says why next to it. */
+ *  doesn't fit, and says why next to it. */
 function updateTimeline(form) {
-  const overrun = !updateTimelineAndCheckOverrun(form);
-  setFlag(form, 'overrun', overrun);
+  const text = updateTimelineAndCheck(form);
+  setFlag(form, 'overrun', Boolean(text));
   const note = form.querySelector('[data-overrun-note]');
-  const text = overrun ? 'The last person would start after closing. Pick an earlier time or fewer people.' : '';
   if (note && note.textContent !== text) note.textContent = text;
 }
 
@@ -449,6 +461,14 @@ function setFlag(form, key, on) {
   form.querySelectorAll('[data-submit]').forEach(b => { b.disabled = off; });
 }
 
+/** A request in flight: Reserve off, and the picker locked as under a
+ *  confirmation, so barbers read meanwhile wait (booking-grid.js) and can't
+ *  take down the confirmation the request comes back with. */
+function setBusy(form, on) {
+  setFlag(form, 'busy', on);
+  setLocked(on);
+}
+
 /** Booked: Reserve off, and the picker and every field locked so nothing on
  *  screen can change under the confirmation, until "Book another". */
 function setBooked(form, on) {
@@ -467,7 +487,7 @@ async function submit(form) {
   hideMessages(form);
 
   // 2. Disable Reserve immediately to slam the double-tap window shut.
-  setFlag(form, 'busy', true);
+  setBusy(form, true);
 
   // 3. Read form data + selection, then validate as one unit.
   const sel = getSelection();
@@ -489,7 +509,7 @@ async function submit(form) {
     guests: guestsRaw,
   });
   if (!check.ok) {
-    setFlag(form, 'busy', false);
+    setBusy(form, false);
     // No time because the times never loaded: picking a day won't help, Retry will.
     const unread = check.code === 'no_slot' && document.querySelector('[data-slots-retry]');
     showError(form, check.code, unread ? "Open times haven't loaded yet. Tap Retry above." : check.message);
@@ -501,10 +521,12 @@ async function submit(form) {
     }
     return;
   }
-  // Recheck guest overrun — UI should have prevented this already, but verify.
-  if (!updateTimelineAndCheckOverrun(form)) {
-    setFlag(form, 'busy', false);
-    showError(form, 'outside_hours', 'One of your party runs past closing time. Pick an earlier start.');
+  // Recheck the party — UI should have prevented this already, but verify.
+  const unfit = updateTimelineAndCheck(form);
+  if (unfit) {
+    setBusy(form, false);
+    showError(form, 'outside_hours', unfit === PAST_CLOSING
+      ? 'One of your party runs past closing time. Pick an earlier start.' : unfit);
     markSlotsInvalid(form);
     return;
   }
@@ -618,7 +640,7 @@ async function submit(form) {
     //     a messaging fallback (for slot_taken that would double-book).
     if (!FALLBACK_CODES.has(code)) {
       if (code !== 'slot_taken') logError();
-      setFlag(form, 'busy', false);
+      setBusy(form, false);
       await showKnownError(form, code, phone);
       return;
     }
@@ -650,7 +672,7 @@ async function submit(form) {
       text: `Couldn't reach the booking system, so this time isn't reserved yet. ${barberName} will reply to confirm once your details arrive.`,
       send: sendLinks(fakeBookings, { systemError: true, errorCode: code }),
     });
-    setFlag(form, 'busy', false);
+    setBusy(form, false);
     return;
   }
 
@@ -698,7 +720,7 @@ async function submit(form) {
   };
 
   // The form stays as submitted next to the confirmation, and Reserve stays
-  // off, until "Book another".
+  // off, until "Book another". The picker stays locked from the request on.
   form.dataset.busy = 'false';
   setBooked(form, true);
 
